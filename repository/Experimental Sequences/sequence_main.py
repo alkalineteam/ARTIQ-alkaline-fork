@@ -516,8 +516,10 @@ class sequence_main(EnvExperiment):
 
 
             delay(self.blue_mot_cooling_time*ms)   #Allowing further cooling of the cloud by just holding the atoms here
+                      
 
-
+        
+     
 
             self.broadband_red_mot(                                  #Switch to low field gradient for Red MOT, switches off the blue beams
                 rmot_voltage_1= self.bb_rmot_coil_1_voltage,
@@ -525,6 +527,9 @@ class sequence_main(EnvExperiment):
             )
 
             delay(self.broadband_red_mot_time*ms)
+
+        
+      
 
             self.red_mot_aom.set(frequency = 80.55 *MHz, amplitude = 0.06)
 
@@ -538,28 +543,25 @@ class sequence_main(EnvExperiment):
                 f_start = 80.6,
                 f_end = 81,
                 A_start = 0.03,
-                A_end = 0.007
+                A_end = 0.005
             )
 
 
             delay(self.red_mot_compression_time*ms)
 
-    
 
             delay(self.single_frequency_time*ms)
 
-
+              
             self.seperate_probe(
                 tof = self.time_of_flight,
-                probe_duration = 0.5* ms ,
+                probe_duration = 0.8* ms ,
                 probe_frequency= 205 * MHz
-            )
+            )        
 
-
- 
-
+            
+     
             self.red_mot_aom.sw.off()
-
 
 
 
