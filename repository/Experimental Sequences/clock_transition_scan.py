@@ -3,7 +3,6 @@ from artiq.coredevice.ttl import TTLOut
 from numpy import int64, int32, max, float64, float32
 import numpy as numpy
 from artiq.coredevice import ad9910
-import pandas as pd
 import os
 import csv
 from datetime import datetime
@@ -310,7 +309,6 @@ class clock_transition_scan(EnvExperiment):
         sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
 
         num_samples = int32(sampling_duration/sample_period)
-        print(num_samples)
         samples = [[0.0 for i in range(8)] for i in range(num_samples)]
     
         with parallel:
@@ -336,7 +334,7 @@ class clock_transition_scan(EnvExperiment):
                     self.probe_aom.set(frequency=205 * MHz, amplitude=0.18)
                     self.probe_aom.sw.on()
 
-                delay(0.3* ms)      #Ground state probe duration            
+                delay(1* ms)      #Ground state probe duration            
                 
                 with parallel:
                     self.probe_shutter.off()
@@ -356,10 +354,10 @@ class clock_transition_scan(EnvExperiment):
                 delay(4.1*ms) 
 
                 self.probe_aom.sw.on()
-                delay(0.3*ms)            #Ground state probe duration
+                delay(1*ms)            #Ground state probe duration
                 self.probe_aom.sw.off()
                 # self.probe_shutter.off()
-                print("stuck")
+    
                 delay(20*ms)
 
                 # self.probe_shutter.on()
@@ -369,7 +367,7 @@ class clock_transition_scan(EnvExperiment):
                 #  ########################Background############################
  
                 self.probe_aom.sw.on()
-                delay(0.2*ms)            #Ground state probe duration
+                delay(1*ms)            #Ground state probe duration
                 self.probe_aom.sw.off()
                 self.probe_shutter.off()
 
@@ -450,21 +448,27 @@ class clock_transition_scan(EnvExperiment):
         gs_measurement = gs_counts * measurement_time         #integrates over the slice time to get the total photon counts
         es_measurement = es_counts * measurement_time
         bg_measurement = bg_counts * measurement_time 
+
+   
                 
         #if we want the PMT to determine atom no, we will probably want photon counts,
         # will need expected collection efficiency of the telescope,Quantum efficiency etc, maybe use the camera atom no calculation to get this
 
 
         numerator = es_measurement - bg_measurement
-        denominator = (gs_measurement - bg_measurement) + (es_measurement - bg_measurement)
+        denominator = (gs_measurement - bg_measurement) + (es_measurement - bg_measurement) 
 
-        # if denominator != 0.0:
-        #     excitation_fraction = numerator / denominator
-        # else:
-        #     excitation_fraction = float(0) # or 0.5 or some fallback value depending on experiment
-        # gs_list[j] = float(gs_max)
-        # es_list[j] = float(es_max)
-        # excitation_fraction_list[j] = float(excitation_fraction)
+        if denominator != 0.0:
+            excitation_fraction = (numerator / denominator ) * 10
+        else:
+            excitation_fraction = float(0) # or 0.5 or some fallback value depending on experiment
+        gs_list[j] = float(gs_measurement)
+        es_list[j] = float(es_measurement)
+        excitation_fraction_list[j] = float(excitation_fraction)
+        
+        print(excitation_fraction)
+
+        delay(500*us)
         
         # ef.append(self.excitation_fraction_list)
 
@@ -480,10 +484,10 @@ class clock_transition_scan(EnvExperiment):
 
         #Sequence Parameters - Update these with optimised values
         bmot_compression_time = 20 
-        blue_mot_cooling_time = 70 
-        broadband_red_mot_time = 10
-        red_mot_compression_time = 12
-        single_frequency_time = 35
+        blue_mot_cooling_time = 60 
+        broadband_red_mot_time = 12
+        red_mot_compression_time = 5
+        single_frequency_time = 30
         time_of_flight = 0 
         blue_mot_coil_1_voltage = 8.0
         blue_mot_coil_2_voltage = 7.9
@@ -493,8 +497,8 @@ class clock_transition_scan(EnvExperiment):
         compress_bmot_amp = 0.0035
         bb_rmot_coil_1_voltage = 5.24
         bb_rmot_coil_2_voltage = 5.22
-        sf_rmot_coil_1_voltage = 5.12
-        sf_rmot_coil_2_voltage = 5.11
+        sf_rmot_coil_1_voltage = 5.72
+        sf_rmot_coil_2_voltage = 5.64
         rmot_f_start = 80.6,
         rmot_f_end = 81,
         rmot_A_start = 0.03,
@@ -606,10 +610,10 @@ class clock_transition_scan(EnvExperiment):
 
         # print(self.excitation_fraction_list)
 
-        # self.set_dataset("excitation_fraction_list", self.excitation_fraction_list, broadcast=True, archive=True)
+        self.set_dataset("excitation_fraction_list", excitation_fraction_list, broadcast=True, archive=True)
         # print(self.excitation_fraction_list[0:self.cycles])
 
-    
+        print(excitation_fraction_list)
 
         print("Scan complete")
 

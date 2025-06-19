@@ -543,7 +543,7 @@ class sequence_main(EnvExperiment):
                 f_start = 80.6,
                 f_end = 81,
                 A_start = 0.03,
-                A_end = 0.005
+                A_end = 0.006
             )
 
 
