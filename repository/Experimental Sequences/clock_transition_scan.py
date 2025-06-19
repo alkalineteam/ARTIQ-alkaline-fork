@@ -2,6 +2,8 @@ from artiq.experiment import *
 from artiq.coredevice.ttl import TTLOut
 from numpy import int64, int32, max, float64, float32
 import numpy as numpy
+import numpy as np
+from scipy.optimize import curve_fit
 from artiq.coredevice import ad9910
 import os
 import csv
@@ -291,7 +293,7 @@ class clock_transition_scan(EnvExperiment):
         # self.camera_shutter.on()
         self.clock_shutter.on()    
 
-        delay(50*ms)  #wait for coils to switch
+        delay(20*ms)  #wait for coils to switch
 
         #rabi spectroscopy pulse
         self.stepping_aom.set(frequency = aom_frequency * Hz)
@@ -459,7 +461,7 @@ class clock_transition_scan(EnvExperiment):
         denominator = (gs_measurement - bg_measurement) + (es_measurement - bg_measurement) 
 
         if denominator != 0.0:
-            excitation_fraction = (numerator / denominator ) * 10
+            excitation_fraction = ((numerator / denominator ) * 10  )- 0.3
         else:
             excitation_fraction = float(0) # or 0.5 or some fallback value depending on experiment
         gs_list[j] = float(gs_measurement)
@@ -473,8 +475,44 @@ class clock_transition_scan(EnvExperiment):
         # ef.append(self.excitation_fraction_list)
 
 
-      
 
+
+
+        
+
+    def fit_lorentzian(self, xdata, ydata):
+        """Fit a Lorentzian function to the data and return the fit curve and parameters."""
+        def lorentzian(x, a, x0, gamma):
+            return a * gamma**2 / ((x - x0)**2 + gamma**2)
+
+        xdata = np.array(xdata)
+        ydata = np.array(ydata)
+
+        # Initial guesses
+        a_guess = np.max(ydata)
+        x0_guess = xdata[np.argmax(ydata)]
+        gamma_guess = 10 # rough width
+
+        try:
+            popt, pcov = curve_fit(lorentzian, xdata, ydata, p0=[a_guess, x0_guess, gamma_guess])
+            fit_curve = lorentzian(xdata, *popt)
+            return fit_curve.astype(np.float64), float(popt[0]), float(popt[1]), float(popt[2]), popt, pcov
+        except Exception as e:
+            print("Fit failed:", str(e))
+            return np.zeros_like(xdata), 0.0, 0.0, 0.0, [], []
+
+
+
+
+    def analyse_fit(self, scan_frequency_values, excitation_fraction_list):
+        fit_curve, amplitude, center, width, popt, pcov = self.fit_lorentzian(scan_frequency_values, excitation_fraction_list)
+
+        fit_curve = np.array(fit_curve, dtype=np.float64)
+        fit_params = np.array([amplitude, center, width], dtype=np.float64)
+
+        self.set_dataset("fit_result", fit_curve, broadcast=True, archive=True)
+        self.set_dataset("fit_params", fit_params, broadcast=True, archive=True)
+   
     @kernel
     def run(self):
         self.core.reset()
@@ -613,7 +651,10 @@ class clock_transition_scan(EnvExperiment):
         self.set_dataset("excitation_fraction_list", excitation_fraction_list, broadcast=True, archive=True)
         # print(self.excitation_fraction_list[0:self.cycles])
 
-        print(excitation_fraction_list)
+        self.set_dataset("scan_frequency_values", scan_frequency_values, broadcast=True, archive=True)
+  
+        # At this point, return to host-side to do the fitting
+        self.analyse_fit(scan_frequency_values, excitation_fraction_list)
 
         print("Scan complete")
 
