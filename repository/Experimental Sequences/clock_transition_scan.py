@@ -103,10 +103,16 @@ class clock_transition_scan(EnvExperiment):
         self.red_mot_aom.init()
         self.lattice_aom.cpld.init()
         self.lattice_aom.init()
+        self.atom_lock_aom.init()
+        self.atom_lock_aom.cpld.init()
+
+        self.atom_lock_aom.set(frequency = 61 * MHz)
+        self.atom_lock_aom.set_att(26*dB)
 
         # Set the RF channels ON
         self.blue_mot_aom.sw.on()
         self.zeeman_slower_aom.sw.on()
+        self.atom_lock_aom.sw.on()
         # self.red_mot_aom.sw.on()
         self.probe_aom.sw.off()
         # self.lattice_aom.sw.on()
@@ -648,7 +654,7 @@ class clock_transition_scan(EnvExperiment):
 
         # print(self.excitation_fraction_list)
 
-        self.set_dataset("excitation_fraction_list", excitation_fraction_list, broadcast=True, archive=True)
+            self.set_dataset("excitation_fraction_list", excitation_fraction_list, broadcast=True, archive=True)
         # print(self.excitation_fraction_list[0:self.cycles])
 
         self.set_dataset("scan_frequency_values", scan_frequency_values, broadcast=True, archive=True)
