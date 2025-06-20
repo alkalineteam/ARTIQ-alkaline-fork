@@ -91,12 +91,19 @@ class sequence_main(EnvExperiment):
         self.lattice_aom.init()
         self.stepping_aom.cpld.init()
         self.stepping_aom.init()
+        self.atom_lock_aom.init()
+        self.atom_lock_aom.cpld.init()
 
         self.sampler.init() 
 
         # Set the RF channels ON
         self.stepping_aom.set(frequency = 85.5* MHz)
         self.stepping_aom.set_att(16*dB)
+
+        self.atom_lock_aom.set(frequency = 61 * MHz)
+        self.atom_lock_aom.set_att(26*dB)
+
+        self.atom_lock_aom.sw.on()
         self.blue_mot_aom.sw.on()
         self.zeeman_slower_aom.sw.on()
         self.stepping_aom.sw.on()
