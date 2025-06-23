@@ -632,7 +632,8 @@ class clock_transition_scan(EnvExperiment):
         # if atom lock is enabled as True, then begin new while loop which will run the clock sequence but steps the stepping_aom by half the linewidth
         if lock_prompt.Enable_Lock == True:
 
-            n = 2628288                                                # How many seconds there are in a month
+            n = 2628288                                           # How many seconds there are in a month
+            count
             thue_morse = [0]
             while len(thue_morse) <= n:
                 thue_morse += [1 - bit for bit in thue_morse] 
