@@ -299,10 +299,11 @@ class clock_transition_scan(EnvExperiment):
         # self.camera_shutter.on()
         self.clock_shutter.on()    
 
-        delay(20*ms)  #wait for coils to switch
+        delay(50*ms)  #wait for coils to switch
 
         #rabi spectroscopy pulse
         self.stepping_aom.set(frequency = aom_frequency * Hz)
+        self.stepping_aom.set_att(16*dB)
         self.stepping_aom.sw.on()
         delay(pulse_time*ms)
         self.stepping_aom.sw.off()
@@ -335,18 +336,23 @@ class clock_transition_scan(EnvExperiment):
                     self.mot_coil_1.load()
                     self.mot_coil_2.load()
 
-                delay(4.1*ms)     #wait for shutter to open
+                delay(3.9*ms)     #wait for shutter to open
+
+
+
 
                 with parallel:
                     self.camera_trigger.pulse(1*ms)
+                    
                     self.probe_aom.set(frequency=205 * MHz, amplitude=0.18)
                     self.probe_aom.sw.on()
 
                 delay(1* ms)      #Ground state probe duration            
                 
-                with parallel:
-                    self.probe_shutter.off()
-                    self.probe_aom.sw.off()
+                self.probe_aom.sw.off()
+                self.probe_shutter.off()
+                
+                    
 
                 delay(5*ms)                         #repumping 
                
@@ -354,7 +360,7 @@ class clock_transition_scan(EnvExperiment):
                     self.repump_shutter_679.pulse(10*ms)
                     self.repump_shutter_707.pulse(10*ms)
 
-                delay(10*ms)                         #repumping 
+                delay(12*ms)                         #repumping 
 
                 # ###############################Excited State##################################
 
@@ -366,7 +372,7 @@ class clock_transition_scan(EnvExperiment):
                 self.probe_aom.sw.off()
                 # self.probe_shutter.off()
     
-                delay(20*ms)
+                delay(22*ms)
 
                 # self.probe_shutter.on()
                 # delay(4.1*ms)
@@ -437,46 +443,48 @@ class clock_transition_scan(EnvExperiment):
         # self.excitation_fraction_list[j] = float(excitation_fraction)
 
 
-        gs_counts = 0.0
-        es_counts = 0.0
-        bg_counts = 0.0
+        with parallel: 
 
-        measurement_time = 600.0 * sample_period     #set to 600 as each slice size is 600 samples at the moment,
-                                                     # we should trim this tighter to the peaks to avoid added noise
+            gs_counts = 0.0
+            es_counts = 0.0
+            bg_counts = 0.0
 
-        for val in gs[1:]:
-            gs_counts += val
-        for val in es[1:]:
-            es_counts += val
-        for val in bg[1:]:
-            bg_counts += val
+            measurement_time = 600.0 * sample_period     #set to 600 as each slice size is 600 samples at the moment,
+                                                         # we should trim this tighter to the peaks to avoid added noise
 
-     
+            for val in gs[1:]:
+                gs_counts += val
+            for val in es[1:]:
+                es_counts += val
+            for val in bg[1:]:
+                bg_counts += val
 
-        gs_measurement = gs_counts * measurement_time         #integrates over the slice time to get the total photon counts
-        es_measurement = es_counts * measurement_time
-        bg_measurement = bg_counts * measurement_time 
-
-   
-                
-        #if we want the PMT to determine atom no, we will probably want photon counts,
-        # will need expected collection efficiency of the telescope,Quantum efficiency etc, maybe use the camera atom no calculation to get this
-
-
-        numerator = es_measurement - bg_measurement
-        denominator = (gs_measurement - bg_measurement) + (es_measurement - bg_measurement) 
-
-        if denominator != 0.0:
-            excitation_fraction = ((numerator / denominator ) * 10  )- 0.3
-        else:
-            excitation_fraction = float(0) # or 0.5 or some fallback value depending on experiment
-        gs_list[j] = float(gs_measurement)
-        es_list[j] = float(es_measurement)
-        excitation_fraction_list[j] = float(excitation_fraction)
         
-        print(excitation_fraction)
 
-        delay(500*us)
+            gs_measurement = gs_counts * measurement_time         #integrates over the slice time to get the total photon counts
+            es_measurement = es_counts * measurement_time
+            bg_measurement = bg_counts * measurement_time 
+
+    
+                    
+            #if we want the PMT to determine atom no, we will probably want photon counts,
+            # will need expected collection efficiency of the telescope,Quantum efficiency etc, maybe use the camera atom no calculation to get this
+
+
+            numerator = es_measurement - bg_measurement
+            denominator = (gs_measurement - bg_measurement) + (es_measurement - bg_measurement) 
+
+            if denominator != 0.0:
+                excitation_fraction = ((numerator / denominator ) * 10  )- 0.1
+            else:
+                excitation_fraction = float(0) # or 0.5 or some fallback value depending on experiment
+            gs_list[j] = float(gs_measurement)
+            es_list[j] = float(es_measurement)
+            excitation_fraction_list[j] = float(excitation_fraction)
+            
+            # print(excitation_fraction)
+
+        delay(25*ms)
         
         # ef.append(self.excitation_fraction_list)
 
@@ -562,7 +570,7 @@ class clock_transition_scan(EnvExperiment):
 
             ####################################################### Blue MOT loading #############################################################
 
-            delay(100*us)
+            delay(300*us)
 
             self.blue_mot_loading(
                  bmot_voltage_1 = blue_mot_coil_1_voltage,
@@ -648,13 +656,14 @@ class clock_transition_scan(EnvExperiment):
 
             self.normalised_detection(j,gs_list,es_list,excitation_fraction_list)
             
-            delay(50*ms)
+            delay(40*ms)
 
         # self.excitation_fraction_list = self.excitation_fraction_list
 
         # print(self.excitation_fraction_list)
 
             self.set_dataset("excitation_fraction_list", excitation_fraction_list, broadcast=True, archive=True)
+            
         # print(self.excitation_fraction_list[0:self.cycles])
 
         self.set_dataset("scan_frequency_values", scan_frequency_values, broadcast=True, archive=True)
