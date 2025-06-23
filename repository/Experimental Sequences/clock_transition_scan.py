@@ -70,11 +70,6 @@ class clock_transition_scan(EnvExperiment):
         # self.es_list = [0.0] * self.cycles
         # self.excitation_fraction_list = [0.0] * self.cycles
 
-        
-        
-
-
-
     @kernel
     def initialise_modules(self):
             
@@ -409,40 +404,6 @@ class clock_transition_scan(EnvExperiment):
         es = samples_ch0[700:1300]
         bg = samples_ch0[1300:1900]
 
-        # gs_max = gs[0]
-        # es_max = es[0]
-        # bg_max = bg[0]
-
-        # Loop through the rest of the list
-        # with parallel:
-        #     for num in gs[1:]:
-        #         if num > gs_max:
-        #             gs_max = num
-
-        #     for num in es[1:]:
-        #         if num > es_max:
-        #             es_max = num
-
-        #     for num in bg[1:]:
-        #         if num > bg_max:
-        #             bg_max = num
-        
-
-        # if es_max < bg_max:
-        #     es_max = bg_max
-
-        # numerator = es_max - bg_max
-        # denominator = (gs_max - bg_max) + (es_max - bg_max)
-
-        # if denominator != 0:
-        #     excitation_fraction = numerator / denominator
-        # else:
-        #     excitation_fraction = float(0) # or 0.5 or some fallback value depending on experiment
-        # self.gs_list[j] = float(gs_max)
-        # self.es_list[j] = float(es_max)
-        # self.excitation_fraction_list[j] = float(excitation_fraction)
-
-
         with parallel: 
 
             gs_counts = 0.0
@@ -459,6 +420,12 @@ class clock_transition_scan(EnvExperiment):
             for val in bg[1:]:
                 bg_counts += val
 
+        gs_measurement = gs_counts * measurement_time         #integrates over the slice time to get the total photon counts
+        es_measurement = es_counts * measurement_time
+        bg_measurement = bg_counts * measurement_time 
+        
+        #if we want the PMT to determine atom no, we will probably want photon counts,
+        # will need expected collection efficiency of the telescope,Quantum efficiency etc, maybe use the camera atom no calculation to get this
         
 
             gs_measurement = gs_counts * measurement_time         #integrates over the slice time to get the total photon counts
@@ -484,6 +451,8 @@ class clock_transition_scan(EnvExperiment):
             
             # print(excitation_fraction)
 
+        delay(500*us)
+        return excitation_fraction
         delay(25*ms)
         
         # ef.append(self.excitation_fraction_list)
@@ -666,6 +635,134 @@ class clock_transition_scan(EnvExperiment):
             
         # print(self.excitation_fraction_list[0:self.cycles])
 
+        #process data and do fit from the scan
+        
+
+        with self.interactive(title="Atom Lock") as lock_prompt:
+            lock_prompt.setattr_argument("Enable_Lock", BooleanValue(False),
+                                "Transporter")
+            lock_prompt.setattr_argument("Center_Frequency",NumberValue(default=85.212),
+                                "Transporter")
+            lock_prompt.setattr_argument("linewidth", NumberValue(default=0.0, unit="Hz"),
+                                "Transporter")
+            lock_prompt.setattr_argument("Contrast", NumberValue(default=0.7),
+                                "Transporter")
+            lock_prompt.setattr_argument("servo_gain", NumberValue(default=0.3),
+                                "Transporter")
+            
+
+        # if atom lock is enabled as True, then begin new while loop which will run the clock sequence but steps the stepping_aom by half the linewidth
+        if lock_prompt.Enable_Lock == True:
+
+            n = 2628288                                           # How many seconds there are in a month
+            count = 0
+            thue_morse = [0]
+            while len(thue_morse) <= n:
+                thue_morse += [1 - bit for bit in thue_morse] 
+            feedback_aom_frequency = 61.0 * MHz
+            delay(100*ms)
+            
+            while True:
+                self.core.break_realtime()
+                ### Insert entire sequence again
+
+                delay(100*us)
+
+                self.blue_mot_loading(
+                    bmot_voltage_1 = blue_mot_coil_1_voltage,
+                    bmot_voltage_2 = blue_mot_coil_2_voltage
+                )
+
+                self.red_mot_aom.set(frequency = 80.45 * MHz, amplitude = 0.08)
+                self.red_mot_aom.sw.on()
+
+                delay(self.blue_mot_loading_time* ms)
+
+                ####################################################### Blue MOT compression & cooling ########################################################
+
+                self.blue_mot_compression(                           #Here we are ramping up the blue MOT field and ramping down the blue power
+                    bmot_voltage_1 = blue_mot_coil_1_voltage,
+                    bmot_voltage_2 = blue_mot_coil_2_voltage,
+                    compress_bmot_volt_1 = compressed_blue_mot_coil_1_voltage,
+                    compress_bmot_volt_2 = compressed_blue_mot_coil_2_voltage,
+                    bmot_amp = bmot_amp,
+                    compress_bmot_amp = compress_bmot_amp,
+                    compression_time = bmot_compression_time
+                )
+                delay(bmot_compression_time*ms)    #Blue MOT compression time
+
+                delay(blue_mot_cooling_time*ms)   #Allowing further cooling of the cloud by just holding the atoms here
+
+                ########################################################### BB red MOT #################################################################
+
+                self.broadband_red_mot(                                  #Switch to low field gradient for Red MOT, switches off the blue beams
+                    rmot_voltage_1= bb_rmot_coil_1_voltage,
+                    rmot_voltage_2 = bb_rmot_coil_2_voltage
+                )
+
+                delay(broadband_red_mot_time*ms)
+
+                self.red_mot_aom.set(frequency = 80.55 *MHz, amplitude = 0.06)
+
+                delay(5*ms)
+
+                ########################################################### red MOT compression & Single Frequency ####################################################################
+
+
+                self.red_mot_compression(                         #Compressing the red MOT by ramping down power, field ramping currently not active
+                    bb_rmot_volt_1 = bb_rmot_coil_1_voltage,
+                    bb_rmot_volt_2 = bb_rmot_coil_2_voltage,
+                    sf_rmot_volt_1 = sf_rmot_coil_1_voltage,
+                    sf_rmot_volt_2 = sf_rmot_coil_2_voltage,
+                    f_start = rmot_f_start,
+                    f_end = rmot_f_end,
+                    A_start = rmot_A_start,
+                    A_end = rmot_A_end,
+                    comp_time = red_mot_compression_time
+                )
+
+                delay(red_mot_compression_time*ms)
+
+                delay(single_frequency_time*ms)
+
+                self.red_mot_aom.sw.off()
+
+                #################################################################### Clock Spectroscopy ##################################################################################
+                if thue_morse == 0:
+                    self.clock_spectroscopy(
+                        aom_frequency = lock_prompt.Center_Frequency + (lock_prompt.linewidth/2),
+                        pulse_time = self.rabi_pulse_duration_ms,
+                    )
+
+                    low_side = self.normalised_detection(j,gs_list,es_list,excitation_fraction_list)
+                    #return most recent excitation_fraction list value
+
+                            
+                elif thue_morse == 1:
+                    self.clock_spectroscopy(
+                        aom_frequency = lock_prompt.Center_Frequency - (lock_prompt.linewidth/2),
+                        pulse_time = self.rabi_pulse_duration_ms,
+                    )
+                    high_side = self.normalised_detection(j,gs_list,es_list,excitation_fraction_list)
+                    
+                if count % 2 == 0:              # Every other cycle generate correction
+                    #Calculate error signal and then make correction
+                    error_signal = high_side - low_side
+                    
+                    frequency_correction = (lock_prompt.servo_gain/(0.8*lock_prompt.Contrast*self.rabi_pulse_duration)) * error_signal   # This is the first servo loop
+                    feedback_aom_frequency =+ frequency_correction
+                    self.atom_lock_aom.set(frequency = feedback_aom_frequency)
+
+                    #send the list of frequency corrections to the database, this will be done on the host side
+                    self.set_dataset("Lock_Frequency",feedback_aom_frequency , broadcast=True, archive=True)
+                    
+                    #write to text file
+                count =+ 1
+
+
+                # Add logic to adjust the aom frequency based on the contrast and linewidth
+                # This is a placeholder for the actual locking logic
+                # Adjust the scan_frequency_values[j] based on the feedback from the lock
         self.set_dataset("scan_frequency_values", scan_frequency_values, broadcast=True, archive=True)
   
         # At this point, return to host-side to do the fitting
