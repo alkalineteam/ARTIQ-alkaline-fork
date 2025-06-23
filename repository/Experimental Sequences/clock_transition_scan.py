@@ -614,26 +614,27 @@ class clock_transition_scan(EnvExperiment):
             self.set_dataset("excitation_fraction_list", excitation_fraction_list, broadcast=True, archive=True)
         # print(self.excitation_fraction_list[0:self.cycles])
 
-<<<<<<< HEAD
         #process data and do fit from the scan
         
 
         with self.interactive(title="Atom Lock") as lock_prompt:
             lock_prompt.setattr_argument("Enable_Lock", BooleanValue(False),
                                 "Transporter")
-            lock_prompt.setattr_argument("Center_Frequency",NumberValue(default=85.212))
+            lock_prompt.setattr_argument("Center_Frequency",NumberValue(default=85.212),
+                                "Transporter")
             lock_prompt.setattr_argument("linewidth", NumberValue(default=0.0, unit="Hz"),
                                 "Transporter")
             lock_prompt.setattr_argument("Contrast", NumberValue(default=0.7),
                                 "Transporter")
-            lock_prompt.setattr_argument("servo_gain", NumberValue(default=0.3))
+            lock_prompt.setattr_argument("servo_gain", NumberValue(default=0.3),
+                                "Transporter")
             
 
         # if atom lock is enabled as True, then begin new while loop which will run the clock sequence but steps the stepping_aom by half the linewidth
         if lock_prompt.Enable_Lock == True:
 
             n = 2628288                                           # How many seconds there are in a month
-            count
+            count = 0
             thue_morse = [0]
             while len(thue_morse) <= n:
                 thue_morse += [1 - bit for bit in thue_morse] 
@@ -728,11 +729,11 @@ class clock_transition_scan(EnvExperiment):
                     error_signal = high_side - low_side
                     
                     frequency_correction = (lock_prompt.servo_gain/(0.8*lock_prompt.Contrast*self.rabi_pulse_duration)) * error_signal   # This is the first servo loop
-                    feedback_aom_frequency = feedback_aom_frequency + frequency_correction
+                    feedback_aom_frequency =+ frequency_correction
                     self.atom_lock_aom.set(frequency = feedback_aom_frequency)
 
                     #send the list of frequency corrections to the database, this will be done on the host side
-                    self.append_to_dataset("Lock_Frequency",feedback_aom_frequency , broadcast=True, archive=True)
+                    self.set_dataset("Lock_Frequency",feedback_aom_frequency , broadcast=True, archive=True)
                     
                     #write to text file
                 count =+ 1
@@ -741,12 +742,10 @@ class clock_transition_scan(EnvExperiment):
                 # Add logic to adjust the aom frequency based on the contrast and linewidth
                 # This is a placeholder for the actual locking logic
                 # Adjust the scan_frequency_values[j] based on the feedback from the lock
-=======
         self.set_dataset("scan_frequency_values", scan_frequency_values, broadcast=True, archive=True)
   
         # At this point, return to host-side to do the fitting
         self.analyse_fit(scan_frequency_values, excitation_fraction_list)
->>>>>>> 05aaeb3ced958368d3a046b6e24febeb73bb0818
 
         print("Scan complete")
 
