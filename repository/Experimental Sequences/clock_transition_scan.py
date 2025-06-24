@@ -64,6 +64,7 @@ class clock_transition_scan(EnvExperiment):
         self.setattr_argument("linewidth", NumberValue(default=100 * Hz), group="Locking")  # This is the linewidth of the clock transition, adjust as necessary
 
         self.feedback_list = []
+        self.atom_lock_list = [0.0]
         # scan_start = int32(self.scan_center_frequency_Hz - (int32(self.scan_range_Hz )/ 2))
         # scan_end =int32(self.scan_center_frequency_Hz + (int32(self.scan_range_Hz ) / 2))
         # self.scan_frequency_values = [float(x) for x in range(scan_start, scan_end, int32(self.scan_step_size_Hz))]
@@ -536,6 +537,7 @@ class clock_transition_scan(EnvExperiment):
                 
             with sequential:
                 for k in range(num_samples):
+                    delay(20*us)
                     self.sampler.sample(samples[k])
                     delay(sample_period*s)
                 
@@ -615,7 +617,7 @@ class clock_transition_scan(EnvExperiment):
         # Initial guesses
         a_guess = np.max(ydata)
         x0_guess = xdata[np.argmax(ydata)]
-        gamma_guess = 10 # rough width
+        gamma_guess = 50 # rough width
 
         try:
             popt, pcov = curve_fit(lorentzian, xdata, ydata, p0=[a_guess, x0_guess, gamma_guess])
@@ -625,7 +627,7 @@ class clock_transition_scan(EnvExperiment):
             print("Fit failed:", str(e))
             return np.zeros_like(xdata), 0.0, 0.0, 0.0, [], []
 
-
+    @rpc
     def analyse_fit(self, scan_frequency_values, excitation_fraction_list):
         fit_curve, amplitude, center, width, popt, pcov = self.fit_lorentzian(scan_frequency_values, excitation_fraction_list)
 
@@ -634,11 +636,18 @@ class clock_transition_scan(EnvExperiment):
 
         self.set_dataset("fit_result", fit_curve, broadcast=True, archive=True)
         self.set_dataset("fit_params", fit_params, broadcast=True, archive=True)
-
+    @rpc
     def correction_log(self,value):
         self.feedback_list.append(value)
         self.set_dataset("feedback_list", self.feedback_list, broadcast=True, archive=True)
-        delay(10*ms)
+      
+
+    @rpc
+    def atom_lock_ex(self,value):
+        """This function is used to lock the atom frequency to the center of the clock transition"""
+        self.atom_lock_list.append(value)
+        self.set_dataset("atom_lock_list", self.atom_lock_list, broadcast=True, archive=True)
+      
     
    
     @kernel
@@ -797,10 +806,12 @@ class clock_transition_scan(EnvExperiment):
         print(contrast)
         print(center_frequency)
 
+
         delay(1*ms)
 
         # if atom lock is enabled as True, then begin new while loop which will run the clock sequence but steps the stepping_aom by half the linewidth
         if self.Enable_Lock == True:
+
             self.core.break_realtime()
             n = 2628288                                           # How many seconds there are in a month
             high_side =0.0
@@ -888,6 +899,7 @@ class clock_transition_scan(EnvExperiment):
                     )
 
                     low_side = self.clock_shelving()
+                    self.atom_lock_ex(low_side)
                     delay(2*ms)
                    
                     #return most recent excitation_fraction list value
@@ -899,10 +911,12 @@ class clock_transition_scan(EnvExperiment):
                         pulse_time = self.rabi_pulse_duration_ms,
                     )
                     high_side = self.clock_shelving()
+                    self.atom_lock_ex(high_side)
                     delay(2*ms)
                     
                 if count % 2 == 0:              # Every other cycle generate correction
                     #Calculate error signal and then make correction
+                    self.core.break_realtime()
                     error_signal = high_side - low_side
 
                     denominator = 0.8 * contrast * (self.rabi_pulse_duration_ms * 1e-3)
@@ -915,12 +929,19 @@ class clock_transition_scan(EnvExperiment):
                     # This is the first servo loop
                     
                     feedback_aom_frequency = feedback_aom_frequency + frequency_correction
-                    delay(200*us)
-                    self.atom_lock_aom.set(frequency = feedback_aom_frequency)
+                    delay(10*ms)
 
-                    print(feedback_aom_frequency)
-                    #self.correction_log(frequency_correction)
+                    self.atom_lock_aom.set(frequency = feedback_aom_frequency)
+                    delay(10*ms)
+
+
+
+                    self.correction_log(feedback_aom_frequency)
+                    
                     delay(5*ms)
+
+                    
+                    
                  
                     #send the list of frequency corrections to the database, this will be done on the host side
                     lock_loop = lock_loop + 1
