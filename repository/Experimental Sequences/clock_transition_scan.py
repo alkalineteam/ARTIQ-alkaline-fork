@@ -1,5 +1,6 @@
 from artiq.experiment import *
 from artiq.coredevice.ttl import TTLOut
+from artiq.language.core import delay
 from numpy import int64, int32, max, float64, float32
 import numpy as numpy
 import numpy as np
@@ -301,7 +302,7 @@ class clock_transition_scan(EnvExperiment):
         delay(40*ms)  #wait for coils to switch
 
         #rabi spectroscopy pulse
-        self.stepping_aom.set(frequency = aom_frequency * Hz)
+        self.stepping_aom.set(frequency = aom_frequency )
         self.stepping_aom.set_att(16*dB)
         self.stepping_aom.sw.on()
         delay(pulse_time*ms)
@@ -313,7 +314,7 @@ class clock_transition_scan(EnvExperiment):
     @kernel
     def normalised_detection(self,j,gs_list,es_list,excitation_fraction_list):        #This function should be sampling from the PMT at the same time as the camera being triggered for seperate probe
         self.core.break_realtime()
-        sample_period = 1 / 40000     #10kHz sampling rate should give us enough data points
+        sample_period = 1 / 25000   #10kHz sampling rate should give us enough data points
         sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
 
         num_samples = int32(sampling_duration/sample_period)
@@ -387,11 +388,13 @@ class clock_transition_scan(EnvExperiment):
                 delay(7*ms)
                 
             with sequential:
-                for k in range(num_samples):
+                self.core.break_realtime()
+                for k in range(num_samples):   
+                    delay(5*us)
                     self.sampler.sample(samples[k])
                     delay(sample_period*s)
                 
-        delay(sampling_duration*s)
+                delay(sampling_duration*s)
 
         samples_ch0 = [float(i[0]) for i in samples]
         
@@ -404,9 +407,9 @@ class clock_transition_scan(EnvExperiment):
 
 
 
-        gs = samples_ch0[0:600]
-        es = samples_ch0[700:1300]
-        bg = samples_ch0[1300:1900]
+        gs = samples_ch0[0:400]
+        es = samples_ch0[500:900]
+        bg = samples_ch0[1000:1400]
 
         with parallel: 
 
@@ -450,7 +453,7 @@ class clock_transition_scan(EnvExperiment):
             es_list[j] = float(es_measurement)
             excitation_fraction_list[j] = float(excitation_fraction)
             
-            # print(excitation_fraction)
+ 
 
         delay(500*us)
         return excitation_fraction
@@ -462,7 +465,7 @@ class clock_transition_scan(EnvExperiment):
     @kernel
     def clock_shelving(self):        #This function should be sampling from the PMT at the same time as the camera being triggered for seperate probe
         self.core.break_realtime()
-        sample_period = 1 / 40000     #10kHz sampling rate should give us enough data points
+        sample_period = 1 / 25000     #10kHz sampling rate should give us enough data points
         sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
 
         num_samples = int32(sampling_duration/sample_period)
@@ -537,7 +540,7 @@ class clock_transition_scan(EnvExperiment):
                 
             with sequential:
                 for k in range(num_samples):
-                    delay(20*us)
+                    delay(500*us)
                     self.sampler.sample(samples[k])
                     delay(sample_period*s)
                 
@@ -546,7 +549,7 @@ class clock_transition_scan(EnvExperiment):
         samples_ch0 = [float(i[0]) for i in samples]
         
 
-        self.set_dataset("excitation_fraction", samples_ch0, broadcast=True, archive=True)
+        self.set_dataset("excitation_fraction_lock", samples_ch0, broadcast=True, archive=True)
 
         # print(self.excitation_fraction(samples_ch0))
                                  
@@ -562,7 +565,7 @@ class clock_transition_scan(EnvExperiment):
 
             gs_counts = 0.0
             es_counts = 0.0
-            bg_counts = 0.0
+            bg_counts = 0.0 
 
             measurement_time = 600.0 * sample_period     #set to 600 as each slice size is 600 samples at the moment,
                                                          # we should trim this tighter to the peaks to avoid added noise
@@ -596,9 +599,7 @@ class clock_transition_scan(EnvExperiment):
                 excitation_fraction = ((numerator / denominator ) )
             else:
                 excitation_fraction = float(0) # or 0.5 or some fallback value depending on experiment
-          
-            # print(excitation_fraction)
-
+        print(excitation_fraction)
         delay(500*us)
         return excitation_fraction
         delay(25*ms)
@@ -612,7 +613,7 @@ class clock_transition_scan(EnvExperiment):
             return a * gamma**2 / ((x - x0)**2 + gamma**2)
 
         xdata = np.array(xdata)
-        ydata = np.array(ydata) - 0.2
+        ydata = np.array(ydata) 
 
         # Initial guesses
         a_guess = np.max(ydata)
@@ -638,7 +639,7 @@ class clock_transition_scan(EnvExperiment):
         self.set_dataset("fit_params", fit_params, broadcast=True, archive=True)
     @rpc
     def correction_log(self,value):
-        self.feedback_list.append(value)
+        self.feedback_list.append(61000000 - value)
         self.set_dataset("feedback_list", self.feedback_list, broadcast=True, archive=True)
       
 
@@ -677,7 +678,7 @@ class clock_transition_scan(EnvExperiment):
         rmot_f_start = 80.6,
         rmot_f_end = 81,
         rmot_A_start = 0.05,
-        rmot_A_end = 0.003,
+        rmot_A_end = 0.0025,
 
         scan_start = int32(self.scan_center_frequency_Hz - (int32(self.scan_range_Hz )/ 2))
         scan_end =int32(self.scan_center_frequency_Hz + (int32(self.scan_range_Hz ) / 2))
@@ -693,7 +694,7 @@ class clock_transition_scan(EnvExperiment):
 
             ####################################################### Blue MOT loading #############################################################
 
-            delay(300*us)
+            delay(500*us)
 
             self.blue_mot_loading(
                  bmot_voltage_1 = blue_mot_coil_1_voltage,
@@ -703,7 +704,6 @@ class clock_transition_scan(EnvExperiment):
            
             self.red_mot_aom.set(frequency = 80.45 * MHz, amplitude = 0.08)
             self.red_mot_aom.sw.on()
-
 
 
             delay(self.blue_mot_loading_time* ms)
@@ -830,12 +830,13 @@ class clock_transition_scan(EnvExperiment):
                 self.core.break_realtime()
                 ### Insert entire sequence again
 
-                delay(500*us)
+                delay(2*ms)
 
                 self.blue_mot_loading(
                     bmot_voltage_1 = blue_mot_coil_1_voltage,
                     bmot_voltage_2 = blue_mot_coil_2_voltage
                 )
+            
 
                 self.red_mot_aom.set(frequency = 80.45 * MHz, amplitude = 0.08)
                 self.red_mot_aom.sw.on()
@@ -893,24 +894,28 @@ class clock_transition_scan(EnvExperiment):
 
                 #################################################################### Clock Spectroscopy ##################################################################################
                 if thue_morse[count] == 0:
+                    self.core.break_realtime()
                     self.clock_spectroscopy(
-                        aom_frequency = center_frequency + (self.linewidth/2),
+                        aom_frequency = (center_frequency - (self.linewidth/2))*Hz,
                         pulse_time = self.rabi_pulse_duration_ms,
                     )
 
-                    low_side = self.clock_shelving()
+                    low_side = self.normalised_detection(0,[0.0],[0.0],[0.0])
                     self.atom_lock_ex(low_side)
+                    # print(low_side)
                     delay(2*ms)
                    
                     #return most recent excitation_fraction list value
 
                             
                 elif thue_morse[count] == 1:
+                    self.core.break_realtime()
                     self.clock_spectroscopy(
                         aom_frequency = center_frequency + self.linewidth/2,
                         pulse_time = self.rabi_pulse_duration_ms,
                     )
-                    high_side = self.clock_shelving()
+                    high_side = self.normalised_detection(0,[0.0],[0.0],[0.0])
+                    # print(high_side)
                     self.atom_lock_ex(high_side)
                     delay(2*ms)
                     
@@ -919,7 +924,7 @@ class clock_transition_scan(EnvExperiment):
                     self.core.break_realtime()
                     error_signal = high_side - low_side
 
-                    denominator = 0.8 * contrast * (self.rabi_pulse_duration_ms * 1e-3)
+                    denominator = 0.8 * 0.65 * (self.rabi_pulse_duration_ms * 1e-3)
 
                     if denominator == 0.0:
                         print("Warning: Division by zero prevented. Check contrast and rabi_pulse_duration_ms.")
@@ -931,7 +936,7 @@ class clock_transition_scan(EnvExperiment):
                     feedback_aom_frequency = feedback_aom_frequency + frequency_correction
                     delay(10*ms)
 
-                    self.atom_lock_aom.set(frequency = feedback_aom_frequency)
+                    # self.atom_lock_aom.set(frequency = feedback_aom_frequency)
                     delay(10*ms)
 
 
@@ -950,7 +955,12 @@ class clock_transition_scan(EnvExperiment):
                     #write to text file
                 
                 count = count + 1
-                delay(50*ms)
+
+
+                if count % 50 == 0:
+                    print("Breaking RTIO timeline at iteration", count)
+                    self.core.break_realtime()
+                delay(100*us)
 
 
                 # Add logic to adjust the aom frequency based on the contrast and linewidth
