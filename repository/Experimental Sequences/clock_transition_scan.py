@@ -65,7 +65,8 @@ class clock_transition_scan(EnvExperiment):
         self.setattr_argument("linewidth", NumberValue(default=100 * Hz), group="Locking")  # This is the linewidth of the clock transition, adjust as necessary
 
         self.feedback_list = []
-        self.atom_lock_list = [0.0]
+        self.atom_lock_list = []
+        self.error_log_list = []
         # scan_start = int32(self.scan_center_frequency_Hz - (int32(self.scan_range_Hz )/ 2))
         # scan_end =int32(self.scan_center_frequency_Hz + (int32(self.scan_range_Hz ) / 2))
         # self.scan_frequency_values = [float(x) for x in range(scan_start, scan_end, int32(self.scan_step_size_Hz))]
@@ -405,13 +406,43 @@ class clock_transition_scan(EnvExperiment):
                                  
         #     # Split the samples
 
+        # gs = samples_ch0[70:110]
+        # es = samples_ch0[685:705]
+        # bg = samples_ch0[1111:1131]
 
 
-        gs = samples_ch0[0:400]
-        es = samples_ch0[500:900]
-        bg = samples_ch0[1000:1400]
+        # # Ground state pulse
+        # gs = samples_ch0[70:110]
+        # gs_sum = 0.0
+        # for x in gs:
+        #     gs_sum += float(x)
+        # gs_mean = gs_sum / len(gs)
+
+        # # Excited state pulse
+        # es = samples_ch0[685:705]
+        # es_sum = 0.0
+        # for x in es:
+        #     es_sum += float(x)
+        # es_mean = es_sum / len(es)
+
+        # # Background pulse
+        # bg = samples_ch0[1111:1131]
+        # bg_sum = 0.0
+        # for x in bg:
+        #     bg_sum += float(x)
+        # bg_mean = bg_sum / len(bg)
+
+        baseline = samples_ch0[0:40]
+        baseline_mean = 0.0
+        gs = samples_ch0[70:110]
+        es = samples_ch0[685:705]
+        bg = samples_ch0[1111:1131]
 
         with parallel: 
+            baseline_sum = 0.0
+            for x in baseline:
+                baseline_sum += float(x)
+                baseline_mean = baseline_sum / len(baseline)
 
             gs_counts = 0.0
             es_counts = 0.0
@@ -432,9 +463,9 @@ class clock_transition_scan(EnvExperiment):
         # will need expected collection efficiency of the telescope,Quantum efficiency etc, maybe use the camera atom no calculation to get this
         
         with parallel:
-            gs_measurement = (gs_counts/80) * measurement_time         #integrates over the slice time to get the total photon counts
-            es_measurement = (es_counts/40)  * measurement_time
-            bg_measurement = (bg_counts/40) * measurement_time
+            gs_measurement = ((gs_counts-baseline_mean)/40) * measurement_time         #integrates over the slice time to get the total photon counts
+            es_measurement = ((es_counts-baseline_mean)/20)  * measurement_time
+            bg_measurement = ((bg_counts-baseline_mean)/20) * measurement_time
 
     
                     
@@ -443,17 +474,19 @@ class clock_transition_scan(EnvExperiment):
 
 
             numerator = es_measurement - bg_measurement
-            denominator = (gs_measurement - bg_measurement) + (es_measurement - bg_measurement) 
+            denominator = (gs_measurement - bg_measurement) + (es_measurement - bg_measurement)
 
             if denominator != 0.0:
                 excitation_fraction = ((numerator / denominator ) )
+                if excitation_fraction < 0.0:
+                    excitation_fraction = 0.0
             else:
                 excitation_fraction = float(0) # or 0.5 or some fallback value depending on experiment
             gs_list[j] = float(gs_measurement)
             es_list[j] = float(es_measurement)
             excitation_fraction_list[j] = float(excitation_fraction)
             
- 
+    
 
         delay(500*us)
         return excitation_fraction
@@ -462,147 +495,7 @@ class clock_transition_scan(EnvExperiment):
         # ef.append(self.excitation_fraction_list)
 
 
-    @kernel
-    def clock_shelving(self):        #This function should be sampling from the PMT at the same time as the camera being triggered for seperate probe
-        self.core.break_realtime()
-        sample_period = 1 / 25000     #10kHz sampling rate should give us enough data points
-        sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
-
-        num_samples = int32(sampling_duration/sample_period)
-        samples = [[0.0 for i in range(8)] for i in range(num_samples)]
     
-        with parallel:
-    
-            with sequential:
-                ##########################Ground State###############################
-                
-                with parallel:
-                    self.blue_mot_aom.sw.off()
-                    self.probe_shutter.on()
-
-                self.mot_coil_1.write_dac(0, 5.0)   #Set 0 field 
-                self.mot_coil_2.write_dac(1, 5.0)
-
-                with parallel:
-                    self.mot_coil_1.load()
-                    self.mot_coil_2.load()
-
-                delay(3.9*ms)     #wait for shutter to open
-
-
-
-
-                with parallel:
-                    self.camera_trigger.pulse(1*ms)
-                    
-                    self.probe_aom.set(frequency=205 * MHz, amplitude=0.18)
-                    self.probe_aom.sw.on()
-
-                delay(1* ms)      #Ground state probe duration            
-                
-                self.probe_aom.sw.off()
-                self.probe_shutter.off()
-                
-                    
-
-                delay(5*ms)                         #repumping 
-               
-                with parallel:
-                    self.repump_shutter_679.pulse(10*ms)
-                    self.repump_shutter_707.pulse(10*ms)
-
-                delay(12*ms)                         #repumping 
-
-                # ###############################Excited State##################################
-
-                self.probe_shutter.on()
-                delay(4.1*ms) 
-
-                self.probe_aom.sw.on()
-                delay(1*ms)            #Ground state probe duration
-                self.probe_aom.sw.off()
-                # self.probe_shutter.off()
-    
-                delay(22*ms)
-
-                # self.probe_shutter.on()
-                # delay(4.1*ms)
-
-
-                #  ########################Background############################
- 
-                self.probe_aom.sw.on()
-                delay(1*ms)            #Ground state probe duration
-                self.probe_aom.sw.off()
-                self.probe_shutter.off()
-
-                delay(7*ms)
-                
-            with sequential:
-                for k in range(num_samples):
-                    delay(500*us)
-                    self.sampler.sample(samples[k])
-                    delay(sample_period*s)
-                
-        delay(sampling_duration*s)
-
-        samples_ch0 = [float(i[0]) for i in samples]
-        
-
-        self.set_dataset("excitation_fraction_lock", samples_ch0, broadcast=True, archive=True)
-
-        # print(self.excitation_fraction(samples_ch0))
-                                 
-        #     # Split the samples
-
-
-
-        gs = samples_ch0[0:600]
-        es = samples_ch0[700:1300]
-        bg = samples_ch0[1300:1900]
-
-        with parallel: 
-
-            gs_counts = 0.0
-            es_counts = 0.0
-            bg_counts = 0.0 
-
-            measurement_time = 600.0 * sample_period     #set to 600 as each slice size is 600 samples at the moment,
-                                                         # we should trim this tighter to the peaks to avoid added noise
-
-            for val in gs[1:]:
-                gs_counts += val
-            for val in es[1:]:
-                es_counts += val
-            for val in bg[1:]:
-                bg_counts += val
-
-        
-        #if we want the PMT to determine atom no, we will probably want photon counts,
-        # will need expected collection efficiency of the telescope,Quantum efficiency etc, maybe use the camera atom no calculation to get this
-        
-        with parallel:
-            gs_measurement = (gs_counts/80) * measurement_time         #integrates over the slice time to get the total photon counts
-            es_measurement = (es_counts/40)  * measurement_time
-            bg_measurement = (bg_counts/40) * measurement_time
-
-    
-                    
-            #if we want the PMT to determine atom no, we will probably want photon counts,
-            # will need expected collection efficiency of the telescope,Quantum efficiency etc, maybe use the camera atom no calculation to get this
-
-
-            numerator = es_measurement - bg_measurement
-            denominator = (gs_measurement - bg_measurement) + (es_measurement - bg_measurement) 
-
-            if denominator != 0.0:
-                excitation_fraction = ((numerator / denominator ) )
-            else:
-                excitation_fraction = float(0) # or 0.5 or some fallback value depending on experiment
-        print(excitation_fraction)
-        delay(500*us)
-        return excitation_fraction
-        delay(25*ms)
 
 
         
@@ -641,6 +534,13 @@ class clock_transition_scan(EnvExperiment):
     def correction_log(self,value):
         self.feedback_list.append(61000000 - value)
         self.set_dataset("feedback_list", self.feedback_list, broadcast=True, archive=True)
+
+    @rpc 
+    def error_log(self,value):
+        self.error_log_list.append(value)
+        """This function is used to log the error in the clock frequency"""
+        self.set_dataset("error_log", self.error_log_list, broadcast=True, archive=True)
+
       
 
     @rpc
@@ -829,6 +729,7 @@ class clock_transition_scan(EnvExperiment):
             while True:
                 self.core.break_realtime()
                 ### Insert entire sequence again
+                t1 = self.core.get_rtio_counter_mu()
 
                 delay(2*ms)
 
@@ -936,11 +837,11 @@ class clock_transition_scan(EnvExperiment):
                     feedback_aom_frequency = feedback_aom_frequency + frequency_correction
                     delay(10*ms)
 
-                    # self.atom_lock_aom.set(frequency = feedback_aom_frequency)
+                    self.atom_lock_aom.set(frequency = feedback_aom_frequency)
                     delay(10*ms)
 
 
-
+                    self.error_log(error_signal)
                     self.correction_log(feedback_aom_frequency)
                     
                     delay(5*ms)
@@ -955,11 +856,15 @@ class clock_transition_scan(EnvExperiment):
                     #write to text file
                 
                 count = count + 1
+                t2 = self.core.get_rtio_counter_mu()
+                print((t2-t1)*1e-6, "ms")
 
-
-                if count % 50 == 0:
+                if count % 51 == 0:
                     print("Breaking RTIO timeline at iteration", count)
                     self.core.break_realtime()
+
+
+
                 delay(100*us)
 
 
