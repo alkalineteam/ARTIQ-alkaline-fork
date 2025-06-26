@@ -538,7 +538,7 @@ class sequence_main(EnvExperiment):
         
       
 
-            self.red_mot_aom.set(frequency = 80.55 *MHz, amplitude = 0.06)
+            self.red_mot_aom.set(frequency = 80.55 *MHz, amplitude = 0.05)
 
             delay(5*ms)
 
@@ -549,8 +549,8 @@ class sequence_main(EnvExperiment):
                 sf_rmot_volt_2 = self.sf_rmot_coil_2_voltage,
                 f_start = 80.6,
                 f_end = 81,
-                A_start = 0.03,
-                A_end = 0.006
+                A_start = 0.04,
+                A_end = 0.003
             )
 
 
@@ -558,7 +558,7 @@ class sequence_main(EnvExperiment):
 
 
             delay(self.single_frequency_time*ms)
-
+            self.red_mot_aom.sw.off()
               
             self.seperate_probe(
                 tof = self.time_of_flight,
@@ -568,7 +568,7 @@ class sequence_main(EnvExperiment):
 
             
      
-            self.red_mot_aom.sw.off()
+            
 
 
 
