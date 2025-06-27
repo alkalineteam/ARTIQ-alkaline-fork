@@ -304,7 +304,7 @@ class clock_transition_scan(EnvExperiment):
 
         #rabi spectroscopy pulse
         self.stepping_aom.set(frequency = aom_frequency )
-        self.stepping_aom.set_att(16*dB)
+        self.stepping_aom.set_att(15*dB)
         self.stepping_aom.sw.on()
         delay(pulse_time*ms)
         self.stepping_aom.sw.off()
@@ -344,19 +344,16 @@ class clock_transition_scan(EnvExperiment):
 
                 with parallel:
                     self.camera_trigger.pulse(1*ms)
-                    
                     self.probe_aom.set(frequency=205 * MHz, amplitude=0.18)
-                    self.probe_aom.sw.on()
 
-                delay(1* ms)      #Ground state probe duration            
-                
+                self.probe_aom.sw.on()
+                delay(1* ms)      #Ground state probe duration                          
                 self.probe_aom.sw.off()
                 self.probe_shutter.off()
-                
-                    
 
-                delay(5*ms)                         #repumping 
-               
+
+                delay(5*ms)                         #repumping
+
                 with parallel:
                     self.repump_shutter_679.pulse(10*ms)
                     self.repump_shutter_707.pulse(10*ms)
@@ -432,40 +429,40 @@ class clock_transition_scan(EnvExperiment):
         #     bg_sum += float(x)
         # bg_mean = bg_sum / len(bg)
 
-        baseline = samples_ch0[0:40]
+        # baseline = samples_ch0[0:40]
         baseline_mean = 0.0
-        gs = samples_ch0[70:110]
-        es = samples_ch0[685:705]
-        bg = samples_ch0[1111:1131]
+        gs = samples_ch0[70:130]
+        es = samples_ch0[680:740]
+        bg = samples_ch0[1100:1160]
 
-        with parallel: 
-            baseline_sum = 0.0
-            for x in baseline:
-                baseline_sum += float(x)
-                baseline_mean = baseline_sum / len(baseline)
+        baseline = samples_ch0[0:40]
+        baseline_sum = 0.0
+        for x in baseline:
+            baseline_sum += float(x)
+            baseline_mean = baseline_sum / len(baseline)
 
-            gs_counts = 0.0
-            es_counts = 0.0
-            bg_counts = 0.0
+        gs_counts = 0.0
+        es_counts = 0.0
+        bg_counts = 0.0
 
-            measurement_time = 600.0 * sample_period     #set to 600 as each slice size is 600 samples at the moment,
-                                                         # we should trim this tighter to the peaks to avoid added noise
+        measurement_time = 60 * sample_period     #set to 600 as each slice size is 600 samples at the moment,
+                                                        # we should trim this tighter to the peaks to avoid added noise
 
-            for val in gs[1:]:
-                gs_counts += val
-            for val in es[1:]:
-                es_counts += val
-            for val in bg[1:]:
-                bg_counts += val
+        for val in gs[1:]:
+            gs_counts += val
+        for val in es[1:]:
+            es_counts += val
+        for val in bg[1:]:
+            bg_counts += val
 
         
         #if we want the PMT to determine atom no, we will probably want photon counts,
         # will need expected collection efficiency of the telescope,Quantum efficiency etc, maybe use the camera atom no calculation to get this
         
         with parallel:
-            gs_measurement = ((gs_counts-baseline_mean)/40) * measurement_time         #integrates over the slice time to get the total photon counts
-            es_measurement = ((es_counts-baseline_mean)/20)  * measurement_time
-            bg_measurement = ((bg_counts-baseline_mean)/20) * measurement_time
+            gs_measurement = ((gs_counts-baseline_mean)) * measurement_time         #integrates over the slice time to get the total photon counts
+            es_measurement = ((es_counts-baseline_mean))  * measurement_time
+            bg_measurement = ((bg_counts-baseline_mean)) * measurement_time
 
     
                     
@@ -802,6 +799,7 @@ class clock_transition_scan(EnvExperiment):
                     )
 
                     low_side = self.normalised_detection(0,[0.0],[0.0],[0.0])
+
                     self.atom_lock_ex(low_side)
                     # print(low_side)
                     delay(2*ms)
@@ -823,16 +821,25 @@ class clock_transition_scan(EnvExperiment):
                 if count % 2 == 0:              # Every other cycle generate correction
                     #Calculate error signal and then make correction
                     self.core.break_realtime()
-                    error_signal = high_side - low_side
 
-                    denominator = 0.8 * 0.65 * (self.rabi_pulse_duration_ms * 1e-3)
-
-                    if denominator == 0.0:
-                        print("Warning: Division by zero prevented. Check contrast and rabi_pulse_duration_ms.")
-                        frequency_correction = 0.0  # or skip this iteration with `continue`
+                    if high_side > 1.0 or low_side > 1.0:        #prevents bad excitation fraction from destabilising the lock
+                        error_signal = 0.0
                     else:
-                        frequency_correction = (self.servo_gain / denominator) * error_signal
-                    # This is the first servo loop
+                        error_signal = high_side - low_side
+
+                    # denominator = 0.8 * 0.65 * (self.rabi_pulse_duration_ms * 1e-3)
+
+                    # if denominator == 0.0:
+                    #     print("Warning: Division by zero prevented. Check contrast and rabi_pulse_duration_ms.")
+                    #     frequency_correction = 0.0  # or skip this iteration with `continue`
+                    # else:
+                    #     frequency_correction = (self.servo_gain / denominator) * error_signal
+                    # # This is the first servo loop
+
+                    if error_signal == 0.0:
+                        frequency_correction = 0.0
+                    else:
+                        frequency_correction = (self.servo_gain * error_signal * self.linewidth) / 2 * contrast
                     
                     feedback_aom_frequency = feedback_aom_frequency + frequency_correction
                     delay(10*ms)

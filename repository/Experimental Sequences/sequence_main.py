@@ -402,7 +402,7 @@ class sequence_main(EnvExperiment):
                     self.probe_aom.set(frequency=205 * MHz, amplitude=0.18)
                     self.probe_aom.sw.on()
 
-                delay(2* ms)      #Ground state probe duration            
+                delay(1* ms)      #Ground state probe duration            
                 
                 with parallel:
                     self.probe_shutter.off()
@@ -422,7 +422,7 @@ class sequence_main(EnvExperiment):
                 delay(3.9*ms) 
 
                 self.probe_aom.sw.on()
-                delay(0.8*ms)            #Ground state probe duration
+                delay(1*ms)            #Ground state probe duration
                 self.probe_aom.sw.off()
                 self.probe_shutter.off()
                 delay(10*ms)
@@ -525,7 +525,8 @@ class sequence_main(EnvExperiment):
             delay(self.blue_mot_cooling_time*ms)   #Allowing further cooling of the cloud by just holding the atoms here
                       
 
-        
+     
+
      
 
             self.broadband_red_mot(                                  #Switch to low field gradient for Red MOT, switches off the blue beams
@@ -560,15 +561,14 @@ class sequence_main(EnvExperiment):
             delay(self.single_frequency_time*ms)
             self.red_mot_aom.sw.off()
               
+
             self.seperate_probe(
                 tof = self.time_of_flight,
                 probe_duration = 0.8* ms ,
                 probe_frequency= 205 * MHz
-            )        
-
-            
-     
-            
+            )      
+          
+         
 
 
 
