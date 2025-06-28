@@ -630,65 +630,57 @@ class probe_light_shift_disc(EnvExperiment):
 
                 #In the DISC method, we interleave between Parameter 1 and Parameter 2 in a P1 P2 P2 P1 order rather than P1 P2 P1 P2, therefore the correction is generated every 4 clock cycles. 
                 
-                for i in range(4):
-                    self.atom_lock_aom.set(frequency = feedback_aom_frequency_1)
-                    p_1_low = self.run_sequence(j,
-                        22*dB,                    #parameter 2
-                        center_frequency_1 - self.linewidth_1/2,  #stepping aom values
-                        1,
-                        excitation_fraction_list_param_1,
-                        excitation_fraction_list_param_2    
-                    ) 
-                    self.atom_lock_aom.set(frequency = feedback_aom_frequency_2)
-                    p_2_low = self.run_sequence(j,
-                        16*dB,                    #parameter 2
-                        center_frequency_1 - self.linewidth_2/2,  #stepping aom values
-                        2,
-                        excitation_fraction_list_param_1,
-                        excitation_fraction_list_param_2    
-                    ) 
-                    p_2_high = self.run_sequence(j,
-                        16*dB,                    #parameter 2
-                        center_frequency_1 - self.linewidth_2/2,  #stepping aom values
-                        2,             
-                        excitation_fraction_list_param_1,
-                        excitation_fraction_list_param_2    
-                    )
-                    self.atom_lock_aom.set(frequency = feedback_aom_frequency_1)
-                    p_1_high = self.run_sequence(j,
-                        22*dB,                    #parameter 2
-                        center_frequency_1 + self.linewidth_1/2,  #stepping aom values
-                        1,
-                        excitation_fraction_list_param_1,
-                        excitation_fraction_list_param_2    
-                    )
 
-                    delta_f1 = (self.servo_gain_1 * (p_1_high - p_1_low) * self.linewidth_1 ) / 2 * contrast_1        #Scaling into Hz
-                    delta_f2 = (self.servo_gain_2 * (p_2_high - p_2_low) * self.linewidth_2) / 2 * contrast_2
+                self.atom_lock_aom.set(frequency = feedback_aom_frequency_1)
+                p_1_low = self.run_sequence(j,
+                    22*dB,                    #parameter 2
+                    center_frequency_1 - self.linewidth_1/2,  #stepping aom values
+                    1,
+                    excitation_fraction_list_param_1,
+                    excitation_fraction_list_param_2    
+                ) 
+                self.atom_lock_aom.set(frequency = feedback_aom_frequency_2)
+                p_2_low = self.run_sequence(j,
+                    16*dB,                    #parameter 2
+                    center_frequency_1 - self.linewidth_2/2,  #stepping aom values
+                    2,
+                    excitation_fraction_list_param_1,
+                    excitation_fraction_list_param_2    
+                ) 
+                p_2_high = self.run_sequence(j,
+                    16*dB,                    #parameter 2
+                    center_frequency_1 - self.linewidth_2/2,  #stepping aom values
+                    2,             
+                    excitation_fraction_list_param_1,
+                    excitation_fraction_list_param_2    
+                )
+                self.atom_lock_aom.set(frequency = feedback_aom_frequency_1)
+                p_1_high = self.run_sequence(j,
+                    22*dB,                    #parameter 2
+                    center_frequency_1 + self.linewidth_1/2,  #stepping aom values
+                    1,
+                    excitation_fraction_list_param_1,
+                    excitation_fraction_list_param_2    
+                )
 
-                    feedback_aom_frequency_1 = feedback_aom_frequency_1 + delta_f1
-                    feedback_aom_frequency_2 = feedback_aom_frequency_2 + delta_f2
-                    param_shift = feedback_aom_frequency_2 - feedback_aom_frequency_1
+                delta_f1 = (self.servo_gain_1 * (p_1_high - p_1_low) * self.linewidth_1 ) / 2 * contrast_1        #Scaling into Hz
+                delta_f2 = (self.servo_gain_2 * (p_2_high - p_2_low) * self.linewidth_2) / 2 * contrast_2
 
-                    self.error_log(1,delta_f1)
-                    self.error_log(2,delta_f2)
+                feedback_aom_frequency_1 = feedback_aom_frequency_1 + delta_f1
+                feedback_aom_frequency_2 = feedback_aom_frequency_2 + delta_f2
+                param_shift = feedback_aom_frequency_2 - feedback_aom_frequency_1
 
-                    self.param_shift_log(param_shift)
+                self.error_log(1,delta_f1)
+                self.error_log(2,delta_f2)
 
-                    self.atom_lock_ex_log(1,[p_1_low,p_1_high])
-                    self.atom_lock_ex_log(2,[p_2_low,p_2_high])
+                self.param_shift_log(param_shift)
 
-                    
-                    delay(5*ms)
+                self.atom_lock_ex_log(1,[p_1_low,p_1_high])
+                self.atom_lock_ex_log(2,[p_2_low,p_2_high])
 
                     
-                    
-                 
-                    #send the list of frequency corrections to the database, this will be done on the host side
-                    lock_loop = lock_loop + 1
-                    
-                    
-                    #write to text file
+                delay(5*ms)
+
                 
                 count = count + 1
                 t2 = self.core.get_rtio_counter_mu()
