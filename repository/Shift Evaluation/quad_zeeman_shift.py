@@ -15,7 +15,8 @@ Author: Jordan Wayland
 Last Updated: 2025-06-28
 Description:
     Drift-insensitive self-comparison (DISC) clock lock loop for Sr-88 using ARTIQ.
-    Interleaves probe powers and corrects AOM frequencies based on excitation fractions.
+    Evaluates the Quadratic Zeeman Shift by interleaving bias field 
+    and corrects AOM frequencies based on excitation fractions.
     
 
     DISC Method Citation: 
@@ -29,7 +30,7 @@ Description:
 
 """
 
-class probe_light_shift_disc(EnvExperiment):
+class quad_zeeman_shift_disc(EnvExperiment):
 
     def build(self):
         self.setattr_device("core")
@@ -63,12 +64,14 @@ class probe_light_shift_disc(EnvExperiment):
         self.mot_coil_1=self.get_device("zotino0")
         self.mot_coil_2=self.get_device("zotino0")
         
+        self.setattr_argument("high_bias_field_mT", NumberValue(default=5),group="Shift Parameters")
+        self.setattr_argument("low_bias_field_mT", NumberValue(default=2.3),group="Shift Parameters")
+        self.setattr_argument("rabi_pulse_duration_ms_param_1", NumberValue(default= 60 * ms), group="Shift Parameters")
+        self.setattr_argument("rabi_pulse_duration_ms_param_2", NumberValue(default= 60 * ms), group="Shift Parameters")
         self.setattr_argument("scan_center_frequency_Hz", NumberValue(default=85000000 * Hz),group="Scan Parameters",)
         self.setattr_argument("scan_range_Hz", NumberValue(default=500000 * Hz), group="Scan Parameters")
         self.setattr_argument("scan_step_size_Hz", NumberValue(default=1000 * Hz), group="Scan Parameters")
-        self.setattr_argument("rabi_pulse_duration_ms", NumberValue(default= 60 * ms), group="Scan Parameters")
         self.setattr_argument("clock_intensity", NumberValue(default=0.05), group="Locking")
-        self.setattr_argument("bias_field_mT", NumberValue(default=3.0),group="Locking")
         self.setattr_argument("blue_mot_loading_time", NumberValue(default=2000 * ms), group="Sequence Parameters")
         self.setattr_argument("Enable_Lock", BooleanValue(default=False), group="Locking")
         self.setattr_argument("servo_gain_1", NumberValue(default=0.3), group="Locking")
@@ -394,7 +397,7 @@ class probe_light_shift_disc(EnvExperiment):
 
 
     @kernel
-    def run_sequence(self,j,param,stepping_aom_freq,which_param,excitation_fraction_list_param_1,excitation_fraction_list_param_2 ):
+    def run_sequence(self,j,param,stepping_aom_freq,rabi_pulse_duration,which_param,excitation_fraction_list_param_1,excitation_fraction_list_param_2 ):
         bmot_compression_time = 20 
         blue_mot_cooling_time = 60 
         broadband_red_mot_time = 10
@@ -536,8 +539,8 @@ class probe_light_shift_disc(EnvExperiment):
         ####################################### Clock Spectroscopy ############################################
         self.clock_spectroscopy(
             aom_frequency = stepping_aom_freq,
-            pulse_time = self.rabi_pulse_duration_ms,
-            clock_intensity = param        
+            pulse_time = rabi_pulse_duration,
+            clock_intensity = self.clock_intensity    
         )
 
         excitation = self.normalised_detection(j,is_param_1,excitation_fraction_list_param_1,excitation_fraction_list_param_2)           
@@ -561,21 +564,23 @@ class probe_light_shift_disc(EnvExperiment):
         excitation_fraction_list_param_2 = [0.0] * cycles
         
 
-        ############################### Scan Parameter 1: Low Probe power ##############################
+        ############################### Scan Parameter 1: Low Bias Field ##############################
         for j in range(int32(cycles)):        
             self.run_sequence(j,
-                22*dB,    #Here the parameter we are changing is the probe power
+                self.high_bias_field_mT,   
                 scan_frequency_values[j],
+                self.rabi_pulse_duration_param_1,
                 1,
                 excitation_fraction_list_param_1,
                 excitation_fraction_list_param_2     
             )  
 
-        ############################### Scan Parameter 2: High Probe Power ###############################
+        ############################### Scan Parameter 2: High Bias Field ###############################
         for j in range(int32(cycles)):        
             self.run_sequence(j,
-                16*dB,                    #parameter 2
+                self.high_bias_field_mT,                    #parameter 2
                 scan_frequency_values[j],  #stepping aom values
+                self.rabi_pulse_duration_param_2,
                 2,                         #parameter marker
                 excitation_fraction_list_param_1,
                 excitation_fraction_list_param_2    
@@ -635,31 +640,35 @@ class probe_light_shift_disc(EnvExperiment):
 
                 self.atom_lock_aom.set(frequency = feedback_aom_frequency_1)
                 p_1_low = self.run_sequence(0,
-                    22*dB,                    #parameter 2
+                    self.low_bias_field_mT,                    #parameter 2
                     center_frequency_1 - self.linewidth_1/2,  #stepping aom values
+                    self.rabi_pulse_duration_param_1,
                     1,
                     excitation_fraction_list_param_1,
                     excitation_fraction_list_param_2    
                 ) 
                 self.atom_lock_aom.set(frequency = feedback_aom_frequency_2)
                 p_2_low = self.run_sequence(0,
-                    16*dB,                    #parameter 2
+                   self.high_bias_field_mT,                    #parameter 2
                     center_frequency_1 - self.linewidth_2/2,  #stepping aom values
+                    self.rabi_pulse_duration_param_2,
                     2,
                     excitation_fraction_list_param_1,
                     excitation_fraction_list_param_2    
                 ) 
                 p_2_high = self.run_sequence(0,
-                    16*dB,                    #parameter 2
+                    self.high_bias_field_mT,                  #parameter 2
                     center_frequency_1 - self.linewidth_2/2,  #stepping aom values
-                    2,             
+                    2,
+                    self.rabi_pulse_duration_param_2,             
                     excitation_fraction_list_param_1,
                     excitation_fraction_list_param_2    
                 )
                 self.atom_lock_aom.set(frequency = feedback_aom_frequency_1)
                 p_1_high = self.run_sequence(0,
-                    22*dB,                    #parameter 2
+                    self.low_bias_field_mT,                    #parameter 2
                     center_frequency_1 + self.linewidth_1/2,  #stepping aom values
+                    self.rabi_pulse_duration_param_1,
                     1,
                     excitation_fraction_list_param_1,
                     excitation_fraction_list_param_2    
