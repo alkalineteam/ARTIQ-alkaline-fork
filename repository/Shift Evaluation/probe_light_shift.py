@@ -29,7 +29,7 @@ Description:
 
 """
 
-class clock_transition_scan(EnvExperiment):
+class probe_light_shift_disc(EnvExperiment):
 
     def build(self):
         self.setattr_device("core")
