@@ -118,11 +118,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1750059675,
-        "narHash": "sha256-UkHlYinxoKYs2dGw3kbI6o+h3C2B/KO0oVkSvvIH0KM=",
+        "lastModified": 1750854871,
+        "narHash": "sha256-0zYtgqDJpGw0IdrobCmSO5+KsIRmdwIHIbsPrzuPLAQ=",
         "owner": "m-labs",
         "repo": "sipyco",
-        "rev": "7f52bde942b86ac5733fb3f9349c175fef296622",
+        "rev": "72dd23a358b72b2a73dc02780137750630071d98",
         "type": "github"
       },
       "original": {
