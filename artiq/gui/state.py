@@ -6,8 +6,6 @@ import shutil
 from sipyco.tools import TaskObject
 from sipyco import pyon
 
-from artiq import compat
-
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +41,7 @@ class StateManager(TaskObject):
 
     def load(self):
         try:
-            data = compat.pyon_load_file(self.filename)
+            data = pyon.load_file(self.filename)
         except FileNotFoundError:
             logger.info("State database '%s' not found, using defaults",
                         self.filename)
