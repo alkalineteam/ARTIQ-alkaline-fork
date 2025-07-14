@@ -26,13 +26,15 @@
             "type": "urukul",
             "dds": "ad9910",
             "ports": [2, 3],
-            "clk_sel": 2
+            "clk_sel": 2,
+            "proto_rev": 9
         },
         {
             "type": "urukul",
             "dds": "ad9912",
             "ports": [4, 5],
-            "clk_sel": 2
+            "clk_sel": 2,
+            "proto_rev": 9
         },
         {
             "type": "sampler",
