@@ -1,15 +1,3 @@
-from artiq.experiment import *
-from artiq.coredevice.ttl import TTLOut
-from artiq.language.core import delay
-from numpy import int64, int32, max, float64, float32
-import numpy as numpy
-import numpy as np
-from scipy.optimize import curve_fit
-from artiq.coredevice import ad9910
-import os
-import csv
-from datetime import datetime
-
 """
 Author: Jordan Wayland
 Last Updated: 2025-06-28
@@ -28,6 +16,19 @@ Description:
     https://doi.org/10.3390/app11031206
 
 """
+
+
+from artiq.experiment import *
+from artiq.coredevice.ttl import TTLOut
+from artiq.language.core import delay
+from numpy import int64, int32, max, float64, float32
+import numpy as numpy
+import numpy as np
+from scipy.optimize import curve_fit
+from artiq.coredevice import ad9910
+import os
+import csv
+from datetime import datetime
 
 class probe_light_shift_disc(EnvExperiment):
 
@@ -77,10 +78,20 @@ class probe_light_shift_disc(EnvExperiment):
         self.setattr_argument("linewidth_1", NumberValue(default=100 * Hz), group="Locking")  # This is the linewidth of the clock transition, adjust as necessary
         self.setattr_argument("servo_gain_2", NumberValue(default=0.3), group="Locking")  # Added new servo gain parameter
         self.setattr_argument("linewidth_2", NumberValue(default=100 * Hz), group="Locking")  # Added new linewidth parameter
+        self.setattr_argument("param_shift_guess",NumberValue(default=43*Hz),group="Locking")
 
         self.feedback_list = []
         self.atom_lock_list = []
-        self.error_log_list = []
+        self.error_log_list_1 = []
+        self.error_log_list_2 = []
+        self.lock_ex_list_1 = []
+        self.lock_ex_list_2 = []
+        self.param_log_list = []
+        self.lock_ex_list_main = []
+        self.correction_log_list_1 = []
+        self.correction_log_list_2 = []
+        self.correction_log_list_main = []
+
         # scan_start = int32(self.scan_center_frequency_Hz - (int32(self.scan_range_Hz )/ 2))
         # scan_end =int32(self.scan_center_frequency_Hz + (int32(self.scan_range_Hz ) / 2))
         # self.scan_frequency_values = [float(x) for x in range(scan_start, scan_end, int32(self.scan_step_size_Hz))]
@@ -353,18 +364,31 @@ class probe_light_shift_disc(EnvExperiment):
             return np.zeros_like(xdata), 0.0, 0.0, 0.0, [], []
         
     @rpc
-    def analyse_fit(self, scan_frequency_values, excitation_fraction_list):
-        fit_curve, amplitude, center, width, popt, pcov = self.fit_lorentzian(scan_frequency_values, excitation_fraction_list)
-
-        fit_curve = np.array(fit_curve, dtype=np.float64)
-        fit_params = np.array([amplitude, center, width], dtype=np.float64)
-
-        self.set_dataset("fit_result", fit_curve, broadcast=True, archive=True)
-        self.set_dataset("fit_params", fit_params, broadcast=True, archive=True)
+    def analyse_fit(self,param,scan_frequency_values, excitation_fraction_list):
+        if param == 1:
+            fit_curve, amplitude, center, width, popt, pcov = self.fit_lorentzian(scan_frequency_values, excitation_fraction_list)
+            fit_curve = np.array(fit_curve, dtype=np.float64)
+            fit_params = np.array([amplitude, center, width], dtype=np.float64)
+            self.set_dataset("fit_result_1", fit_curve, broadcast=True, archive=True)
+            self.set_dataset("fit_params_1", fit_params, broadcast=True, archive=True)
+        if param == 2:
+            fit_curve, amplitude, center, width, popt, pcov = self.fit_lorentzian(scan_frequency_values, excitation_fraction_list)
+            fit_curve = np.array(fit_curve, dtype=np.float64)
+            fit_params = np.array([amplitude, center, width], dtype=np.float64)
+            self.set_dataset("fit_result_2", fit_curve, broadcast=True, archive=True)
+            self.set_dataset("fit_params_2", fit_params, broadcast=True, archive=True)
     @rpc
-    def correction_log(self,value):
-        self.feedback_list.append(61000000 - value)
-        self.set_dataset("feedback_list", self.feedback_list, broadcast=True, archive=True)
+    def correction_log(self,which_param,value):
+        if which_param == 1:
+            self.correction_log_list_1.append(value)
+            self.set_dataset("correction_list_1", self.correction_log_list_1, broadcast=True, archive=True)
+        if which_param == 2:
+            self.correction_log_list_1.append(value)
+            self.set_dataset("correction_list_2", self.correction_log_list_2, broadcast=True, archive=True)
+        self.correction_log_list_main.append(value)
+        self.set_dataset("correction_log_list_both",self.correction_log_list_main, broadcast=True, archive=True)
+       
+        
 
     @rpc 
     def error_log(self,which_param,value):
@@ -380,7 +404,7 @@ class probe_light_shift_disc(EnvExperiment):
     def param_shift_log(self,value):
         self.param_log_list.append(value)
         """Logging of the shift in the clock frequency from the changing parameters"""
-        self.set_dataset("param log", self.param_log_list, unit = Hz ,broadcast=True, archive=True)
+        self.set_dataset("param_log", self.param_log_list, unit = Hz ,broadcast=True, archive=True)
 
     @rpc
     def atom_lock_ex_log(self,which_param,value):
@@ -538,13 +562,16 @@ class probe_light_shift_disc(EnvExperiment):
         ####################################### Clock Spectroscopy ############################################
         self.clock_spectroscopy(
             aom_frequency = stepping_aom_freq,
-            pulse_time = self.rabi_pulse_duration_ms,
+            pulse_time = rabi_pulse_duration,
             clock_intensity = param        
         )
 
         excitation = self.normalised_detection(j,is_param_1,excitation_fraction_list_param_1,excitation_fraction_list_param_2)           
         delay(40*ms)
-        self.set_dataset("excitation_fraction_list", excitation_fraction_list_param_1, broadcast=True, archive=True)
+        if is_param_1 == True: 
+            self.set_dataset("excitation_fraction_list_param_1", excitation_fraction_list_param_1, broadcast=True, archive=True)
+        else:
+            self.set_dataset("excitation_fraction_list_param_2", excitation_fraction_list_param_2, broadcast=True, archive=True)
         return excitation 
 
     @kernel
@@ -573,7 +600,7 @@ class probe_light_shift_disc(EnvExperiment):
                 excitation_fraction_list_param_1,
                 excitation_fraction_list_param_2     
             )  
-
+        self.analyse_fit(1,scan_frequency_values,excitation_fraction_list_param_1)
         ############################### Scan Parameter 2: High Probe Power ###############################
         for j in range(int32(cycles)):        
             self.run_sequence(j,
@@ -587,8 +614,8 @@ class probe_light_shift_disc(EnvExperiment):
 
         #process data and do fit from the scan
 
-        self.analyse_fit(scan_frequency_values, excitation_fraction_list_param_1)
-        self.analyse_fit(scan_frequency_values, excitation_fraction_list_param_2)
+        
+        self.analyse_fit(2,scan_frequency_values,excitation_fraction_list_param_2)
 
         # from the excitation fraction list we need to manually extract the peak height and center_frequency. 
 
@@ -615,6 +642,7 @@ class probe_light_shift_disc(EnvExperiment):
 
 
         param_shift = center_frequency_2 - center_frequency_1
+        print(param_shift)
         
 
         delay(1*ms)
@@ -624,7 +652,7 @@ class probe_light_shift_disc(EnvExperiment):
 
             self.core.break_realtime()                                       # How many seconds there are in a month
             count = 0
-            feedback_aom_frequency_1 = 61.0 * MHz
+            feedback_aom_frequency_1 = 125.0 * MHz
             feedback_aom_frequency_2 = feedback_aom_frequency_1 + param_shift
             
             delay(10*ms)
@@ -682,12 +710,14 @@ class probe_light_shift_disc(EnvExperiment):
 
                 self.error_log(1,delta_f1)
                 self.error_log(2,delta_f2)
-
                 self.param_shift_log(param_shift)
+                self.atom_lock_ex_log(1,p_1_low)
+                self.atom_lock_ex_log(1,p_1_high)
 
-                self.atom_lock_ex_log(1,[p_1_low,p_1_high])
-                self.atom_lock_ex_log(2,[p_2_low,p_2_high])
-
+                self.atom_lock_ex_log(2,p_2_low) 
+                self.atom_lock_ex_log(2,p_2_high)               
+                self.correction_log(1,delta_f1)
+                self.correction_log(2,delta_f2)
                     
                 delay(5*ms)
 

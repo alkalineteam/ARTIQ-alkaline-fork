@@ -1,15 +1,3 @@
-from artiq.experiment import *
-from artiq.coredevice.ttl import TTLOut
-from artiq.language.core import delay
-from numpy import int64, int32, max, float64, float32
-import numpy as numpy
-import numpy as np
-from scipy.optimize import curve_fit
-from artiq.coredevice import ad9910
-import os
-import csv
-from datetime import datetime
-
 """
 Author: Jordan Wayland
 Last Updated: 2025-06-28
@@ -29,6 +17,19 @@ Description:
     https://doi.org/10.3390/app11031206
 
 """
+
+from artiq.experiment import *
+from artiq.coredevice.ttl import TTLOut
+from artiq.language.core import delay
+from numpy import int64, int32, max, float64, float32
+import numpy as numpy
+import numpy as np
+from scipy.optimize import curve_fit
+from artiq.coredevice import ad9910
+import os
+import csv
+from datetime import datetime
+
 
 class quad_zeeman_shift_disc(EnvExperiment):
 
@@ -122,7 +123,7 @@ class quad_zeeman_shift_disc(EnvExperiment):
         self.atom_lock_aom.init()
         self.atom_lock_aom.cpld.init()
 
-        self.atom_lock_aom.set(frequency = 61 * MHz)
+        self.atom_lock_aom.set(frequency = 125 * MHz)
         self.atom_lock_aom.set_att(26*dB)
 
         # Set the RF channels ON
