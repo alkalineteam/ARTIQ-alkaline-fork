@@ -34,6 +34,7 @@ class clock_transition_scan(EnvExperiment):
         self.camera_trigger:TTLOut=self.get_device("ttl8")
         self.clock_shutter:TTLOut=self.get_device("ttl9")
         self.repump_shutter_679:TTLOut=self.get_device("ttl10")
+        self.red_mot_shutter:TTLOut=self.get_device("ttl12")
 
         # self.pmt_shutter:TTLOut=self.get_device("ttl10")
         # self.camera_trigger:TTLOut=self.get_device("ttl11")
@@ -63,6 +64,7 @@ class clock_transition_scan(EnvExperiment):
         self.setattr_argument("Enable_Lock", BooleanValue(default=False), group="Locking")
         self.setattr_argument("servo_gain", NumberValue(default=0.3), group="Locking")
         self.setattr_argument("linewidth", NumberValue(default=100 * Hz), group="Locking")  # This is the linewidth of the clock transition, adjust as necessary
+        self.setattr_argument("drift_rate", NumberValue(default=0.2*Hz),group="Locking")
 
         self.feedback_list = []
         self.atom_lock_list = []
@@ -85,7 +87,7 @@ class clock_transition_scan(EnvExperiment):
         #  self.camera_shutter.output()
         self.camera_trigger.output()
         self.blue_mot_shutter.output()
-        #  self.red_mot_shutter.output()
+        self.red_mot_shutter.output()
         self.zeeman_slower_shutter.output()
         self.repump_shutter_707.output()
         self.repump_shutter_679.output()
@@ -107,8 +109,8 @@ class clock_transition_scan(EnvExperiment):
         self.atom_lock_aom.init()
         self.atom_lock_aom.cpld.init()
 
-        self.atom_lock_aom.set(frequency = 61 * MHz)
-        self.atom_lock_aom.set_att(26*dB)
+        self.atom_lock_aom.set(frequency = 125 * MHz)
+        self.atom_lock_aom.set_att(14*dB)
 
         # Set the RF channels ON
         self.blue_mot_aom.sw.on()
@@ -278,6 +280,7 @@ class clock_transition_scan(EnvExperiment):
     @kernel
     def clock_spectroscopy(self,aom_frequency,pulse_time):                     #Switch to Helmholtz field, wait, then generate Rabi Pulse
        
+        self.red_mot_shutter.off()
         self.red_mot_aom.sw.off()
         self.stepping_aom.sw.off()
 
@@ -289,8 +292,8 @@ class clock_transition_scan(EnvExperiment):
        
        
          #Switch to Helmholtz
-        self.mot_coil_1.write_dac(0, coil_1_voltage)  
-        self.mot_coil_2.write_dac(1, coil_2_voltage)
+        self.mot_coil_1.write_dac(1, coil_1_voltage)  
+        self.mot_coil_2.write_dac(0, coil_2_voltage)
         
         with parallel:
             self.mot_coil_1.load()
@@ -298,18 +301,21 @@ class clock_transition_scan(EnvExperiment):
 
         # self.pmt_shutter.on()
         # self.camera_shutter.on()
-        self.clock_shutter.on()    
+          
 
-        delay(40*ms)  #wait for coils to switch
+        delay(50*ms)  #wait for coils to switch
 
+        self.clock_shutter.on()  
+        delay(4*ms)
         #rabi spectroscopy pulse
         self.stepping_aom.set(frequency = aom_frequency )
-        self.stepping_aom.set_att(15*dB)
+        self.stepping_aom.set_att(16*dB)
         self.stepping_aom.sw.on()
         delay(pulse_time*ms)
         self.stepping_aom.sw.off()
         self.stepping_aom.set(frequency = 0 * Hz)
         self.stepping_aom.sw.off()
+        self.clock_shutter.off()
    
 
     @kernel
@@ -355,10 +361,10 @@ class clock_transition_scan(EnvExperiment):
                 delay(5*ms)                         #repumping
 
                 with parallel:
-                    self.repump_shutter_679.pulse(10*ms)
-                    self.repump_shutter_707.pulse(10*ms)
+                    self.repump_shutter_679.pulse(14*ms)
+                    self.repump_shutter_707.pulse(14*ms)
 
-                delay(12*ms)                         #repumping 
+                delay(20*ms)                         #repumping 
 
                 # ###############################Excited State##################################
 
@@ -431,9 +437,9 @@ class clock_transition_scan(EnvExperiment):
 
         # baseline = samples_ch0[0:40]
         baseline_mean = 0.0
-        gs = samples_ch0[70:130]
-        es = samples_ch0[680:740]
-        bg = samples_ch0[1100:1160]
+        gs = samples_ch0[90:110]
+        es = samples_ch0[908:928]
+        bg = samples_ch0[1334:1354]
 
         baseline = samples_ch0[0:40]
         baseline_sum = 0.0
@@ -455,14 +461,20 @@ class clock_transition_scan(EnvExperiment):
         for val in bg[1:]:
             bg_counts += val
 
+
+        gs_mean = gs_counts / len(gs)
+        es_mean = es_counts / len(es)
+        bg_mean = bg_counts / len(bg)
+
+
         
         #if we want the PMT to determine atom no, we will probably want photon counts,
         # will need expected collection efficiency of the telescope,Quantum efficiency etc, maybe use the camera atom no calculation to get this
         
         with parallel:
-            gs_measurement = ((gs_counts-baseline_mean)) * measurement_time         #integrates over the slice time to get the total photon counts
-            es_measurement = ((es_counts-baseline_mean))  * measurement_time
-            bg_measurement = ((bg_counts-baseline_mean)) * measurement_time
+            gs_measurement = ((gs_mean-baseline_mean)) * measurement_time         #integrates over the slice time to get the total photon counts
+            es_measurement = ((es_mean-baseline_mean))  * measurement_time
+            bg_measurement = ((bg_mean-baseline_mean)) * measurement_time
 
     
                     
@@ -529,7 +541,7 @@ class clock_transition_scan(EnvExperiment):
         self.set_dataset("fit_params", fit_params, broadcast=True, archive=True)
     @rpc
     def correction_log(self,value):
-        self.feedback_list.append(61000000 - value)
+        self.feedback_list.append(125000000 - value)
         self.set_dataset("feedback_list", self.feedback_list, broadcast=True, archive=True)
 
     @rpc 
@@ -587,8 +599,10 @@ class clock_transition_scan(EnvExperiment):
         excitation_fraction_list = [0.0] * cycles
 
         
-        for j in range(int32(cycles)):        
 
+        
+        for j in range(int32(cycles)):        
+            t1 = self.core.get_rtio_counter_mu()
             ####################################################### Blue MOT loading #############################################################
 
             delay(500*us)
@@ -598,7 +612,7 @@ class clock_transition_scan(EnvExperiment):
                  bmot_voltage_2 = blue_mot_coil_2_voltage
             )
 
-           
+            self.red_mot_shutter.on()
             self.red_mot_aom.set(frequency = 80.45 * MHz, amplitude = 0.08)
             self.red_mot_aom.sw.on()
 
@@ -676,10 +690,10 @@ class clock_transition_scan(EnvExperiment):
 
             self.normalised_detection(j,gs_list,es_list,excitation_fraction_list)
             
-            delay(40*ms)
+            delay(2*ms)
 
             self.set_dataset("excitation_fraction_list", excitation_fraction_list, broadcast=True, archive=True)
-   
+            t2 = self.core.get_rtio_counter_mu()
 
         #process data and do fit from the scan
 
@@ -697,11 +711,18 @@ class clock_transition_scan(EnvExperiment):
                 max_idx = i
             i += 1
         # max_val is the maximum value, max_idx is its index
-        contrast = max_val
+        contrast = 0.6
         center_frequency = scan_frequency_values[max_idx]
+        
+        recenter_peak = self.drift_rate *(cycles - (max_idx+1)) * 1.5
+        print(recenter_peak)
 
-        print(contrast)
-        print(center_frequency)
+
+        # print(contrast)
+        # print(center_frequency)
+        
+        # print((t2-t1)*1e-9, "s")
+
 
 
         delay(1*ms)
@@ -718,7 +739,9 @@ class clock_transition_scan(EnvExperiment):
             thue_morse = [0]
             while len(thue_morse) <= n:
                 thue_morse = thue_morse + [1 - bit for bit in thue_morse] 
-            feedback_aom_frequency = 61.0 * MHz
+            feedback_aom_frequency = (125.000) * MHz  
+            print(feedback_aom_frequency)
+           
 
 
             delay(100*ms)
@@ -735,7 +758,7 @@ class clock_transition_scan(EnvExperiment):
                     bmot_voltage_2 = blue_mot_coil_2_voltage
                 )
             
-
+                self.red_mot_shutter.on()
                 self.red_mot_aom.set(frequency = 80.45 * MHz, amplitude = 0.08)
                 self.red_mot_aom.sw.on()
 
@@ -838,9 +861,12 @@ class clock_transition_scan(EnvExperiment):
 
                     if error_signal == 0.0:
                         frequency_correction = 0.0
+                        print("No correction made")
                     else:
-                        frequency_correction = (self.servo_gain * error_signal * self.linewidth) / 2 * contrast
-                    
+                        frequency_correction = (self.servo_gain * error_signal * self.linewidth) / (2 * contrast)
+
+
+                    delay(500*us)
                     feedback_aom_frequency = feedback_aom_frequency + frequency_correction
                     delay(10*ms)
 
@@ -864,7 +890,7 @@ class clock_transition_scan(EnvExperiment):
                 
                 count = count + 1
                 t2 = self.core.get_rtio_counter_mu()
-                print((t2-t1)*1e-6, "ms")
+                # print((t2-t1)*1e-6, "ms")
 
                 if count % 51 == 0:
                     print("Breaking RTIO timeline at iteration", count)

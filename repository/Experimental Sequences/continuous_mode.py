@@ -146,6 +146,9 @@ class continuous_mode(EnvExperiment):
         self.stepping_aom.set(frequency=self.clock_frequency * MHz)
         self.stepping_aom.set_att(self.clock_attenuation_dB * dB)
 
+        self.atom_lock_aom.set(frequency = 125*MHz)
+        self.atom_lock_aom.set_att(14* dB)
+
         delay(1000*ms)
 
         # if self.Sequence == 1:
@@ -192,7 +195,7 @@ class continuous_mode(EnvExperiment):
             self.zeeman_slower_aom.sw.off()
             self.red_mot_aom.sw.off()
             self.probe_aom.sw.off()
-            self.atom_lock_aom.sw.off()
+            # self.atom_lock_aom.sw.off()
             self.stepping_aom.sw.off()
 
         print("Parameters are set")

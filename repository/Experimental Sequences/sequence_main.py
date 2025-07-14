@@ -100,8 +100,8 @@ class sequence_main(EnvExperiment):
         self.stepping_aom.set(frequency = 85.5* MHz)
         self.stepping_aom.set_att(16*dB)
 
-        self.atom_lock_aom.set(frequency = 61 * MHz)
-        self.atom_lock_aom.set_att(26*dB)
+        self.atom_lock_aom.set(frequency = 125 * MHz)
+        self.atom_lock_aom.set_att(14*dB)
 
         self.atom_lock_aom.sw.on()
         self.blue_mot_aom.sw.on()
@@ -502,7 +502,7 @@ class sequence_main(EnvExperiment):
             )
 
 
-            self.red_mot_aom.set(frequency = 80.45 *MHz, amplitude = 0.08)
+            self.red_mot_aom.set(frequency = 80.45 *MHz, amplitude = 0.1)
             self.red_mot_aom.sw.on()
 
 
@@ -523,8 +523,8 @@ class sequence_main(EnvExperiment):
 
 
             delay(self.blue_mot_cooling_time*ms)   #Allowing further cooling of the cloud by just holding the atoms here
-                      
-
+ 
+         
      
 
      
@@ -560,15 +560,15 @@ class sequence_main(EnvExperiment):
 
             delay(self.single_frequency_time*ms)
             self.red_mot_aom.sw.off()
-              
+            
 
+                                 
             self.seperate_probe(
                 tof = self.time_of_flight,
-                probe_duration = 0.8* ms ,
+                probe_duration = 0.5* ms ,
                 probe_frequency= 205 * MHz
             )      
           
-         
 
 
 
