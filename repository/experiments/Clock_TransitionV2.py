@@ -97,7 +97,7 @@ class clock_transition_lookup_V2(EnvExperiment):
             self.Probe.set(frequency= 65 * MHz, amplitude=0.02)
             self.Single_Freq.set(frequency= 80 * MHz, amplitude=0.35)
             
-            voltage_1 = 1.01
+            voltage_1 = 1.14
             voltage_2 = 0.54
             self.MOT_Coil_1.write_dac(0, voltage_1)
             self.MOT_Coil_2.write_dac(1, voltage_2)
