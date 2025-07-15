@@ -1,5 +1,5 @@
 {
-    "_description": "transportable uob",
+    "_description": "transportable_uob",
     "target": "kasli",
     "min_artiq_version": "8.0",
     "variant": "transportable",
