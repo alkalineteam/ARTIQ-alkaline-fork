@@ -38,3 +38,4 @@ __pycache__/
 /artiq_kasli
 /flash
 flash_storage.img
+kasli.config
