@@ -251,7 +251,7 @@ class sequence_main(EnvExperiment):
 
             with parallel:
                     self.camera_trigger.pulse(2*ms)
-                    self.probe_aom.set(frequency=probe_frequency, amplitude=0.18)
+                    self.probe_aom.set(frequency=probe_frequency, amplitude=0.5)
                     self.probe_aom.sw.on()
                     
             delay(probe_duration)
@@ -537,7 +537,6 @@ class sequence_main(EnvExperiment):
             delay(self.broadband_red_mot_time*ms)
 
         
-      
 
             self.red_mot_aom.set(frequency = 80.55 *MHz, amplitude = 0.05)
 
@@ -551,7 +550,7 @@ class sequence_main(EnvExperiment):
                 f_start = 80.6,
                 f_end = 81,
                 A_start = 0.04,
-                A_end = 0.003
+                A_end = 0.0035
             )
 
 
@@ -562,13 +561,14 @@ class sequence_main(EnvExperiment):
             self.red_mot_aom.sw.off()
             
 
-                                 
             self.seperate_probe(
                 tof = self.time_of_flight,
-                probe_duration = 0.5* ms ,
+                probe_duration =1* ms ,
                 probe_frequency= 205 * MHz
             )      
           
+                     
+
 
 
 

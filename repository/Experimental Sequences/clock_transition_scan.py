@@ -36,6 +36,7 @@ class clock_transition_scan(EnvExperiment):
         self.repump_shutter_679:TTLOut=self.get_device("ttl10")
         self.red_mot_shutter:TTLOut=self.get_device("ttl12")
 
+
         # self.pmt_shutter:TTLOut=self.get_device("ttl10")
         # self.camera_trigger:TTLOut=self.get_device("ttl11")
         # self.camera_shutter:TTLOut=self.get_device("ttl12")        
@@ -350,7 +351,7 @@ class clock_transition_scan(EnvExperiment):
 
                 with parallel:
                     self.camera_trigger.pulse(1*ms)
-                    self.probe_aom.set(frequency=205 * MHz, amplitude=0.18)
+                    self.probe_aom.set(frequency=205 * MHz, amplitude=0.5)
 
                 self.probe_aom.sw.on()
                 delay(1* ms)      #Ground state probe duration                          
@@ -440,6 +441,8 @@ class clock_transition_scan(EnvExperiment):
         gs = samples_ch0[90:110]
         es = samples_ch0[908:928]
         bg = samples_ch0[1334:1354]
+        # es = samples_ch0[1020:1040]
+        # bg = samples_ch0[1456:1466]
 
         baseline = samples_ch0[0:40]
         baseline_sum = 0.0
@@ -746,11 +749,12 @@ class clock_transition_scan(EnvExperiment):
 
             delay(100*ms)
             
-            while True:
+            for i in range(int32(n)):
+                count = i
                 self.core.break_realtime()
+                delay(10*ms)
                 ### Insert entire sequence again
-                t1 = self.core.get_rtio_counter_mu()
-
+                # t1 = self.core.get_rtio_counter_mu()
                 delay(2*ms)
 
                 self.blue_mot_loading(
@@ -820,11 +824,11 @@ class clock_transition_scan(EnvExperiment):
                         aom_frequency = (center_frequency - (self.linewidth/2))*Hz,
                         pulse_time = self.rabi_pulse_duration_ms,
                     )
-
+                
                     low_side = self.normalised_detection(0,[0.0],[0.0],[0.0])
 
                     self.atom_lock_ex(low_side)
-                    # print(low_side)
+                    # print("low_side")
                     delay(2*ms)
                    
                     #return most recent excitation_fraction list value
@@ -837,18 +841,20 @@ class clock_transition_scan(EnvExperiment):
                         pulse_time = self.rabi_pulse_duration_ms,
                     )
                     high_side = self.normalised_detection(0,[0.0],[0.0],[0.0])
-                    # print(high_side)
+                    # print("high_side")
                     self.atom_lock_ex(high_side)
                     delay(2*ms)
-                    
-                if count % 2 == 0:              # Every other cycle generate correction
-                    #Calculate error signal and then make correction
-                    self.core.break_realtime()
-
-                    if high_side > 1.0 or low_side > 1.0:        #prevents bad excitation fraction from destabilising the lock
-                        error_signal = 0.0
-                    else:
-                        error_signal = high_side - low_side
+                if count == 0: 
+                    continue
+                else:   
+                    if count % 2 == 0:              # Every other cycle generate correction
+                        #Calculate error signal and then make correction
+                        self.core.break_realtime()
+                       
+                        if high_side > 1.0 or low_side > 1.0:        #prevents bad excitation fraction from destabilising the lock
+                            error_signal = 0.0
+                        else:
+                            error_signal = high_side - low_side
 
                     # denominator = 0.8 * 0.65 * (self.rabi_pulse_duration_ms * 1e-3)
 
@@ -859,37 +865,44 @@ class clock_transition_scan(EnvExperiment):
                     #     frequency_correction = (self.servo_gain / denominator) * error_signal
                     # # This is the first servo loop
 
-                    if error_signal == 0.0:
-                        frequency_correction = 0.0
-                        print("No correction made")
-                    else:
-                        frequency_correction = (self.servo_gain * error_signal * self.linewidth) / (2 * contrast)
+                        if error_signal == 0.0:
+                            frequency_correction = 0.0
+                            print("No correction made")
+                        elif high_side+low_side <= 0.05:
+                            frequency_correction = 0.0
+                            print("No correction made - too low")
+                        elif high_side+low_side >= 1.0:
+                            frequency_correction = 0.0
+                            print("No correction made - too high")
+                        else:
+                            frequency_correction = - (self.servo_gain * error_signal * self.linewidth) / (2 * contrast)
 
 
-                    delay(500*us)
-                    feedback_aom_frequency = feedback_aom_frequency + frequency_correction
-                    delay(10*ms)
+                        delay(500*us)
+                        feedback_aom_frequency = feedback_aom_frequency + frequency_correction
+                        print(feedback_aom_frequency)
+                        delay(10*ms)
 
-                    self.atom_lock_aom.set(frequency = feedback_aom_frequency)
-                    delay(10*ms)
+                        self.atom_lock_aom.set(frequency = feedback_aom_frequency)
+                        delay(10*ms)
 
 
-                    self.error_log(error_signal)
-                    self.correction_log(feedback_aom_frequency)
+                        self.error_log(error_signal)
+                        self.correction_log(feedback_aom_frequency)
+                        
+                        delay(5*ms)
+
+                        
+                        
                     
-                    delay(5*ms)
-
-                    
-                    
-                 
-                    #send the list of frequency corrections to the database, this will be done on the host side
-                    lock_loop = lock_loop + 1
-                    
-                    
-                    #write to text file
+                        #send the list of frequency corrections to the database, this will be done on the host side
+                        lock_loop = lock_loop + 1
+                        
+                        
+                        #write to text file
                 
-                count = count + 1
-                t2 = self.core.get_rtio_counter_mu()
+                # count = count + 1
+                # t2 = self.core.get_rtio_counter_mu()
                 # print((t2-t1)*1e-6, "ms")
 
                 if count % 51 == 0:
@@ -898,7 +911,7 @@ class clock_transition_scan(EnvExperiment):
 
 
 
-                delay(100*us)
+                delay(200*us)
 
 
                 # Add logic to adjust the aom frequency based on the contrast and linewidth

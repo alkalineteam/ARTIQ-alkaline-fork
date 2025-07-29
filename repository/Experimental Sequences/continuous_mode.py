@@ -52,8 +52,8 @@ class continuous_mode(EnvExperiment):
         self.setattr_argument("red_mot_amplitude", NumberValue(default = 0.05)) 
         # self.setattr_argument("RMOT_Attenuation", NumberValue(default = 0.0))
 
-        self.setattr_argument("probe_frequency", NumberValue(default = 205.0))
-        self.setattr_argument("probe_amplitude", NumberValue(default = 0.18)) 
+        self.setattr_argument("probe_frequency", NumberValue(default = 205))
+        self.setattr_argument("probe_amplitude", NumberValue(default = 0.018)) 
         # self.setattr_argument("Probe_Attenuation", NumberValue(default = 0.0))
 
         self.setattr_argument("lattice_frequency", NumberValue(default = 100.0))
