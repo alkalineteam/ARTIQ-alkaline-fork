@@ -3,8 +3,7 @@ Author: Jordan Wayland
 Last Updated: 2025-06-28
 Description:
     Drift-insensitive self-comparison (DISC) clock lock loop for Sr-88 using ARTIQ.
-    Evaluates the Quadratic Zeeman Shift by interleaving bias field 
-    and corrects AOM frequencies based on excitation fractions.
+    Interleaves probe powers and corrects AOM frequencies based on excitation fractions.
     
 
     DISC Method Citation: 
@@ -18,6 +17,7 @@ Description:
 
 """
 
+
 from artiq.experiment import *
 from artiq.coredevice.ttl import TTLOut
 from artiq.language.core import delay
@@ -29,7 +29,6 @@ from artiq.coredevice import ad9910
 import os
 import csv
 from datetime import datetime
-
 
 class quad_zeeman_shift_disc(EnvExperiment):
 
@@ -46,6 +45,7 @@ class quad_zeeman_shift_disc(EnvExperiment):
         self.camera_trigger:TTLOut=self.get_device("ttl8")
         self.clock_shutter:TTLOut=self.get_device("ttl9")
         self.repump_shutter_679:TTLOut=self.get_device("ttl10")
+        self.red_mot_shutter:TTLOut=self.get_device("ttl12")
 
         # self.pmt_shutter:TTLOut=self.get_device("ttl10")
         # self.camera_trigger:TTLOut=self.get_device("ttl11")
@@ -65,32 +65,36 @@ class quad_zeeman_shift_disc(EnvExperiment):
         self.mot_coil_1=self.get_device("zotino0")
         self.mot_coil_2=self.get_device("zotino0")
         
-        self.setattr_argument("high_bias_field_mT", NumberValue(default=5),group="Shift Parameters")
-        self.setattr_argument("low_bias_field_mT", NumberValue(default=2.3),group="Shift Parameters")
+        # self.setattr_argument("high_probe_power_att", NumberValue(default=16*dB),group="Shift Parameters")
+        # self.setattr_argument("low_probe_power_att", NumberValue(default=22*dB),group="Shift Parameters")
         self.setattr_argument("rabi_pulse_duration_ms_param_1", NumberValue(default= 60 * ms), group="Shift Parameters")
         self.setattr_argument("rabi_pulse_duration_ms_param_2", NumberValue(default= 60 * ms), group="Shift Parameters")
         self.setattr_argument("scan_center_frequency_Hz", NumberValue(default=85000000 * Hz),group="Scan Parameters",)
         self.setattr_argument("scan_range_Hz", NumberValue(default=500000 * Hz), group="Scan Parameters")
         self.setattr_argument("scan_step_size_Hz", NumberValue(default=1000 * Hz), group="Scan Parameters")
-        self.setattr_argument("clock_intensity", NumberValue(default=0.05), group="Locking")
+        self.setattr_argument("bias_field_mT_high", NumberValue(default=3.0),group="Shift Parameters")
+        self.setattr_argument("bias_field_mT_low", NumberValue(default=3.0),group="Shift Parameters")
         self.setattr_argument("blue_mot_loading_time", NumberValue(default=2000 * ms), group="Sequence Parameters")
         self.setattr_argument("Enable_Lock", BooleanValue(default=False), group="Locking")
         self.setattr_argument("servo_gain_1", NumberValue(default=0.3), group="Locking")
         self.setattr_argument("linewidth_1", NumberValue(default=100 * Hz), group="Locking")  # This is the linewidth of the clock transition, adjust as necessary
         self.setattr_argument("servo_gain_2", NumberValue(default=0.3), group="Locking")  # Added new servo gain parameter
         self.setattr_argument("linewidth_2", NumberValue(default=100 * Hz), group="Locking")  # Added new linewidth parameter
+        self.setattr_argument("param_shift_guess",NumberValue(default=43*Hz),group="Locking")
 
         self.feedback_list = []
         self.atom_lock_list = []
-        self.error_log_list = []
-        # scan_start = int32(self.scan_center_frequency_Hz - (int32(self.scan_range_Hz )/ 2))
-        # scan_end =int32(self.scan_center_frequency_Hz + (int32(self.scan_range_Hz ) / 2))
-        # self.scan_frequency_values = [float(x) for x in range(scan_start, scan_end, int32(self.scan_step_size_Hz))]
-        # self.cycles = len(self.scan_frequency_values)
+        self.error_log_list_1 = []
+        self.error_log_list_2 = []
+        self.lock_ex_list_1 = []
+        self.lock_ex_list_2 = []
+        self.param_log_list = []
+        self.lock_ex_list_main = []
+        self.correction_log_list_1 = []
+        self.correction_log_list_2 = []
+        self.correction_log_list_main = []
 
-        # self.gs_list = [0.0] * self.cycles
-        # self.es_list = [0.0] * self.cycles
-        # self.excitation_fraction_list = [0.0] * self.cycles
+    
 
     @kernel
     def initialise_modules(self):
@@ -101,7 +105,7 @@ class quad_zeeman_shift_disc(EnvExperiment):
         #  self.camera_shutter.output()
         self.camera_trigger.output()
         self.blue_mot_shutter.output()
-        #  self.red_mot_shutter.output()
+        self.red_mot_shutter.output()
         self.zeeman_slower_shutter.output()
         self.repump_shutter_707.output()
         self.repump_shutter_679.output()
@@ -123,7 +127,7 @@ class quad_zeeman_shift_disc(EnvExperiment):
         self.atom_lock_aom.init()
         self.atom_lock_aom.cpld.init()
 
-        self.atom_lock_aom.set(frequency = 125 * MHz)
+        self.atom_lock_aom.set(frequency = 61 * MHz)
         self.atom_lock_aom.set_att(26*dB)
 
         # Set the RF channels ON
@@ -142,26 +146,20 @@ class quad_zeeman_shift_disc(EnvExperiment):
 
         delay(100*ms)
 
-        # scan_start = int32(self.scan_center_frequency_Hz - (int32(self.scan_range_Hz )/ 2))
-        # scan_end =int32(self.scan_center_frequency_Hz + (int32(self.scan_range_Hz ) / 2))
-        # self.scan_frequency_values = [float(x) for x in range(scan_start, scan_end, int32(self.scan_step_size_Hz))]
-        # self.cycles = len(self.scan_frequency_values)
-
-        # self.gs_list = [0.0] * self.cycles
-        # self.es_list = [0.0] * self.cycles
-        # self.excitation_fraction_list = [0.0] * self.cycles
-
+ 
     @kernel
-    def clock_spectroscopy(self,aom_frequency,pulse_time,clock_intensity):                     #Switch to Helmholtz field, wait, then generate Rabi Pulse
+    def clock_spectroscopy(self,aom_frequency,pulse_time,bias_field):                     #Switch to Helmholtz field, wait, then generate Rabi Pulse
        
         self.red_mot_aom.sw.off()
         self.stepping_aom.sw.off()
+        self.red_mot_shutter.off()
 
         comp_field = 1.35 * 0.14    # comp current * scaling factor from measurement
-        bias_at_coil = (self.bias_field_mT - comp_field)/ 0.914   #bias field dips in center of coils due to geometry, scaling factor provided by modelling field
+        bias_at_coil = (bias_field - comp_field)/ 0.914   #bias field dips in center of coils due to geometry, scaling factor provided by modelling field
         current_per_coil = ((bias_at_coil) / 2.0086) / 2   
         coil_1_voltage = current_per_coil + 5.0
         coil_2_voltage = 5.0 - (current_per_coil / 0.94 )           #Scaled against coil 1
+
        
        
          #Switch to Helmholtz
@@ -174,18 +172,23 @@ class quad_zeeman_shift_disc(EnvExperiment):
 
         # self.pmt_shutter.on()
         # self.camera_shutter.on()
-        self.clock_shutter.on()    
+      
 
-        delay(40*ms)  #wait for coils to switch
+        delay(50*ms)  #wait for coils to switch
 
         #rabi spectroscopy pulse
+        self.clock_shutter.on()  
+        delay(4*ms)
+        #rabi spectroscopy pulse
         self.stepping_aom.set(frequency = aom_frequency )
-        self.stepping_aom.set_att(clock_intensity)
+        self.stepping_aom.set_att(16*dB)
         self.stepping_aom.sw.on()
         delay(pulse_time*ms)
         self.stepping_aom.sw.off()
         self.stepping_aom.set(frequency = 0 * Hz)
         self.stepping_aom.sw.off()
+        self.clock_shutter.off()
+        
    
     @kernel
     def normalised_detection(self,j,is_param_1,excitation_fraction_list_param_1,excitation_fraction_list_param_2):        #This function should be sampling from the PMT at the same time as the camera being triggered for seperate probe
@@ -214,22 +217,26 @@ class quad_zeeman_shift_disc(EnvExperiment):
 
                 delay(3.9*ms)     #wait for shutter to open
 
+
+
+
                 with parallel:
                     self.camera_trigger.pulse(1*ms)
-                    
-                    self.probe_aom.set(frequency=205 * MHz, amplitude=0.18)
+                    self.probe_aom.set(frequency=205 * MHz, amplitude=0.5)
+
                 self.probe_aom.sw.on()
-                delay(1* ms)      #Ground state probe duration                           
+                delay(1* ms)      #Ground state probe duration                          
                 self.probe_aom.sw.off()
                 self.probe_shutter.off()
-                
-                delay(5*ms)                         #repumping 
-               
-                with parallel:
-                    self.repump_shutter_679.pulse(10*ms)
-                    self.repump_shutter_707.pulse(10*ms)
 
-                delay(12*ms)                         #repumping 
+
+                delay(5*ms)                         #repumping
+
+                with parallel:
+                    self.repump_shutter_679.pulse(14*ms)
+                    self.repump_shutter_707.pulse(14*ms)
+
+                delay(20*ms)                         #repumping 
 
                 # ###############################Excited State##################################
 
@@ -245,7 +252,9 @@ class quad_zeeman_shift_disc(EnvExperiment):
 
                 # self.probe_shutter.on()
                 # delay(4.1*ms)
-                #########################Background############################
+
+
+                #  ########################Background############################
  
                 self.probe_aom.sw.on()
                 delay(1*ms)            #Ground state probe duration
@@ -268,60 +277,60 @@ class quad_zeeman_shift_disc(EnvExperiment):
 
         self.set_dataset("excitation_fraction", samples_ch0, broadcast=True, archive=True)
 
-        # print(self.excitation_fraction(samples_ch0))
-                                 
-        #     # Split the samples
-        baseline = samples_ch0[0:40]
-        baseline_mean = 0.0
-        gs = samples_ch0[70:130]
-        es = samples_ch0[680:740]
-        bg = samples_ch0[1100:1160]
-
-
-        with parallel: 
-            baseline_sum = 0.0
-            for x in baseline:
-                baseline_sum += float(x)
-                baseline_mean = baseline_sum / len(baseline)
-
-            gs_counts = 0.0
-            es_counts = 0.0
-            bg_counts = 0.0
-
-            measurement_time = 600.0 * sample_period     #set to 600 as each slice size is 600 samples at the moment,
-                                                         # we should trim this tighter to the peaks to avoid added noise
-            for val in gs[1:]:
-                gs_counts += val
-            for val in es[1:]:
-                es_counts += val
-            for val in bg[1:]:
-                bg_counts += val
-
         
+        baseline_mean = 0.0
+        gs = samples_ch0[90:110]
+        es = samples_ch0[908:928]
+        bg = samples_ch0[1334:1354]
+        # es = samples_ch0[1020:1040]
+        # bg = samples_ch0[1456:1466]
+
+        baseline = samples_ch0[0:40]
+        baseline_sum = 0.0
+        for x in baseline:
+            baseline_sum += float(x)
+            baseline_mean = baseline_sum / len(baseline)
+
+        gs_counts = 0.0
+        es_counts = 0.0
+        bg_counts = 0.0
+
+        measurement_time = 60 * sample_period     #set to 600 as each slice size is 600 samples at the moment,
+                                                        # we should trim this tighter to the peaks to avoid added noise
+
+        for val in gs[1:]:
+            gs_counts += val
+        for val in es[1:]:
+            es_counts += val
+        for val in bg[1:]:
+            bg_counts += val
+
+        gs_mean = gs_counts / len(gs)
+        es_mean = es_counts / len(es)
+        bg_mean = bg_counts / len(bg)
         #if we want the PMT to determine atom no, we will probably want photon counts,
         # will need expected collection efficiency of the telescope,Quantum efficiency etc, maybe use the camera atom no calculation to get this
         
         with parallel:
-            gs_measurement = ((gs_counts-baseline_mean)) * measurement_time         #integrates over the slice time to get the total photon counts
-            es_measurement = ((es_counts-baseline_mean))  * measurement_time
-            bg_measurement = ((bg_counts-baseline_mean)) * measurement_time
+            gs_measurement = ((gs_mean-baseline_mean)) * measurement_time         #integrates over the slice time to get the total photon counts
+            es_measurement = ((es_mean-baseline_mean))  * measurement_time
+            bg_measurement = ((bg_mean-baseline_mean)) * measurement_time
 
-    
-                    
             #if we want the PMT to determine atom no, we will probably want photon counts,
             # will need expected collection efficiency of the telescope,Quantum efficiency etc, maybe use the camera atom no calculation to get this
 
 
             numerator = es_measurement - bg_measurement
             denominator = (gs_measurement - bg_measurement) + (es_measurement - bg_measurement)
+
             if denominator != 0.0:
                 excitation_fraction = ((numerator / denominator ) )
                 if excitation_fraction < 0.0:
                     excitation_fraction = 0.0
             else:
                 excitation_fraction = float(0) # or 0.5 or some fallback value depending on experiment
-            
-            if is_param_1 == True: 
+
+            if is_param_1 == True:
                 excitation_fraction_list_param_1[j] = float(excitation_fraction)
             elif is_param_1 == False:
                 excitation_fraction_list_param_2[j] = float(excitation_fraction)
@@ -355,19 +364,30 @@ class quad_zeeman_shift_disc(EnvExperiment):
             return np.zeros_like(xdata), 0.0, 0.0, 0.0, [], []
         
     @rpc
-    def analyse_fit(self, scan_frequency_values, excitation_fraction_list):
-        fit_curve, amplitude, center, width, popt, pcov = self.fit_lorentzian(scan_frequency_values, excitation_fraction_list)
-
-        fit_curve = np.array(fit_curve, dtype=np.float64)
-        fit_params = np.array([amplitude, center, width], dtype=np.float64)
-
-        self.set_dataset("fit_result", fit_curve, broadcast=True, archive=True)
-        self.set_dataset("fit_params", fit_params, broadcast=True, archive=True)
+    def analyse_fit(self,param,scan_frequency_values, excitation_fraction_list):
+        if param == 1:
+            fit_curve, amplitude, center, width, popt, pcov = self.fit_lorentzian(scan_frequency_values, excitation_fraction_list)
+            fit_curve = np.array(fit_curve, dtype=np.float64)
+            fit_params = np.array([amplitude, center, width], dtype=np.float64)
+            self.set_dataset("fit_result_1", fit_curve, broadcast=True, archive=True)
+            self.set_dataset("fit_params_1", fit_params, broadcast=True, archive=True)
+        if param == 2:
+            fit_curve, amplitude, center, width, popt, pcov = self.fit_lorentzian(scan_frequency_values, excitation_fraction_list)
+            fit_curve = np.array(fit_curve, dtype=np.float64)
+            fit_params = np.array([amplitude, center, width], dtype=np.float64)
+            self.set_dataset("fit_result_2", fit_curve, broadcast=True, archive=True)
+            self.set_dataset("fit_params_2", fit_params, broadcast=True, archive=True)
     @rpc
-    def correction_log(self,value):
-        self.feedback_list.append(61000000 - value)
-        self.set_dataset("feedback_list", self.feedback_list, broadcast=True, archive=True)
-
+    def correction_log(self,which_param,value):
+        if which_param == 1:
+            self.correction_log_list_1.append(value)
+            self.set_dataset("correction_list_1", self.correction_log_list_1, broadcast=True, archive=True)
+        if which_param == 2:
+            self.correction_log_list_1.append(value)
+            self.set_dataset("correction_list_2", self.correction_log_list_2, broadcast=True, archive=True)
+        self.correction_log_list_main.append(value)
+        self.set_dataset("correction_log_list_both",self.correction_log_list_main, broadcast=True, archive=True)
+          
     @rpc 
     def error_log(self,which_param,value):
         """log of the error in the clock frequency"""
@@ -382,7 +402,7 @@ class quad_zeeman_shift_disc(EnvExperiment):
     def param_shift_log(self,value):
         self.param_log_list.append(value)
         """Logging of the shift in the clock frequency from the changing parameters"""
-        self.set_dataset("param log", self.param_log_list, unit = Hz ,broadcast=True, archive=True)
+        self.set_dataset("param_log", self.param_log_list, unit = Hz ,broadcast=True, archive=True)
 
     @rpc
     def atom_lock_ex_log(self,which_param,value):
@@ -447,6 +467,7 @@ class quad_zeeman_shift_disc(EnvExperiment):
             self.zeeman_slower_shutter.on()
             self.repump_shutter_707.on()
             self.repump_shutter_679.on()
+            self.red_mot_shutter.on()  
 
         self.red_mot_aom.set(frequency = 80.45 * MHz, amplitude = 0.08)
         self.red_mot_aom.sw.on()
@@ -541,12 +562,15 @@ class quad_zeeman_shift_disc(EnvExperiment):
         self.clock_spectroscopy(
             aom_frequency = stepping_aom_freq,
             pulse_time = rabi_pulse_duration,
-            clock_intensity = self.clock_intensity    
+            bias_field = param
         )
 
         excitation = self.normalised_detection(j,is_param_1,excitation_fraction_list_param_1,excitation_fraction_list_param_2)           
         delay(40*ms)
-        self.set_dataset("excitation_fraction_list", excitation_fraction_list_param_1, broadcast=True, archive=True)
+        if is_param_1 == True: 
+            self.set_dataset("excitation_fraction_list_param_1", excitation_fraction_list_param_1, broadcast=True, archive=True)
+        else:
+            self.set_dataset("excitation_fraction_list_param_2", excitation_fraction_list_param_2, broadcast=True, archive=True)
         return excitation 
 
     @kernel
@@ -568,20 +592,21 @@ class quad_zeeman_shift_disc(EnvExperiment):
         ############################### Scan Parameter 1: Low Bias Field ##############################
         for j in range(int32(cycles)):        
             self.run_sequence(j,
-                self.high_bias_field_mT,   
+                self.bias_field_mT_low,    #Here the parameter we are changing is the bias field
                 scan_frequency_values[j],
-                self.rabi_pulse_duration_param_1,
+                self.rabi_pulse_duration_ms_param_1,
                 1,
                 excitation_fraction_list_param_1,
                 excitation_fraction_list_param_2     
             )  
-
+  
+        self.analyse_fit(1,scan_frequency_values,excitation_fraction_list_param_1)
         ############################### Scan Parameter 2: High Bias Field ###############################
         for j in range(int32(cycles)):        
             self.run_sequence(j,
-                self.high_bias_field_mT,                    #parameter 2
+                self.bias_field_mT_high,                    #parameter 2
                 scan_frequency_values[j],  #stepping aom values
-                self.rabi_pulse_duration_param_2,
+                self.rabi_pulse_duration_ms_param_2,
                 2,                         #parameter marker
                 excitation_fraction_list_param_1,
                 excitation_fraction_list_param_2    
@@ -589,8 +614,8 @@ class quad_zeeman_shift_disc(EnvExperiment):
 
         #process data and do fit from the scan
 
-        self.analyse_fit(scan_frequency_values, excitation_fraction_list_param_1)
-        self.analyse_fit(scan_frequency_values, excitation_fraction_list_param_2)
+        
+        self.analyse_fit(2,scan_frequency_values,excitation_fraction_list_param_2)
 
         # from the excitation fraction list we need to manually extract the peak height and center_frequency. 
 
@@ -617,6 +642,7 @@ class quad_zeeman_shift_disc(EnvExperiment):
 
 
         param_shift = center_frequency_2 - center_frequency_1
+        print(param_shift)
         
 
         delay(1*ms)
@@ -626,7 +652,7 @@ class quad_zeeman_shift_disc(EnvExperiment):
 
             self.core.break_realtime()                                       # How many seconds there are in a month
             count = 0
-            feedback_aom_frequency_1 = 61.0 * MHz
+            feedback_aom_frequency_1 = 125.0 * MHz
             feedback_aom_frequency_2 = feedback_aom_frequency_1 + param_shift
             
             delay(10*ms)
@@ -641,35 +667,35 @@ class quad_zeeman_shift_disc(EnvExperiment):
 
                 self.atom_lock_aom.set(frequency = feedback_aom_frequency_1)
                 p_1_low = self.run_sequence(0,
-                    self.low_bias_field_mT,                    #parameter 2
+                    self.bias_field_mT_low,                    #parameter 1
                     center_frequency_1 - self.linewidth_1/2,  #stepping aom values
-                    self.rabi_pulse_duration_param_1,
+                    self.rabi_pulse_duration_ms_param_1,
                     1,
                     excitation_fraction_list_param_1,
                     excitation_fraction_list_param_2    
                 ) 
                 self.atom_lock_aom.set(frequency = feedback_aom_frequency_2)
                 p_2_low = self.run_sequence(0,
-                   self.high_bias_field_mT,                    #parameter 2
+                    self.bias_field_mT_high,                    #parameter 2
                     center_frequency_1 - self.linewidth_2/2,  #stepping aom values
-                    self.rabi_pulse_duration_param_2,
+                    self.rabi_pulse_duration_ms_param_2,
                     2,
                     excitation_fraction_list_param_1,
                     excitation_fraction_list_param_2    
                 ) 
                 p_2_high = self.run_sequence(0,
-                    self.high_bias_field_mT,                  #parameter 2
+                    self.bias_field_mT_high,                    #parameter 2
                     center_frequency_1 - self.linewidth_2/2,  #stepping aom values
-                    2,
-                    self.rabi_pulse_duration_param_2,             
+                    self.rabi_pulse_duration_ms_param_2,
+                    2,             
                     excitation_fraction_list_param_1,
                     excitation_fraction_list_param_2    
                 )
                 self.atom_lock_aom.set(frequency = feedback_aom_frequency_1)
                 p_1_high = self.run_sequence(0,
-                    self.low_bias_field_mT,                    #parameter 2
+                    self.bias_field_mT_low,                    #parameter 2
                     center_frequency_1 + self.linewidth_1/2,  #stepping aom values
-                    self.rabi_pulse_duration_param_1,
+                    self.rabi_pulse_duration_ms_param_1,
                     1,
                     excitation_fraction_list_param_1,
                     excitation_fraction_list_param_2    
@@ -684,12 +710,14 @@ class quad_zeeman_shift_disc(EnvExperiment):
 
                 self.error_log(1,delta_f1)
                 self.error_log(2,delta_f2)
-
                 self.param_shift_log(param_shift)
+                self.atom_lock_ex_log(1,p_1_low)
+                self.atom_lock_ex_log(1,p_1_high)
 
-                self.atom_lock_ex_log(1,[p_1_low,p_1_high])
-                self.atom_lock_ex_log(2,[p_2_low,p_2_high])
-
+                self.atom_lock_ex_log(2,p_2_low) 
+                self.atom_lock_ex_log(2,p_2_high)               
+                self.correction_log(1,delta_f1)
+                self.correction_log(2,delta_f2)
                     
                 delay(5*ms)
 

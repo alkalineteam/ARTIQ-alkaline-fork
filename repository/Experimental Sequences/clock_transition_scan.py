@@ -290,8 +290,8 @@ class clock_transition_scan(EnvExperiment):
         current_per_coil = ((bias_at_coil) / 2.0086) / 2   
         coil_1_voltage = current_per_coil + 5.0
         coil_2_voltage = 5.0 - (current_per_coil / 0.94 )           #Scaled against coil 1
-       
-       
+
+
          #Switch to Helmholtz
         self.mot_coil_1.write_dac(1, coil_1_voltage)  
         self.mot_coil_2.write_dac(0, coil_2_voltage)
@@ -406,43 +406,12 @@ class clock_transition_scan(EnvExperiment):
 
         self.set_dataset("excitation_fraction", samples_ch0, broadcast=True, archive=True)
 
-        # print(self.excitation_fraction(samples_ch0))
-                                 
-        #     # Split the samples
-
-        # gs = samples_ch0[70:110]
-        # es = samples_ch0[685:705]
-        # bg = samples_ch0[1111:1131]
-
-
-        # # Ground state pulse
-        # gs = samples_ch0[70:110]
-        # gs_sum = 0.0
-        # for x in gs:
-        #     gs_sum += float(x)
-        # gs_mean = gs_sum / len(gs)
-
-        # # Excited state pulse
-        # es = samples_ch0[685:705]
-        # es_sum = 0.0
-        # for x in es:
-        #     es_sum += float(x)
-        # es_mean = es_sum / len(es)
-
-        # # Background pulse
-        # bg = samples_ch0[1111:1131]
-        # bg_sum = 0.0
-        # for x in bg:
-        #     bg_sum += float(x)
-        # bg_mean = bg_sum / len(bg)
-
-        # baseline = samples_ch0[0:40]
+        
         baseline_mean = 0.0
         gs = samples_ch0[90:110]
         es = samples_ch0[908:928]
         bg = samples_ch0[1334:1354]
-        # es = samples_ch0[1020:1040]
-        # bg = samples_ch0[1456:1466]
+       
 
         baseline = samples_ch0[0:40]
         baseline_sum = 0.0
