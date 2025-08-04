@@ -93,6 +93,8 @@ class quad_zeeman_shift_disc(EnvExperiment):
         self.correction_log_list_1 = []
         self.correction_log_list_2 = []
         self.correction_log_list_main = []
+        self.feedback_log_list_1 = []
+        self.feedback_log_list_2 = []
 
     
 
@@ -127,8 +129,8 @@ class quad_zeeman_shift_disc(EnvExperiment):
         self.atom_lock_aom.init()
         self.atom_lock_aom.cpld.init()
 
-        self.atom_lock_aom.set(frequency = 61 * MHz)
-        self.atom_lock_aom.set_att(26*dB)
+        self.atom_lock_aom.set(frequency = 125 * MHz)
+        self.atom_lock_aom.set_att(14*dB)
 
         # Set the RF channels ON
         self.blue_mot_aom.sw.on()
@@ -339,7 +341,7 @@ class quad_zeeman_shift_disc(EnvExperiment):
 
         delay(500*us)
         return excitation_fraction
-        delay(25*ms)
+        
         # ef.append(self.excitation_fraction_list)
  
     def fit_lorentzian(self, xdata, ydata):
@@ -383,11 +385,23 @@ class quad_zeeman_shift_disc(EnvExperiment):
             self.correction_log_list_1.append(value)
             self.set_dataset("correction_list_1", self.correction_log_list_1, broadcast=True, archive=True)
         if which_param == 2:
-            self.correction_log_list_1.append(value)
+            self.correction_log_list_2.append(value)
             self.set_dataset("correction_list_2", self.correction_log_list_2, broadcast=True, archive=True)
         self.correction_log_list_main.append(value)
         self.set_dataset("correction_log_list_both",self.correction_log_list_main, broadcast=True, archive=True)
           
+    @rpc
+    def feedback_log(self,which_param,value):
+        if which_param == 1:
+            self.feedback_log_list_1.append(125000000-value)
+            self.set_dataset("feedback_list_1", self.feedback_log_list_1, broadcast=True, archive=True)
+        if which_param == 2:
+            self.feedback_log_list_2.append(125000000-value)
+            self.set_dataset("feedback_list_2", self.feedback_log_list_2, broadcast=True, archive=True)
+
+
+
+
     @rpc 
     def error_log(self,which_param,value):
         """log of the error in the clock frequency"""
@@ -566,6 +580,7 @@ class quad_zeeman_shift_disc(EnvExperiment):
         )
 
         excitation = self.normalised_detection(j,is_param_1,excitation_fraction_list_param_1,excitation_fraction_list_param_2)           
+
         delay(40*ms)
         if is_param_1 == True: 
             self.set_dataset("excitation_fraction_list_param_1", excitation_fraction_list_param_1, broadcast=True, archive=True)
@@ -634,15 +649,22 @@ class quad_zeeman_shift_disc(EnvExperiment):
                 max_idx_2 = i
 
         # Assign contrast and center frequency
-        contrast_1 = max_val_1
+        contrast_1 = 0.5
         center_frequency_1 = scan_frequency_values[max_idx_1]
 
-        contrast_2 = max_val_2
+        contrast_2 = 0.5
         center_frequency_2 = scan_frequency_values[max_idx_2]
 
+        total_drift = 0.23 * ((cycles - max_idx_1) + max_idx_2) * 1.7
+        print("Total Drift: ", total_drift)
 
-        param_shift = center_frequency_2 - center_frequency_1
+
+
+        # param_shift = center_frequency_2 - center_frequency_1 + total_drift
+        param_shift = self.param_shift_guess
         print(param_shift)
+
+        
         
 
         delay(1*ms)
@@ -652,8 +674,8 @@ class quad_zeeman_shift_disc(EnvExperiment):
 
             self.core.break_realtime()                                       # How many seconds there are in a month
             count = 0
-            feedback_aom_frequency_1 = 125.0 * MHz
-            feedback_aom_frequency_2 = feedback_aom_frequency_1 + param_shift
+            feedback_aom_frequency_1 = 125.0 * MHz - total_drift
+            feedback_aom_frequency_2 = feedback_aom_frequency_1 + param_shift 
             
             delay(10*ms)
             
@@ -700,14 +722,41 @@ class quad_zeeman_shift_disc(EnvExperiment):
                     excitation_fraction_list_param_1,
                     excitation_fraction_list_param_2    
                 )
+                
+                error_1 = (p_1_high - p_1_low)
+                error_2 = (p_2_high - p_2_low)
 
-                delta_f1 = (self.servo_gain_1 * (p_1_high - p_1_low) * self.linewidth_1 ) / 2 * contrast_1        #Scaling into Hz
-                delta_f2 = (self.servo_gain_2 * (p_2_high - p_2_low) * self.linewidth_2) / 2 * contrast_2
+                if error_1 == 0.0:
+                    delta_f1 = 0.0
+                    # print("No correction made")
+                elif p_1_high+p_1_low <= 0.05:
+                    delta_f1 = 0.0
+                    # print("No correction made - too low")
+                elif p_1_high+p_1_low >= 1.0:
+                    delta_f1 = 0.0
+                    # print("No correction made - too high")
+                else:
+                    delta_f1 = -(self.servo_gain_1 * error_1 * self.linewidth_1 ) / 2 * contrast_1        #Scaling into Hz
+
+
+                if error_2 == 0.0:
+                    delta_f2 = 0.0
+                    # print("No correction made")
+                elif p_2_high+p_2_low <= 0.05:
+                    delta_f2 = 0.0
+                    # print("No correction made - too low")
+                elif p_2_high+p_2_low >= 1.0:
+                    delta_f2 = 0.0
+                    # print("No correction made - too high")
+                else:
+                    delta_f2 = -(self.servo_gain_2 * error_2 * self.linewidth_2) / 2 * contrast_2        #Scaling into Hz
+     
 
                 feedback_aom_frequency_1 = feedback_aom_frequency_1 + delta_f1
                 feedback_aom_frequency_2 = feedback_aom_frequency_2 + delta_f2
                 param_shift = feedback_aom_frequency_2 - feedback_aom_frequency_1
-
+                self.feedback_log(1,feedback_aom_frequency_1)
+                self.feedback_log(2,feedback_aom_frequency_2)
                 self.error_log(1,delta_f1)
                 self.error_log(2,delta_f2)
                 self.param_shift_log(param_shift)

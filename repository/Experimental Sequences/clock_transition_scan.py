@@ -317,8 +317,7 @@ class clock_transition_scan(EnvExperiment):
         self.stepping_aom.set(frequency = 0 * Hz)
         self.stepping_aom.sw.off()
         self.clock_shutter.off()
-   
-
+        
     @kernel
     def normalised_detection(self,j,gs_list,es_list,excitation_fraction_list):        #This function should be sampling from the PMT at the same time as the camera being triggered for seperate probe
         self.core.break_realtime()
