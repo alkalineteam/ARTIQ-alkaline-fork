@@ -39,3 +39,4 @@ __pycache__/
 /flash
 flash_storage.img
 kasli.config
+*.egg-info
