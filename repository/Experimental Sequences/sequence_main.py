@@ -22,7 +22,8 @@ class sequence_main(EnvExperiment):
         self.camera_trigger:TTLOut=self.get_device("ttl8")
         self.clock_shutter:TTLOut=self.get_device("ttl9")
         self.repump_shutter_679:TTLOut=self.get_device("ttl10")
-        self.camera_shutter:TTLOut=self.get_device("ttl11")   
+        self.camera_shutter:TTLOut=self.get_device("ttl11")
+        self.red_mot_shutter:TTLOut=self.get_device("ttl12")   
         #AD9910
         self.red_mot_aom = self.get_device("urukul0_ch0")
         self.blue_mot_aom = self.get_device("urukul0_ch1")
@@ -501,13 +502,13 @@ class sequence_main(EnvExperiment):
 
         self.initialise_modules()
         self.dedrift_aom.set_att(16* dB)
-        drift_correction = self.Hz_s_correction * 1e-4# for 10us delay, 1e-6 for 1us delay
+        drift_correction = 0.7* 1e-4# for 10us delay, 1e-6 for 1us delay
       
         self.dedrift_aom.set(frequency=self.output_frequency)
 
 
         with parallel:
-            for i in range(10000000):
+            for i in range(1000000000):
                 delay(100*us)
                 self.output_frequency = self.output_frequency + drift_correction
                 self.dedrift_aom.set(frequency=self.output_frequency)
