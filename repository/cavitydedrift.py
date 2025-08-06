@@ -1,6 +1,7 @@
 # from turtle import delay
 from artiq.experiment import *
 from numpy import int64
+import time
 
 class cavitydedrift(EnvExperiment):
     def build(self):
@@ -15,10 +16,12 @@ class cavitydedrift(EnvExperiment):
     @kernel
     def run(self):
         self.core.reset()
+
         self.core.break_realtime()
 
         self.dedrift_aom.cpld.init()
         self.dedrift_aom.init()
+      
         count = 0
         self.dedrift_aom.sw.on()
 
@@ -33,5 +36,5 @@ class cavitydedrift(EnvExperiment):
             self.dedrift_aom.set(frequency=self.output_frequency)
             if count % 10000 == 0.0:
                     self.set_dataset("drift_aom_frequency", self.output_frequency, broadcast=True)
-                count = count + 1
-
+            count = count + 1
+      

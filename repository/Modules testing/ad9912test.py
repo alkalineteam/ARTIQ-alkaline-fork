@@ -1,6 +1,7 @@
 # from turtle import delay
 from artiq.experiment import *
 from numpy import int64
+import time
 
 class TestAD9912(EnvExperiment):
     def build(self):
@@ -36,6 +37,7 @@ class TestAD9912(EnvExperiment):
                 if count % 10000 == 0.0:
                     self.set_dataset("drift_aom_frequency", self.output_frequency, broadcast=True)
                 count = count + 1
+                
         # for i in range(int64(self.Number_of_pulse)):
         #     self.ad9912_0.set(frequency=30 * MHz)
         #     delay(self.Pulse_width*ms)
