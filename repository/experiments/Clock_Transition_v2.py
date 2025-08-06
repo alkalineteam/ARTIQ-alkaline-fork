@@ -2,7 +2,7 @@ from artiq.experiment import *
 from artiq.coredevice.ttl import TTLOut
 from numpy import int64
 
-class clock_transition_lookup_v3(EnvExperiment):
+class clock_transition_lookup_v2(EnvExperiment):
     def build(self):
         self.setattr_device("core")
         self.Camera:TTLOut=self.get_device("ttl10")
