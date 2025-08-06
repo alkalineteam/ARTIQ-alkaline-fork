@@ -14,7 +14,7 @@ class sequence_main(EnvExperiment):
         
         self.sampler:Sampler = self.get_device("sampler0")
         #Assign all channels
-              #TTLs
+        #TTLs
         self.blue_mot_shutter:TTLOut=self.get_device("ttl4")
         self.repump_shutter_707:TTLOut=self.get_device("ttl5")
         self.zeeman_slower_shutter:TTLOut=self.get_device("ttl6")
@@ -23,8 +23,6 @@ class sequence_main(EnvExperiment):
         self.clock_shutter:TTLOut=self.get_device("ttl9")
         self.repump_shutter_679:TTLOut=self.get_device("ttl10")
         self.camera_shutter:TTLOut=self.get_device("ttl11")   
-
-        # self.pmt_shutter:TTLOut=self.get_device("ttl10")
         #AD9910
         self.red_mot_aom = self.get_device("urukul0_ch0")
         self.blue_mot_aom = self.get_device("urukul0_ch1")
@@ -34,13 +32,12 @@ class sequence_main(EnvExperiment):
         self.lattice_aom=self.get_device("urukul1_ch0")
         self.stepping_aom=self.get_device("urukul1_ch1")
         self.atom_lock_aom=self.get_device("urukul1_ch2")
-               
-        
+        self.dedrift_aom=self.get_device("urukul1_ch3")    
         #Zotino
         self.mot_coil_1=self.get_device("zotino0")
         self.mot_coil_2=self.get_device("zotino0")
         
-             
+        # Arguments to appear in the GUI     
         self.setattr_argument("cycles", NumberValue(default=1))
         self.setattr_argument("blue_mot_loading_time", NumberValue(default=2000))
         self.setattr_argument("blue_mot_compression_time", NumberValue(default=20))
@@ -49,7 +46,6 @@ class sequence_main(EnvExperiment):
         self.setattr_argument("red_mot_compression_time", NumberValue(default=5))
         self.setattr_argument("single_frequency_time", NumberValue(default=25))
         self.setattr_argument("time_of_flight", NumberValue(default=40))
-
         self.setattr_argument("blue_mot_coil_1_voltage", NumberValue(default=8.0))
         self.setattr_argument("blue_mot_coil_2_voltage", NumberValue(default=7.9))
         self.setattr_argument("compressed_blue_mot_coil_1_voltage", NumberValue(default=8.62))
@@ -60,10 +56,6 @@ class sequence_main(EnvExperiment):
         self.setattr_argument("sf_rmot_coil_2_voltage", NumberValue(default=5.64))
         self.setattr_argument("sf_frequency", NumberValue(default=80.92))
 
-        self.dedrift_aom=self.get_device("urukul1_ch3") 
-    
-        self.setattr_argument("Hz_s_correction", NumberValue(default=0.7))
-        self.setattr_argument("attenuation", NumberValue(default=16 *dB))
 
         self.output_frequency = self.get_dataset("drift_aom_frequency")
 
@@ -74,17 +66,18 @@ class sequence_main(EnvExperiment):
             
         delay(1000*ms)
 
-        # Initialize the modules
+        # Initialise shutters
         self.camera_shutter.output()
         self.camera_trigger.output()
         self.blue_mot_shutter.output()
-        #  self.red_mot_shutter.output()
+        self.red_mot_shutter.output()
         self.zeeman_slower_shutter.output()
         self.repump_shutter_707.output()
         self.repump_shutter_679.output()
         self.probe_shutter.output()
         self.clock_shutter.output()
-        #   self.pmt_shutter.output()
+        
+        #initialise aoms and cplds
         self.mot_coil_1.init()
         self.mot_coil_2.init()
         self.blue_mot_aom.cpld.init()
@@ -101,32 +94,45 @@ class sequence_main(EnvExperiment):
         self.stepping_aom.init()
         self.atom_lock_aom.init()
         self.atom_lock_aom.cpld.init()
+        self.dedrift_aom.cpld.init()
+        self.dedrift_aom.init()
 
         self.sampler.init() 
 
-        # Set the RF channels ON
+        # Set AD9912 AOM frequencies and attenuations 
+        
+        #Stepping AOM - closest to the atoms
         self.stepping_aom.set(frequency = 85.5* MHz)
         self.stepping_aom.set_att(16*dB)
 
+        #Atom Lock AOM - for feeding back to 1397 clock laser 
         self.atom_lock_aom.set(frequency = 125 * MHz)
         self.atom_lock_aom.set_att(13*dB)
 
+        #Lattice AOM - for magic wavelength lattice measurements
         self.lattice_aom.set(frequency = 100 *MHz)
         self.lattice_aom.set_att(14*dB)
 
+        #Dedrift AOM - counteracting drift of 1397 clock laser
+        self.dedrift_aom.set(frequency = self.output_frequency)
+        self.dedrift_aom.set_att(16*dB)
+
+        # Set initial states of AOMs
+        self.probe_aom.sw.off()
         self.atom_lock_aom.sw.on()
         self.blue_mot_aom.sw.on()
         self.zeeman_slower_aom.sw.on()
         self.stepping_aom.sw.on()
-        # self.red_mot_aom.sw.on()
-        self.probe_aom.sw.off()
+        self.atom_lock_aom.sw.on()
+        self.dedrift_aom.sw.on()
         self.lattice_aom.sw.on()
 
-        # Set the RF attenuation
+        # Set the RF attenuation for AD9910s
         self.blue_mot_aom.set_att(0.0)
         self.zeeman_slower_aom.set_att(0.0)
         self.probe_aom.set_att(0.0)
         self.red_mot_aom.set_att(0.0)
+
 
         delay(100*ms)
 
@@ -239,9 +245,6 @@ class sequence_main(EnvExperiment):
             
             delay(step_duration*ms)
 
-
-            
-
     @kernel 
     def seperate_probe(self,tof,probe_duration,probe_frequency):
             with parallel:
@@ -309,8 +312,6 @@ class sequence_main(EnvExperiment):
 
             delay(10*ms)
 
-
-
     @kernel
     def clock_spectroscopy(self,aom_frequency,pulse_time,B):
          
@@ -326,8 +327,6 @@ class sequence_main(EnvExperiment):
         self.stepping_aom.set(frequency = aom_frequency * Hz)
         delay(pulse_time*ms)
         self.stepping_aom.set(frequency = 0 * Hz)
-
-
 
     @kernel
     def pmt_capture(self,sampling_duration,sampling_rate,tof):        #This function should be sampling from the PMT at the same time as the camera being triggered for seperate probe
@@ -379,7 +378,6 @@ class sequence_main(EnvExperiment):
         samples_ch0 = [i[0] for i in samples]
         print(samples_ch0)
         self.set_dataset("samples", samples_ch0, broadcast=True, archive=True)
-
 
     @kernel
     def normalised_detection(self,j,excitation_fraction_list):        #This function should be sampling from the PMT at the same time as the camera being triggered for seperate probe
