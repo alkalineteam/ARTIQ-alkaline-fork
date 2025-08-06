@@ -79,7 +79,7 @@ class clock_transition_lookup_V2(EnvExperiment):
         self.Clock.set_att(0.0)
 
         self.Ref.set(frequency=80 * MHz)
-        self.Ref.set_att(10.0)
+        self.Ref.set_att(0.0)
 
         # Clock parameters
         step_size = self.Step_Size
@@ -97,7 +97,7 @@ class clock_transition_lookup_V2(EnvExperiment):
             self.Probe.set(frequency= 65 * MHz, amplitude=0.02)
             self.Single_Freq.set(frequency= 80 * MHz, amplitude=0.35)
             
-            voltage_1 = 1.14
+            voltage_1 = 1.1
             voltage_2 = 0.54
             self.MOT_Coil_1.write_dac(0, voltage_1)
             self.MOT_Coil_2.write_dac(1, voltage_2)
@@ -155,7 +155,7 @@ class clock_transition_lookup_V2(EnvExperiment):
                 self.Single_Freq.sw.on()
 
             voltage_1_com = 2.54
-            voltage_2_com = 2.28
+            voltage_2_com = 2.26
             red_amp = 0.35
             amp_com = 0.02
             red_freq = 80.0
@@ -190,7 +190,7 @@ class clock_transition_lookup_V2(EnvExperiment):
             self.Single_Freq.sw.off()
 
             # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 6.9)# 5.56/2.28 = 1.85; 6.9/0.54 = 3.5; 4.9/3.1 = 1;
+            self.MOT_Coil_1.write_dac(0, 6.96)# 5.56/2.28 = 1.85; 6.96/0.54 = 3.5; 4.9/3.1 = 1;
             self.MOT_Coil_2.write_dac(1, 0.54)
             with parallel:
                 self.MOT_Coil_1.load()
@@ -253,6 +253,19 @@ class clock_transition_lookup_V2(EnvExperiment):
                 with parallel:
                     self.Pixelfly.off()
                     self.Camera.off()
+                    self.Ref.sw.off()
+                    # self.Probe_TTL.off()
+                    self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+
+                delay(5 *ms)
+
+                with parallel:
+                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                    self.Ref.sw.on()
+                
+                delay(0.5 *ms)
+                
+                with parallel:
                     self.Ref.sw.off()
                     self.Probe_TTL.off()
                     self.Probe.set(frequency= 65 * MHz, amplitude=0.00)

@@ -9,7 +9,8 @@ class PMTtest(EnvExperiment):
     def build(self):
         self.setattr_device("core")
         self.setattr_device("ccb")
-        self.setattr_device("sampler")
+        self.sampler=self.get_device("sampler0")
+        self.reference=self.get_device("urukul0_ch3")
 
         self.setattr_argument("sample_number", NumberValue(precision=3, default=0))
         self.setattr_argument("sampling_rate", NumberValue(precision=3, default=0))
@@ -20,23 +21,28 @@ class PMTtest(EnvExperiment):
         self.core.reset()
         self.core.break_realtime()    
         self.sampler.init()
+        self.reference.cpld.init()
+        self.reference.init()
 
-        num_samples = int32(self.sample_number)
-        samples = [[0.0 for i in range(8)] for i in range(num_samples)]
-        sampling_period = 1/self.sampling_rate
+        self.reference.set(frequency=80 * MHz)
+        self.reference.set_att(0.0)
 
-        for i in range(num_samples):
-            self.sampler.sample(samples[i])
-            delay(sampling_period * s)
+        # num_samples = int32(self.sample_number)
+        # samples = [[0.0 for i in range(8)] for i in range(num_samples)]
+        # sampling_period = 1/self.sampling_rate
 
-        sample2 = [i[0] for i in samples]
-        self.set_dataset("samples", sample2, broadcast=True, archive=True)
+        # for i in range(num_samples):
+        #     self.sampler.sample(samples[i])
+        #     delay(sampling_period * s)
+
+        # sample2 = [i[0] for i in samples]
+        # self.set_dataset("samples", sample2, broadcast=True, archive=True)
         
-        self.ccb.issue("create_applet", 
-                       "plotting", 
-                       "${artiq_applet}plot_x "
-                    #    "dat_y "
-                       "--x dat_x "
-                       "--title PMTtest", 
-                    #    group = "test"
-        )
+        # self.ccb.issue("create_applet", 
+        #                "plotting", 
+        #                "${artiq_applet}plot_x "
+        #             #    "dat_y "
+        #                "--x dat_x "
+        #                "--title PMTtest", 
+        #             #    group = "test"
+        # )
