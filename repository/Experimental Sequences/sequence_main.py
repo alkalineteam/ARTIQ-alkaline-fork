@@ -507,7 +507,7 @@ class sequence_main(EnvExperiment):
 
 
         with parallel:
-            for i in range(10000000):
+            for i in range(100):
                 delay(100*us)
                 self.output_frequency = self.output_frequency + drift_correction
                 self.dedrift_aom.set(frequency=self.output_frequency)
