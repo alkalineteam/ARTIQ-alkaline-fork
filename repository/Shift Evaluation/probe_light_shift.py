@@ -45,6 +45,7 @@ class probe_light_shift_disc(EnvExperiment):
         self.camera_trigger:TTLOut=self.get_device("ttl8")
         self.clock_shutter:TTLOut=self.get_device("ttl9")
         self.repump_shutter_679:TTLOut=self.get_device("ttl10")
+        self.red_mot_shutter:TTLOut=self.get_device("ttl12")
 
         # self.pmt_shutter:TTLOut=self.get_device("ttl10")
         # self.camera_trigger:TTLOut=self.get_device("ttl11")
@@ -92,14 +93,6 @@ class probe_light_shift_disc(EnvExperiment):
         self.correction_log_list_2 = []
         self.correction_log_list_main = []
 
-        # scan_start = int32(self.scan_center_frequency_Hz - (int32(self.scan_range_Hz )/ 2))
-        # scan_end =int32(self.scan_center_frequency_Hz + (int32(self.scan_range_Hz ) / 2))
-        # self.scan_frequency_values = [float(x) for x in range(scan_start, scan_end, int32(self.scan_step_size_Hz))]
-        # self.cycles = len(self.scan_frequency_values)
-
-        # self.gs_list = [0.0] * self.cycles
-        # self.es_list = [0.0] * self.cycles
-        # self.excitation_fraction_list = [0.0] * self.cycles
 
     @kernel
     def initialise_modules(self):
@@ -110,7 +103,7 @@ class probe_light_shift_disc(EnvExperiment):
         #  self.camera_shutter.output()
         self.camera_trigger.output()
         self.blue_mot_shutter.output()
-        #  self.red_mot_shutter.output()
+        self.red_mot_shutter.output()
         self.zeeman_slower_shutter.output()
         self.repump_shutter_707.output()
         self.repump_shutter_679.output()

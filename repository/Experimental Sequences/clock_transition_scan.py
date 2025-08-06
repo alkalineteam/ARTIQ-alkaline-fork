@@ -34,7 +34,8 @@ class clock_transition_scan(EnvExperiment):
         self.camera_trigger:TTLOut=self.get_device("ttl8")
         self.clock_shutter:TTLOut=self.get_device("ttl9")
         self.repump_shutter_679:TTLOut=self.get_device("ttl10")
-        self.camera_shutter:TTLOut=self.get_device("ttl11")   
+        self.camera_shutter:TTLOut=self.get_device("ttl11")
+        self.red_mot_shutter:TTLOut=self.get_device("ttl12")   
         #AD9910
         self.red_mot_aom = self.get_device("urukul0_ch0")
         self.blue_mot_aom = self.get_device("urukul0_ch1")
@@ -139,7 +140,7 @@ class clock_transition_scan(EnvExperiment):
         self.red_mot_aom.set_att(0.0)
 
 
-        delay(100*ms)
+        delay(100*us)
 
     @kernel
     def blue_mot_loading(self,bmot_voltage_1,bmot_voltage_2):                  
