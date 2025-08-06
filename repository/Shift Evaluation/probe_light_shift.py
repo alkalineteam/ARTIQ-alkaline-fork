@@ -442,6 +442,7 @@ class probe_light_shift_disc(EnvExperiment):
         elif which_param == 2:
             is_param_1 = False
 
+    
         ################################# Blue MOT #########################################
 
         delay(500*us)
