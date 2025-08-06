@@ -6,6 +6,16 @@ import time
 class cavitydedrift(EnvExperiment):
     def build(self):
         self.setattr_device("core")
+      
+        #AD9910
+        self.red_mot_aom = self.get_device("urukul0_ch0")
+        self.blue_mot_aom = self.get_device("urukul0_ch1")
+        self.zeeman_slower_aom = self.get_device("urukul0_ch2")
+        self.probe_aom = self.get_device("urukul0_ch3")
+        #AD9912
+        self.lattice_aom=self.get_device("urukul1_ch0")
+        self.stepping_aom=self.get_device("urukul1_ch1")
+        self.atom_lock_aom=self.get_device("urukul1_ch2")
         self.dedrift_aom=self.get_device("urukul1_ch3") 
     
         self.setattr_argument("Hz_s_correction", NumberValue(default=0.7))
