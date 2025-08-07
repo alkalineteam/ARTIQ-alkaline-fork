@@ -254,22 +254,65 @@ class clock_transition_lookup_v2(EnvExperiment):
                     self.Pixelfly.off()
                     self.Camera.off()
                     self.Ref.sw.off()
-                    # self.Probe_TTL.off()
+                    self.Probe_TTL.off()
                     self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
 
                 delay(5 *ms)
 
-                with parallel:
-                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-                    self.Ref.sw.on()
+                # with parallel:
+                #     self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                #     self.Ref.sw.on()
                 
+                # delay(0.5 *ms)
+                
+                # with parallel:
+                #     self.Ref.sw.off()
+                #     self.Probe_TTL.off()
+                #     self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+
+                with parallel:
+                    self.Repump707.pulse(15*ms)
+                    self.Repump679.pulse(15*ms)
+
+                self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                delay(10*ms)
+                self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+                
+                # **************************** Slice 7: Excited State **************************
+                self.Probe_TTL.on()
+                delay(2.8*ms)
+
+                with parallel:
+                    self.Ref.sw.on()
+                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                
+                delay(0.5*ms)
+                
+                with parallel:
+                    self.Ref.sw.off()
+                    self.Probe_TTL.off()
+                    self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+                delay(5*ms)
+
+                self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                delay(10*ms)
+                self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+
+                # **************************** Slice 7: Background State **************************
+                self.Probe_TTL.on()
+                delay(2.8 *ms)
+
+                with parallel:
+                    self.Ref.sw.on()
+                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+
                 delay(0.5 *ms)
                 
                 with parallel:
                     self.Ref.sw.off()
                     self.Probe_TTL.off()
                     self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-                    
+                        
 
                 if j==cycles:
                     print("clock transition scan completed!!")

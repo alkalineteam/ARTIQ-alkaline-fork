@@ -32,7 +32,7 @@ class PMTtest(EnvExperiment):
         sampling_period = 1/self.sampling_rate
 
         for i in range(8):
-            self.sampler0.set_gain_mu(i, 0)
+            self.sampler.set_gain_mu(i, 0)
 
         for i in range(num_samples):
             self.sampler.sample(samples[i])

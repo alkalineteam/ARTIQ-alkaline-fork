@@ -98,7 +98,6 @@ class clock_transition_lookup_v3(EnvExperiment):
             delay(0.5*ms)
             # blue_amp = 0.08
             self.BMOT_AOM.set(frequency=90 * MHz, amplitude=0.08)
-            # self.Broadband_On.pulse(10*ms)
             self.ZeemanSlower.set(frequency=180 * MHz, amplitude=0.35)
             self.Probe.set(frequency= 65 * MHz, amplitude=0.02)
             self.Single_Freq.set(frequency= 80 * MHz, amplitude=0.35)
@@ -161,7 +160,7 @@ class clock_transition_lookup_v3(EnvExperiment):
                 self.Single_Freq.sw.on()
 
             voltage_1_com = 2.54
-            voltage_2_com = 2.28
+            voltage_2_com = 2.26
             red_amp = 0.35
             amp_com = 0.02
             red_freq = 80.0
@@ -196,8 +195,8 @@ class clock_transition_lookup_v3(EnvExperiment):
             self.Single_Freq.sw.off()
 
             # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 6.9)# 5.56/2.28 = 1.85; 6.9/0.54 = 3.5; 4.9/3.1 = 1;
-            self.MOT_Coil_2.write_dac(1, 0.54)
+            self.MOT_Coil_1.write_dac(0, 7.01)# 5.56/2.28 = 1.85; 7.01/0.42 = 3.5; 4.9/3.1 = 1;
+            self.MOT_Coil_2.write_dac(1, 0.42)
             with parallel:
                 self.MOT_Coil_1.load()
                 self.MOT_Coil_2.load()
@@ -215,103 +214,103 @@ class clock_transition_lookup_v3(EnvExperiment):
             self.Clock.sw.off()
 
             # Sampler initialization
-            sample_period = 1 / 25000  #10kHz sampling rate should give us enough data points
-            sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
+            # sample_period = 1 / 25000  #10kHz sampling rate should give us enough data points
+            # sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
 
-            num_samples = int32(sampling_duration/sample_period)
-            samples = [[0.0 for i in range(8)] for i in range(num_samples)]
+            # num_samples = int32(sampling_duration/sample_period)
+            # samples = [[0.0 for i in range(8)] for i in range(num_samples)]
 
             # **************************** Slice 5: Detection : Ground State**************************
+            # with parallel:
+            #     with sequential:
+            self.MOT_Coil_1.write_dac(0, 4.08)
+            self.MOT_Coil_2.write_dac(1, 4.11)
+                        
+            self.Probe_TTL.on()
+            self.BMOT_AOM.set(frequency=10*MHz, amplitude=0.08)
+            delay(2.8 *ms)
+
             with parallel:
-                with sequential:
-                    self.MOT_Coil_1.write_dac(0, 4.08)
-                    self.MOT_Coil_2.write_dac(1, 4.11)
-                                
-                    self.Probe_TTL.on()
-                    self.BMOT_AOM.set(frequency=10*MHz, amplitude=0.08)
-                    delay(2.8 *ms)
+                self.Camera.on()
+                self.Pixelfly.on()
+                self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                self.Ref.sw.on()
+            
+            delay(0.5 *ms)
+            
+            with parallel:
+                self.Pixelfly.off()
+                self.Camera.off()
+                self.Ref.sw.off()
+                self.Probe_TTL.off()
+                self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+            delay(5*ms)
 
-                    with parallel:
-                        self.Camera.on()
-                        self.Pixelfly.on()
-                        self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-                        self.Ref.sw.on()
-                    
-                    delay(0.5 *ms)
-                    
-                    with parallel:
-                        self.Pixelfly.off()
-                        self.Camera.off()
-                        self.Ref.sw.off()
-                        self.Probe_TTL.off()
-                        self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-                    delay(5*ms)
+            # **************************** Slice 6: Repumping **************************
+            with parallel:
+                self.Repump707.pulse(15*ms)
+                self.Repump679.pulse(15*ms)
 
-                    # **************************** Slice 6: Repumping **************************
-                    with parallel:
-                        self.Repump707.pulse(15*ms)
-                        self.Repump679.pulse(15*ms)
+            self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+            delay(10*ms)
+            self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+            
+            # **************************** Slice 7: Excited State **************************
+            self.Probe_TTL.on()
+            delay(2.8*ms)
 
-                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-                    delay(10*ms)
-                    self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-                    
-                    # **************************** Slice 7: Excited State **************************
-                    self.Probe_TTL.on()
-                    delay(2.8*ms)
+            with parallel:
+                self.Ref.sw.on()
+                self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+            
+            delay(0.5*ms)
+            
+            with parallel:
+                self.Ref.sw.off()
+                self.Probe_TTL.off()
+                self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+            delay(5*ms)
 
-                    with parallel:
-                        self.Ref.sw.on()
-                        self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-                    
-                    delay(0.5*ms)
-                    
-                    with parallel:
-                        self.Ref.sw.off()
-                        self.Probe_TTL.off()
-                        self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-                    delay(5*ms)
+            self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+            delay(10*ms)
+            self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
 
-                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-                    delay(10*ms)
-                    self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+            # **************************** Slice 7: Background State **************************
+            self.Probe_TTL.on()
+            delay(2.8 *ms)
 
-                    # **************************** Slice 7: Background State **************************
-                    self.Probe_TTL.on()
-                    delay(2.8 *ms)
+            with parallel:
+                self.Ref.sw.on()
+                self.Probe.set(frequency= 65*MHz, amplitude=0.02)
 
-                    with parallel:
-                        self.Ref.sw.on()
-                        self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+            delay(0.5 *ms)
+            
+            with parallel:
+                self.Ref.sw.off()
+                self.Probe_TTL.off()
+                self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
 
-                    delay(0.5 *ms)
-                    
-                    with parallel:
-                        self.Ref.sw.off()
-                        self.Probe_TTL.off()
-                        self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-
-                    print("ending Detection Slice")
-                with sequential:
-                    for k in range(int32(num_samples)):   
-                        self.Sampler.sample(samples[k])
-                        delay(sample_period*s)
-                    # delay(sampling_duration*s)
+            print("ending Detection Slice")
+                # with sequential:
+                #     for k in range(int32(num_samples)):   
+                #         self.Sampler.sample(samples[k])
+                #         delay(sample_period*s)
+                #     # delay(sampling_duration*s)
 
             
-            samples_ch0 = [float(s[0]) for s in samples]
+            # samples_ch0 = [float(s[0]) for s in samples]
         
-            print("done sampling")
-            self.set_dataset("excitation_fraction", samples_ch0, broadcast=True, archive=True)
-            self.set_dataset("samples", list(range(num_samples)), broadcast=True, archive=True)
+            # print("done sampling")
+            # self.set_dataset("excitation_fraction", samples_ch0, broadcast=True, archive=True)
+            # self.set_dataset("samples", list(range(num_samples)), broadcast=True, archive=True)
 
-            self.ccb.issue("create_applet", 
-                        "plotting", 
-                        "${artiq_applet}plot_xy "
-                        "excitation_fraction"
-                        "--x samples"
-                        "--title Excitation Fraction",
-            )
+            # self.ccb.issue("create_applet", 
+            #             "plotting", 
+            #             "${artiq_applet}plot_xy "
+            #             "excitation_fraction"
+            #             "--x samples"
+            #             "--title Excitation Fraction",
+            # )
                                     
             # # Split the samples
             # baseline = samples_ch0[0:40]
