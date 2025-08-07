@@ -27,22 +27,23 @@ class PMTtest(EnvExperiment):
         self.reference.set(frequency=80 * MHz)
         self.reference.set_att(0.0)
 
-        # num_samples = int32(self.sample_number)
-        # samples = [[0.0 for i in range(8)] for i in range(num_samples)]
-        # sampling_period = 1/self.sampling_rate
+        num_samples = int32(self.sample_number)
+        samples = [[0.0 for i in range(8)] for i in range(num_samples)]
+        sampling_period = 1/self.sampling_rate
 
-        # for i in range(num_samples):
-        #     self.sampler.sample(samples[i])
-        #     delay(sampling_period * s)
+        for i in range(num_samples):
+            self.sampler.sample(samples[i])
+            delay(sampling_period * s)
 
-        # sample2 = [i[0] for i in samples]
-        # self.set_dataset("samples", sample2, broadcast=True, archive=True)
+        sample2 = [i[0] for i in samples]
+        self.set_dataset("samples", sample2, broadcast=True, archive=True)
+        self.set_dataset("samples_x", [x for x in range(num_samples)], broadcast=True, archive=True)
         
-        # self.ccb.issue("create_applet", 
-        #                "plotting", 
-        #                "${artiq_applet}plot_x "
-        #             #    "dat_y "
-        #                "--x dat_x "
-        #                "--title PMTtest", 
-        #             #    group = "test"
-        # )
+        self.ccb.issue("create_applet", 
+                    "plotting", 
+                    "${artiq_applet}plot_xy"
+                    "samples "
+                    "--x samples_x"
+                    "--title PMTtest", 
+                #    group = "test"
+    )
