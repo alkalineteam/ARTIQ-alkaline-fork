@@ -6,6 +6,7 @@ from numpy import int64, int32
 class clock_transition_lookup_v3(EnvExperiment):
     def build(self):
         self.setattr_device("core")
+        self.setattr_device("ccb")
         self.Camera:TTLOut=self.get_device("ttl10")
         self.Pixelfly:TTLOut=self.get_device("ttl15")
         self.BMOT_TTL:TTLOut=self.get_device("ttl6")
@@ -302,7 +303,7 @@ class clock_transition_lookup_v3(EnvExperiment):
         
             print("done sampling")
             self.set_dataset("excitation_fraction", samples_ch0, broadcast=True, archive=True)
-            self.set_dataset("samples", [x for x in range(num_samples)], broadcast=True, archive=True)
+            self.set_dataset("samples", list(range(num_samples)), broadcast=True, archive=True)
 
             self.ccb.issue("create_applet", 
                         "plotting", 
