@@ -295,10 +295,18 @@ class clock_transition_lookup_v3(EnvExperiment):
                         delay(sample_period*s)
 
             
-            samples_ch0 = [float(k[0]) for k in samples]
+            samples_ch0 = [float(s[0]) for s in samples]
         
             print("done sampling")
             self.set_dataset("excitation_fraction", samples_ch0, broadcast=True, archive=True)
+
+            self.ccb.issue("create_applet", 
+                       "plotting", 
+                       "${artiq_applet}plot_xy "
+                       "excitation_fraction"
+                       "--x dat_x "
+                       "--title Excitation Fraction",
+            )
                                     
             # # Split the samples
             # baseline = samples_ch0[0:40]
