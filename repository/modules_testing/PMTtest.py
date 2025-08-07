@@ -31,13 +31,16 @@ class PMTtest(EnvExperiment):
         samples = [[0.0 for i in range(8)] for i in range(num_samples)]
         sampling_period = 1/self.sampling_rate
 
+        for i in range(8):
+            self.sampler0.set_gain_mu(i, 0)
+
         for i in range(num_samples):
             self.sampler.sample(samples[i])
             delay(sampling_period * s)
 
         sample2 = [i[0] for i in samples]
-        self.set_dataset("samples", sample2, broadcast=True, archive=True)
-        self.set_dataset("samples_x", [x for x in range(num_samples)], broadcast=True, archive=True)
+        self.set_dataset("test.samples", sample2, broadcast=True, archive=True)
+        self.set_dataset("test.samples_x", [x for x in range(num_samples)], broadcast=True, archive=True)
         
         self.ccb.issue("create_applet", 
                     "plotting", 
@@ -45,5 +48,5 @@ class PMTtest(EnvExperiment):
                     "samples "
                     "--x samples_x"
                     "--title PMTtest", 
-                #    group = "test"
+                    group = "test"
     )
