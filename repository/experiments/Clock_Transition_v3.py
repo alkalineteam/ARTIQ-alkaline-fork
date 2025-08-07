@@ -299,12 +299,13 @@ class clock_transition_lookup_v3(EnvExperiment):
         
             print("done sampling")
             self.set_dataset("excitation_fraction", samples_ch0, broadcast=True, archive=True)
+            self.set_dataset("samples", [x for x in range(num_samples)], broadcast=True, archive=True)
 
             self.ccb.issue("create_applet", 
                        "plotting", 
                        "${artiq_applet}plot_xy "
                        "excitation_fraction"
-                       "--x dat_x "
+                       "--x samples"
                        "--title Excitation Fraction",
             )
                                     
