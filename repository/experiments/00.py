@@ -26,8 +26,8 @@ class Everything_ON(EnvExperiment):
         self.setattr_argument("Cycle", NumberValue(default = 100))
         self.setattr_argument("High_Low", BooleanValue(default=False))
         self.setattr_argument("Idle_State", BooleanValue(default=False))
-        self.setattr_argument("Coil_1_voltage", NumberValue(default = 0.976, unit="V"))
-        self.setattr_argument("Coil_2_voltage", NumberValue(default = 0.53, unit="V"))
+        self.setattr_argument("Coil_1_voltage", NumberValue(default = 1.02, unit="V"))
+        self.setattr_argument("Coil_2_voltage", NumberValue(default = 0.42, unit="V"))
 
         self.setattr_argument("BMOT_Frequency", NumberValue(default = 90.0))
         self.setattr_argument("BMOT_Amplitude", NumberValue(default = 0.08))
