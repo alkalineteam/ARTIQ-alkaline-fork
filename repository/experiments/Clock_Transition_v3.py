@@ -90,11 +90,7 @@ class clock_transition_lookup_v3(EnvExperiment):
         cycles = int64((scan_range)*1e3/step_size)
         start = center_freq - (cycles/2)*(step_size/1e6)
 
-        # Sampler initialization
-        sample_period = 1 / 2500  #10kHz sampling rate should give us enough data points
-        sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
-
-        num_samples = int32(sampling_duration/sample_period)
+        
 
         for j in range(cycles + 1):
             # **************************** Slice 1: Loading ****************************
@@ -217,6 +213,13 @@ class clock_transition_lookup_v3(EnvExperiment):
             delay(self.Clock_Interrogation_Time*ms)
             self.Clock.sw.off()
 
+            # Sampler initialization
+            sample_period = 1 / 25000  #10kHz sampling rate should give us enough data points
+            sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
+
+            num_samples = int32(sampling_duration/sample_period)
+            samples = [[0.0 for i in range(8)] for i in range(num_samples)]
+
             # **************************** Slice 5: Detection : Ground State**************************
             with parallel:
                 with sequential:
@@ -289,12 +292,11 @@ class clock_transition_lookup_v3(EnvExperiment):
 
                     print("ending Detection Slice")
                 with sequential:
-                    samples = [[0.0 for i in range(8)] for i in range(num_samples)]
                     for k in range(int32(num_samples)):   
                         # delay(5*us)
                         self.Sampler.sample(samples[k])
                         delay(sample_period*s)
-                    delay(sampling_duration*s)
+                    # delay(sampling_duration*s)
 
             
             samples_ch0 = [float(s[0]) for s in samples]
