@@ -1,6 +1,6 @@
 from artiq.experiment import *
 from artiq.coredevice.ttl import TTLOut
-from numpy import int64
+from numpy import int64, int32
 
 class clock_transition_lookup_v3(EnvExperiment):
     def build(self):
@@ -90,7 +90,7 @@ class clock_transition_lookup_v3(EnvExperiment):
         start = center_freq - (cycles/2)*(step_size/1e6)
 
         # Sampler initialization
-        sample_period = 1 / 25000   #10kHz sampling rate should give us enough data points
+        sample_period = 1 / 2500  #10kHz sampling rate should give us enough data points
         sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
 
         num_samples = int32(sampling_duration/sample_period)
@@ -100,7 +100,7 @@ class clock_transition_lookup_v3(EnvExperiment):
             delay(0.5*ms)
             # blue_amp = 0.08
             self.BMOT_AOM.set(frequency=90 * MHz, amplitude=0.08)
-            self.Broadband_On.pulse(10*ms)
+            # self.Broadband_On.pulse(10*ms)
             self.ZeemanSlower.set(frequency=180 * MHz, amplitude=0.35)
             self.Probe.set(frequency= 65 * MHz, amplitude=0.02)
             self.Single_Freq.set(frequency= 80 * MHz, amplitude=0.35)
@@ -286,20 +286,18 @@ class clock_transition_lookup_v3(EnvExperiment):
                         self.Probe_TTL.off()
                         self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
 
-
+                    print("ending Detection Slice")
                 with sequential:
                     samples = [[0.0 for i in range(8)] for i in range(num_samples)]
-                    for j in range(num_samples):   
+                    for k in range(int32(num_samples)):   
                         # delay(5*us)
-                        self.sampler.sample(samples[j])
+                        self.Sampler.sample(samples[k])
                         delay(sample_period*s)
-                    
-                    delay(sampling_duration*s)
 
             
-            samples_ch0 = [float(i[0]) for i in samples]
+            samples_ch0 = [float(k[0]) for k in samples]
         
-
+            print("done sampling")
             self.set_dataset("excitation_fraction", samples_ch0, broadcast=True, archive=True)
                                     
             # # Split the samples
