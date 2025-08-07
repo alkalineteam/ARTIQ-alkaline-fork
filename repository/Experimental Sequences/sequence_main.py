@@ -105,7 +105,7 @@ class sequence_main(EnvExperiment):
         
         #Stepping AOM - closest to the atoms
         self.stepping_aom.set(frequency = 80* MHz)
-        self.stepping_aom.set_att(25*dB)
+        self.stepping_aom.set_att(16*dB)
 
         #Atom Lock AOM - for feeding back to 1397 clock laser 
         self.atom_lock_aom.set(frequency = 125 * MHz)
@@ -502,131 +502,119 @@ class sequence_main(EnvExperiment):
         self.core.break_realtime()
 
         self.initialise_modules()
-        self.dedrift_aom.set_att(16* dB)
-        drift_correction = 0.7* 1e-4# for 10us delay, 1e-6 for 1us delay
-      
-        self.dedrift_aom.set(frequency=self.output_frequency)
         delay(100*us)
  
 
         for j in range(int(self.cycles)):          #This runs the actual sequence
-            with parallel:
-                with sequential:
-                    for i in range(10000):
-                        delay(100*us)
-                        self.output_frequency = self.output_frequency + drift_correction
-                        self.dedrift_aom.set(frequency=self.output_frequency)
-                        # if i % 10000 == 0.0:
-                        #     self.set_dataset("drift_aom_frequency", self.output_frequency, broadcast=True)
-                with sequential:
-                    delay(100*us)
 
 
-                    self.blue_mot_loading(
-                        bmot_voltage_1 = self.blue_mot_coil_1_voltage,
-                        bmot_voltage_2 = self.blue_mot_coil_2_voltage
-                    )
+            delay(100*us)
 
 
-                    self.red_mot_aom.set(frequency = 80.45 *MHz, amplitude = 0.1)
-                    self.red_mot_aom.sw.on()
+            self.blue_mot_loading(
+                bmot_voltage_1 = self.blue_mot_coil_1_voltage,
+                bmot_voltage_2 = self.blue_mot_coil_2_voltage
+            )
 
 
-                    delay((self.blue_mot_loading_time )* ms)
+            self.red_mot_aom.set(frequency = 80.45 *MHz, amplitude = 0.1)
+            self.red_mot_aom.sw.on()
+
+
+            delay((self.blue_mot_loading_time )* ms)
 
 
 
-                    self.blue_mot_compression(                           #Here we are ramping up the blue MOT field and ramping down the blue power
-                        bmot_voltage_1 = self.blue_mot_coil_1_voltage,
-                        bmot_voltage_2 = self.blue_mot_coil_2_voltage,
-                        compress_bmot_volt_1 = self.compressed_blue_mot_coil_1_voltage,
-                        compress_bmot_volt_2 = self.compressed_blue_mot_coil_2_voltage,
-                        bmot_amp = 0.06,
-                        compress_bmot_amp = 0.0035
-                    )
+            self.blue_mot_compression(                           #Here we are ramping up the blue MOT field and ramping down the blue power
+                bmot_voltage_1 = self.blue_mot_coil_1_voltage,
+                bmot_voltage_2 = self.blue_mot_coil_2_voltage,
+                compress_bmot_volt_1 = self.compressed_blue_mot_coil_1_voltage,
+                compress_bmot_volt_2 = self.compressed_blue_mot_coil_2_voltage,
+                bmot_amp = 0.06,
+                compress_bmot_amp = 0.0035
+            )
 
-                    delay(self.blue_mot_compression_time*ms)
-
-
-                    delay(self.blue_mot_cooling_time*ms)   #Allowing further cooling of the cloud by just holding the atoms here
-
-                
-            
-
-            
-
-                    self.broadband_red_mot(                                  #Switch to low field gradient for Red MOT, switches off the blue beams
-                        rmot_voltage_1= self.bb_rmot_coil_1_voltage,
-                        rmot_voltage_2 = self.bb_rmot_coil_2_voltage
-                    )
-
-                    delay(self.broadband_red_mot_time*ms)
-
-                
-
-                    self.red_mot_aom.set(frequency = 80.55 *MHz, amplitude = 0.05)
-
-                    delay(5*ms)
-
-                    self.red_mot_compression(                         #Compressing the red MOT by ramping down power, field ramping currently not active
-                        bb_rmot_volt_1 = self.bb_rmot_coil_1_voltage,
-                        bb_rmot_volt_2 = self.bb_rmot_coil_2_voltage,
-                        sf_rmot_volt_1 = self.sf_rmot_coil_1_voltage,
-                        sf_rmot_volt_2 = self.sf_rmot_coil_2_voltage,
-                        f_start = 80.6,
-                        f_end = 81,
-                        A_start = 0.04,
-                        A_end = 0.0035
-                    )
+            delay(self.blue_mot_compression_time*ms)
 
 
-                    delay(self.red_mot_compression_time*ms)
-
-
-                    delay(self.single_frequency_time*ms)
-                    self.red_mot_aom.sw.off()
-                    
-
-                    self.seperate_probe(
-                        tof = self.time_of_flight,
-                        probe_duration =1* ms ,
-                        probe_frequency= 205 * MHz
-                    )      
-                
-                            
+            delay(self.blue_mot_cooling_time*ms)   #Allowing further cooling of the cloud by just holding the atoms here
 
 
 
+    
 
+            self.broadband_red_mot(                                  #Switch to low field gradient for Red MOT, switches off the blue beams
+                rmot_voltage_1= self.bb_rmot_coil_1_voltage,
+                rmot_voltage_2 = self.bb_rmot_coil_2_voltage
+            )
 
-            #          #Switch to Helmholtz
-            # self.mot_coil_1.write_dac(0, 2.0)  
-            # self.mot_coil_2.write_dac(1, 8.0)
+            delay(self.broadband_red_mot_time*ms)
+
         
-            # with parallel:
-            #     self.mot_coil_1.load()
-            #     self.mot_coil_2.load()
 
-            # delay(50*ms)
+            self.red_mot_aom.set(frequency = 80.55 *MHz, amplitude = 0.05)
 
+            delay(5*ms)
+
+            self.red_mot_compression(                         #Compressing the red MOT by ramping down power, field ramping currently not active
+                bb_rmot_volt_1 = self.bb_rmot_coil_1_voltage,
+                bb_rmot_volt_2 = self.bb_rmot_coil_2_voltage,
+                sf_rmot_volt_1 = self.sf_rmot_coil_1_voltage,
+                sf_rmot_volt_2 = self.sf_rmot_coil_2_voltage,
+                f_start = 80.6,
+                f_end = 81,
+                A_start = 0.04,
+                A_end = 0.0035
+            )
+
+
+            delay(self.red_mot_compression_time*ms)
+
+
+            delay(self.single_frequency_time*ms)
+            self.red_mot_aom.sw.off()
             
-            # self.seperate_probe(
-            #     tof = self.time_of_flight,
-            #     probe_duration = 0.2*ms ,
-            #     probe_frequency= 200 * MHz
-            # )
+                        
+            self.seperate_probe(
+                tof = self.time_of_flight,
+                probe_duration =1* ms ,
+                probe_frequency= 205 * MHz
+            )      
+                
 
 
-            # self.pmt_capture(
-            #     sampling_duration = 0.2,
-            #     sampling_rate= 10000,
-            #     tof =self.time_of_flight
-            # )
 
-            # self.normalised_detection()
-            
 
-                # delay(50*ms)
+
+
+    #          #Switch to Helmholtz
+    # self.mot_coil_1.write_dac(0, 2.0)  
+    # self.mot_coil_2.write_dac(1, 8.0)
+
+    # with parallel:
+    #     self.mot_coil_1.load()
+    #     self.mot_coil_2.load()
+
+    # delay(50*ms)
+
+    
+    # self.seperate_probe(
+    #     tof = self.time_of_flight,
+    #     probe_duration = 0.2*ms ,
+    #     probe_frequency= 200 * MHz
+    # )
+
+
+    # self.pmt_capture(
+    #     sampling_duration = 0.2,
+    #     sampling_rate= 10000,
+    #     tof =self.time_of_flight
+    # )
+
+    # self.normalised_detection()
+    
+
+        # delay(50*ms)
 
 
 

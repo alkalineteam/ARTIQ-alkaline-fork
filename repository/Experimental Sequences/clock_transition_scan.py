@@ -108,7 +108,7 @@ class clock_transition_scan(EnvExperiment):
         # Set AD9912 AOM frequencies and attenuations 
         
         #Stepping AOM - closest to the atoms
-        self.stepping_aom.set(frequency = 85.5* MHz)
+        self.stepping_aom.set(frequency = 80* MHz)
         self.stepping_aom.set_att(16*dB)
 
         #Atom Lock AOM - for feeding back to 1397 clock laser 
@@ -566,35 +566,170 @@ class clock_transition_scan(EnvExperiment):
         gs_list = [0.0] * cycles
         es_list = [0.0] * cycles
         excitation_fraction_list = [0.0] * cycles
-        drift_correction = 0.7 * 1e-4 #Drift in Hz/s * 1e-4 for 100us loop speed, 1e-5 for 10us
-        
-        with parallel:
-            for i in range(10000000):
-                delay(100*us)
-                self.drift_output_frequency = self.drift_output_frequency + drift_correction
-                self.dedrift_aom.set(frequency=self.drift_output_frequency)
-                if i % 10000 == 0:
-                    self.set_dataset("drift_aom_frequency", self.drift_output_frequency, broadcast=True)
-
-
 
 
         
-            for j in range(int32(cycles)):        
-                t1 = self.core.get_rtio_counter_mu()
-                ####################################################### Blue MOT loading #############################################################
+        for j in range(int32(cycles)):        
+            t1 = self.core.get_rtio_counter_mu()
+            ####################################################### Blue MOT loading #############################################################
 
-                delay(500*us)
+            delay(500*us)
+
+            self.blue_mot_loading(
+                bmot_voltage_1 = blue_mot_coil_1_voltage,
+                bmot_voltage_2 = blue_mot_coil_2_voltage
+            )
+
+            self.red_mot_shutter.on()
+            self.red_mot_aom.set(frequency = 80.45 * MHz, amplitude = 0.08)
+            self.red_mot_aom.sw.on()
+
+
+            delay(self.blue_mot_loading_time* ms)
+
+            ####################################################### Blue MOT compression & cooling ########################################################
+
+            self.blue_mot_compression(                           #Here we are ramping up the blue MOT field and ramping down the blue power
+                bmot_voltage_1 = blue_mot_coil_1_voltage,
+                bmot_voltage_2 = blue_mot_coil_2_voltage,
+                compress_bmot_volt_1 = compressed_blue_mot_coil_1_voltage,
+                compress_bmot_volt_2 = compressed_blue_mot_coil_2_voltage,
+                bmot_amp = bmot_amp,
+                compress_bmot_amp = compress_bmot_amp,
+                compression_time = bmot_compression_time
+            )
+
+            delay(bmot_compression_time*ms)    #Blue MOT compression time
+
+
+            delay(blue_mot_cooling_time*ms)   #Allowing further cooling of the cloud by just holding the atoms here
+
+            ########################################################### BB red MOT #################################################################
+
+            self.broadband_red_mot(                                  #Switch to low field gradient for Red MOT, switches off the blue beams
+                rmot_voltage_1= bb_rmot_coil_1_voltage,
+                rmot_voltage_2 = bb_rmot_coil_2_voltage
+            )
+
+            delay(broadband_red_mot_time*ms)
+
+            self.red_mot_aom.set(frequency = 80.55 *MHz, amplitude = 0.05)
+
+            delay(5*ms)
+
+
+
+            ########################################################### red MOT compression & Single Frequency ####################################################################
+
+
+            self.red_mot_compression(                         #Compressing the red MOT by ramping down power, field ramping currently not active
+                bb_rmot_volt_1 = bb_rmot_coil_1_voltage,
+                bb_rmot_volt_2 = bb_rmot_coil_2_voltage,
+                sf_rmot_volt_1 = sf_rmot_coil_1_voltage,
+                sf_rmot_volt_2 = sf_rmot_coil_2_voltage,
+                f_start = rmot_f_start,
+                f_end = rmot_f_end,
+                A_start = rmot_A_start,
+                A_end = rmot_A_end,
+                comp_time = red_mot_compression_time
+            )
+
+            delay(red_mot_compression_time*ms)
+
+            delay(single_frequency_time*ms)
+
+            self.red_mot_aom.sw.off()
+
+            # self.seperate_probe(
+            #     tof = 50,
+            #     probe_duration = 1* ms ,
+            #     probe_frequency= 205 * MHz
+            # )
+
+
+
+            #################################################################### Clock Spectroscopy ##################################################################################
+
+            # delay(40*ms)
+            self.clock_spectroscopy(
+                aom_frequency = scan_frequency_values[j],
+                pulse_time = self.rabi_pulse_duration_ms,
+            )
+
+            self.normalised_detection(j,gs_list,es_list,excitation_fraction_list)
+            
+            delay(2*ms)
+
+            self.set_dataset("excitation_fraction_list", excitation_fraction_list, broadcast=True, archive=True)
+            t2 = self.core.get_rtio_counter_mu()
+
+        #process data and do fit from the scan
+
+        
+        self.analyse_fit(scan_frequency_values, excitation_fraction_list)
+
+        # from the excitation fraction list we need to manually extract the peak height and center_frequency. 
+        # Inline calculation of max value and index
+        max_val = excitation_fraction_list[0]
+        max_idx = 0
+        i = 0
+        while i < len(excitation_fraction_list):
+            if excitation_fraction_list[i] > max_val:
+                max_val = excitation_fraction_list[i]
+                max_idx = i
+            i += 1
+        # max_val is the maximum value, max_idx is its index
+        contrast = 0.6
+        center_frequency = scan_frequency_values[max_idx]
+        
+        recenter_peak = self.drift_rate *(cycles - (max_idx+1)) * 1.5
+        print(recenter_peak)
+
+
+        # print(contrast)
+        # print(center_frequency)
+        
+        # print((t2-t1)*1e-9, "s")
+
+
+
+        delay(1*ms)
+
+        # if atom lock is enabled as True, then begin new while loop which will run the clock sequence but steps the stepping_aom by half the linewidth
+        if self.Enable_Lock == True:
+
+            self.core.break_realtime()
+            n = 2628288                                           # How many seconds there are in a month
+            high_side =0.0
+            low_side = 0.0
+            count = 0
+            lock_loop = 0
+            thue_morse = [0]
+            while len(thue_morse) <= n:
+                thue_morse = thue_morse + [1 - bit for bit in thue_morse] 
+            feedback_aom_frequency = (125.000) * MHz  
+            print(feedback_aom_frequency)
+        
+
+
+            delay(100*ms)
+            
+            for i in range(int32(n)):
+                count = i
+                self.core.break_realtime()
+                delay(10*ms)
+                ### Insert entire sequence again
+                # t1 = self.core.get_rtio_counter_mu()
+                delay(2*ms)
 
                 self.blue_mot_loading(
                     bmot_voltage_1 = blue_mot_coil_1_voltage,
                     bmot_voltage_2 = blue_mot_coil_2_voltage
                 )
-
+            
                 self.red_mot_shutter.on()
                 self.red_mot_aom.set(frequency = 80.45 * MHz, amplitude = 0.08)
                 self.red_mot_aom.sw.on()
-
 
                 delay(self.blue_mot_loading_time* ms)
 
@@ -609,9 +744,7 @@ class clock_transition_scan(EnvExperiment):
                     compress_bmot_amp = compress_bmot_amp,
                     compression_time = bmot_compression_time
                 )
-
                 delay(bmot_compression_time*ms)    #Blue MOT compression time
-
 
                 delay(blue_mot_cooling_time*ms)   #Allowing further cooling of the cloud by just holding the atoms here
 
@@ -624,11 +757,9 @@ class clock_transition_scan(EnvExperiment):
 
                 delay(broadband_red_mot_time*ms)
 
-                self.red_mot_aom.set(frequency = 80.55 *MHz, amplitude = 0.05)
+                self.red_mot_aom.set(frequency = 80.55 *MHz, amplitude = 0.06)
 
                 delay(5*ms)
-
-
 
                 ########################################################### red MOT compression & Single Frequency ####################################################################
 
@@ -651,251 +782,108 @@ class clock_transition_scan(EnvExperiment):
 
                 self.red_mot_aom.sw.off()
 
-                # self.seperate_probe(
-                #     tof = 50,
-                #     probe_duration = 1* ms ,
-                #     probe_frequency= 205 * MHz
-                # )
-
-    
-
                 #################################################################### Clock Spectroscopy ##################################################################################
-
-                # delay(40*ms)
-                self.clock_spectroscopy(
-                    aom_frequency = scan_frequency_values[j],
-                    pulse_time = self.rabi_pulse_duration_ms,
-                )
-
-                self.normalised_detection(j,gs_list,es_list,excitation_fraction_list)
-                
-                delay(2*ms)
-
-                self.set_dataset("excitation_fraction_list", excitation_fraction_list, broadcast=True, archive=True)
-                t2 = self.core.get_rtio_counter_mu()
-
-            #process data and do fit from the scan
-
-            
-            self.analyse_fit(scan_frequency_values, excitation_fraction_list)
-
-            # from the excitation fraction list we need to manually extract the peak height and center_frequency. 
-            # Inline calculation of max value and index
-            max_val = excitation_fraction_list[0]
-            max_idx = 0
-            i = 0
-            while i < len(excitation_fraction_list):
-                if excitation_fraction_list[i] > max_val:
-                    max_val = excitation_fraction_list[i]
-                    max_idx = i
-                i += 1
-            # max_val is the maximum value, max_idx is its index
-            contrast = 0.6
-            center_frequency = scan_frequency_values[max_idx]
-            
-            recenter_peak = self.drift_rate *(cycles - (max_idx+1)) * 1.5
-            print(recenter_peak)
-
-
-            # print(contrast)
-            # print(center_frequency)
-            
-            # print((t2-t1)*1e-9, "s")
-
-
-
-            delay(1*ms)
-
-            # if atom lock is enabled as True, then begin new while loop which will run the clock sequence but steps the stepping_aom by half the linewidth
-            if self.Enable_Lock == True:
-
-                self.core.break_realtime()
-                n = 2628288                                           # How many seconds there are in a month
-                high_side =0.0
-                low_side = 0.0
-                count = 0
-                lock_loop = 0
-                thue_morse = [0]
-                while len(thue_morse) <= n:
-                    thue_morse = thue_morse + [1 - bit for bit in thue_morse] 
-                feedback_aom_frequency = (125.000) * MHz  
-                print(feedback_aom_frequency)
-            
-
-
-                delay(100*ms)
-                
-                for i in range(int32(n)):
-                    count = i
+                if thue_morse[count] == 0:
                     self.core.break_realtime()
-                    delay(10*ms)
-                    ### Insert entire sequence again
-                    # t1 = self.core.get_rtio_counter_mu()
-                    delay(2*ms)
-
-                    self.blue_mot_loading(
-                        bmot_voltage_1 = blue_mot_coil_1_voltage,
-                        bmot_voltage_2 = blue_mot_coil_2_voltage
+                    self.clock_spectroscopy(
+                        aom_frequency = (center_frequency - (self.linewidth/2))*Hz,
+                        pulse_time = self.rabi_pulse_duration_ms,
                     )
                 
-                    self.red_mot_shutter.on()
-                    self.red_mot_aom.set(frequency = 80.45 * MHz, amplitude = 0.08)
-                    self.red_mot_aom.sw.on()
+                    low_side = self.normalised_detection(0,[0.0],[0.0],[0.0])
 
-                    delay(self.blue_mot_loading_time* ms)
+                    self.atom_lock_ex(low_side)
+                    # print("low_side")
+                    delay(2*ms)
+                
+                    #return most recent excitation_fraction list value
 
-                    ####################################################### Blue MOT compression & cooling ########################################################
-
-                    self.blue_mot_compression(                           #Here we are ramping up the blue MOT field and ramping down the blue power
-                        bmot_voltage_1 = blue_mot_coil_1_voltage,
-                        bmot_voltage_2 = blue_mot_coil_2_voltage,
-                        compress_bmot_volt_1 = compressed_blue_mot_coil_1_voltage,
-                        compress_bmot_volt_2 = compressed_blue_mot_coil_2_voltage,
-                        bmot_amp = bmot_amp,
-                        compress_bmot_amp = compress_bmot_amp,
-                        compression_time = bmot_compression_time
+                            
+                elif thue_morse[count] == 1:
+                    self.core.break_realtime()
+                    self.clock_spectroscopy(
+                        aom_frequency = center_frequency + self.linewidth/2,
+                        pulse_time = self.rabi_pulse_duration_ms,
                     )
-                    delay(bmot_compression_time*ms)    #Blue MOT compression time
-
-                    delay(blue_mot_cooling_time*ms)   #Allowing further cooling of the cloud by just holding the atoms here
-
-                    ########################################################### BB red MOT #################################################################
-
-                    self.broadband_red_mot(                                  #Switch to low field gradient for Red MOT, switches off the blue beams
-                        rmot_voltage_1= bb_rmot_coil_1_voltage,
-                        rmot_voltage_2 = bb_rmot_coil_2_voltage
-                    )
-
-                    delay(broadband_red_mot_time*ms)
-
-                    self.red_mot_aom.set(frequency = 80.55 *MHz, amplitude = 0.06)
-
-                    delay(5*ms)
-
-                    ########################################################### red MOT compression & Single Frequency ####################################################################
-
-
-                    self.red_mot_compression(                         #Compressing the red MOT by ramping down power, field ramping currently not active
-                        bb_rmot_volt_1 = bb_rmot_coil_1_voltage,
-                        bb_rmot_volt_2 = bb_rmot_coil_2_voltage,
-                        sf_rmot_volt_1 = sf_rmot_coil_1_voltage,
-                        sf_rmot_volt_2 = sf_rmot_coil_2_voltage,
-                        f_start = rmot_f_start,
-                        f_end = rmot_f_end,
-                        A_start = rmot_A_start,
-                        A_end = rmot_A_end,
-                        comp_time = red_mot_compression_time
-                    )
-
-                    delay(red_mot_compression_time*ms)
-
-                    delay(single_frequency_time*ms)
-
-                    self.red_mot_aom.sw.off()
-
-                    #################################################################### Clock Spectroscopy ##################################################################################
-                    if thue_morse[count] == 0:
+                    high_side = self.normalised_detection(0,[0.0],[0.0],[0.0])
+                    # print("high_side")
+                    self.atom_lock_ex(high_side)
+                    delay(2*ms)
+                if count == 0: 
+                    continue
+                else:   
+                    if count % 2 == 0:              # Every other cycle generate correction
+                        #Calculate error signal and then make correction
                         self.core.break_realtime()
-                        self.clock_spectroscopy(
-                            aom_frequency = (center_frequency - (self.linewidth/2))*Hz,
-                            pulse_time = self.rabi_pulse_duration_ms,
-                        )
                     
-                        low_side = self.normalised_detection(0,[0.0],[0.0],[0.0])
+                        if high_side > 1.0 or low_side > 1.0:        #prevents bad excitation fraction from destabilising the lock
+                            error_signal = 0.0
+                        else:
+                            error_signal = high_side - low_side
 
-                        self.atom_lock_ex(low_side)
-                        # print("low_side")
-                        delay(2*ms)
-                    
-                        #return most recent excitation_fraction list value
+                    # denominator = 0.8 * 0.65 * (self.rabi_pulse_duration_ms * 1e-3)
 
-                                
-                    elif thue_morse[count] == 1:
-                        self.core.break_realtime()
-                        self.clock_spectroscopy(
-                            aom_frequency = center_frequency + self.linewidth/2,
-                            pulse_time = self.rabi_pulse_duration_ms,
-                        )
-                        high_side = self.normalised_detection(0,[0.0],[0.0],[0.0])
-                        # print("high_side")
-                        self.atom_lock_ex(high_side)
-                        delay(2*ms)
-                    if count == 0: 
-                        continue
-                    else:   
-                        if count % 2 == 0:              # Every other cycle generate correction
-                            #Calculate error signal and then make correction
-                            self.core.break_realtime()
+                    # if denominator == 0.0:
+                    #     print("Warning: Division by zero prevented. Check contrast and rabi_pulse_duration_ms.")
+                    #     frequency_correction = 0.0  # or skip this iteration with `continue`
+                    # else:
+                    #     frequency_correction = (self.servo_gain / denominator) * error_signal
+                    # # This is the first servo loop
+
+                        if error_signal == 0.0:
+                            frequency_correction = 0.0
+                            print("No correction made")
+                        elif high_side+low_side <= 0.05:
+                            frequency_correction = 0.0
+                            print("No correction made - too low")
+                        elif high_side+low_side >= 1.0:
+                            frequency_correction = 0.0
+                            print("No correction made - too high")
+                        else:
+                            frequency_correction = - (self.servo_gain * error_signal * self.linewidth) / (2 * contrast)
+
+
+                        delay(500*us)
+                        feedback_aom_frequency = feedback_aom_frequency + frequency_correction
+                        print(feedback_aom_frequency)
+                        delay(10*ms)
+
+                        self.atom_lock_aom.set(frequency = feedback_aom_frequency)
+                        delay(10*ms)
+
+
+                        self.error_log(error_signal)
+                        self.correction_log(feedback_aom_frequency)
                         
-                            if high_side > 1.0 or low_side > 1.0:        #prevents bad excitation fraction from destabilising the lock
-                                error_signal = 0.0
-                            else:
-                                error_signal = high_side - low_side
+                        delay(5*ms)
 
-                        # denominator = 0.8 * 0.65 * (self.rabi_pulse_duration_ms * 1e-3)
-
-                        # if denominator == 0.0:
-                        #     print("Warning: Division by zero prevented. Check contrast and rabi_pulse_duration_ms.")
-                        #     frequency_correction = 0.0  # or skip this iteration with `continue`
-                        # else:
-                        #     frequency_correction = (self.servo_gain / denominator) * error_signal
-                        # # This is the first servo loop
-
-                            if error_signal == 0.0:
-                                frequency_correction = 0.0
-                                print("No correction made")
-                            elif high_side+low_side <= 0.05:
-                                frequency_correction = 0.0
-                                print("No correction made - too low")
-                            elif high_side+low_side >= 1.0:
-                                frequency_correction = 0.0
-                                print("No correction made - too high")
-                            else:
-                                frequency_correction = - (self.servo_gain * error_signal * self.linewidth) / (2 * contrast)
-
-
-                            delay(500*us)
-                            feedback_aom_frequency = feedback_aom_frequency + frequency_correction
-                            print(feedback_aom_frequency)
-                            delay(10*ms)
-
-                            self.atom_lock_aom.set(frequency = feedback_aom_frequency)
-                            delay(10*ms)
-
-
-                            self.error_log(error_signal)
-                            self.correction_log(feedback_aom_frequency)
-                            
-                            delay(5*ms)
-
-                            
-                            
                         
-                            #send the list of frequency corrections to the database, this will be done on the host side
-                            lock_loop = lock_loop + 1
-                            
-                            
-                            #write to text file
+                        
                     
-                    # count = count + 1
-                    # t2 = self.core.get_rtio_counter_mu()
-                    # print((t2-t1)*1e-6, "ms")
+                        #send the list of frequency corrections to the database, this will be done on the host side
+                        lock_loop = lock_loop + 1
+                        
+                        
+                        #write to text file
+                
+                # count = count + 1
+                # t2 = self.core.get_rtio_counter_mu()
+                # print((t2-t1)*1e-6, "ms")
 
-                    if count % 51 == 0:
-                        print("Breaking RTIO timeline at iteration", count)
-                        self.core.break_realtime()
-
-
-
-                    delay(200*us)
-
-
-                    # Add logic to adjust the aom frequency based on the contrast and linewidth
-                    # This is a placeholder for the actual locking logic
-                    # Adjust the scan_frequency_values[j] based on the feedback from the lock
-    
-    
+                if count % 51 == 0:
+                    print("Breaking RTIO timeline at iteration", count)
+                    self.core.break_realtime()
 
 
-            print("Scan complete")
 
+                delay(200*us)
+
+
+                # Add logic to adjust the aom frequency based on the contrast and linewidth
+                # This is a placeholder for the actual locking logic
+                # Adjust the scan_frequency_values[j] based on the feedback from the lock
+
+
+
+
+        print("Scan complete")

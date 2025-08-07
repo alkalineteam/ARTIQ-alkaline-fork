@@ -41,8 +41,8 @@ class cavitydedrift(EnvExperiment):
         self.dedrift_aom.set(frequency=self.output_frequency)
 
         while True:
-            delay(10*us)
-            self.output_frequency = self.output_frequency + drift_correction
+            delay(14.3*ms)
+            self.output_frequency = self.output_frequency + (0.01 *Hz)
             self.dedrift_aom.set(frequency=self.output_frequency)
             if count % 10000 == 0.0:
                     self.set_dataset("drift_aom_frequency", self.output_frequency, broadcast=True)
