@@ -293,7 +293,6 @@ class clock_transition_lookup_v3(EnvExperiment):
                     print("ending Detection Slice")
                 with sequential:
                     for k in range(int32(num_samples)):   
-                        # delay(5*us)
                         self.Sampler.sample(samples[k])
                         delay(sample_period*s)
                     # delay(sampling_duration*s)
