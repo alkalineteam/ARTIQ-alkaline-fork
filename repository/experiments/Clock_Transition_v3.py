@@ -214,95 +214,99 @@ class clock_transition_lookup_v3(EnvExperiment):
             self.Clock.sw.off()
 
             # Sampler initialization
-            # sample_period = 1 / 25000  #10kHz sampling rate should give us enough data points
-            # sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
+            sample_period = 1 / 25000  #10kHz sampling rate should give us enough data points
+            sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
 
-            # num_samples = int32(sampling_duration/sample_period)
-            # samples = [[0.0 for i in range(8)] for i in range(num_samples)]
+            num_samples = int32(55)
+            samples = [[0.0 for i in range(8)] for i in range(num_samples)]
 
             # **************************** Slice 5: Detection : Ground State**************************
-            # with parallel:
-            #     with sequential:
-            self.MOT_Coil_1.write_dac(0, 4.08)
-            self.MOT_Coil_2.write_dac(1, 4.11)
-                        
-            self.Probe_TTL.on()
-            self.BMOT_AOM.set(frequency=10*MHz, amplitude=0.08)
-            delay(2.8 *ms)
-
             with parallel:
-                self.Camera.on()
-                self.Pixelfly.on()
-                self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-                self.Ref.sw.on()
+                with sequential:
+                    self.MOT_Coil_1.write_dac(0, 4.08)
+                    self.MOT_Coil_2.write_dac(1, 4.11)
+                    with parallel:
+                        self.MOT_Coil_1.load()
+                        self.MOT_Coil_2.load()
+                    
+                    self.Probe_TTL.on()
+                    self.BMOT_AOM.set(frequency=10*MHz, amplitude=0.08)
+                    delay(2.8 *ms)
+
+                    with parallel:
+                        self.Camera.on()
+                        self.Pixelfly.on()
+                        self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                        self.Ref.sw.on()
+                    
+                    delay(0.5 *ms)
+                    
+                    with parallel:
+                        self.Pixelfly.off()
+                        self.Camera.off()
+                        self.Ref.sw.off()
+                        self.Probe_TTL.off()
+                        self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+
+                    delay(5 *ms)
+
+                    # **************************** Slice 7: Repumping **************************
+                    with parallel:
+                        self.Repump707.pulse(15*ms)
+                        self.Repump679.pulse(15*ms)
+
+                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                    delay(10*ms)
+                    self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+                    
+                    # **************************** Slice 7: Excited State **************************
+                    self.Probe_TTL.on()
+                    delay(2.8*ms)
+
+                    with parallel:
+                        self.Ref.sw.on()
+                        self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                    
+                    delay(0.5*ms)
+                    
+                    with parallel:
+                        self.Ref.sw.off()
+                        self.Probe_TTL.off()
+                        self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+                    delay(5*ms)
+
+                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                    delay(10*ms)
+                    self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+
+                    # **************************** Slice 7: Background State **************************
+                    self.Probe_TTL.on()
+                    delay(2.8 *ms)
+
+                    with parallel:
+                        self.Ref.sw.on()
+                        self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+
+                    delay(0.5 *ms)
+                    
+                    with parallel:
+                        self.Ref.sw.off()
+                        self.Probe_TTL.off()
+                        self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+
+                    print("ending Detection Slice")
+
+                with sequential:
+                    for k in range(int32(num_samples)):   
+                        self.Sampler.sample(samples[k])
+                        delay(1 * ms)
+
             
-            delay(0.5 *ms)
-            
-            with parallel:
-                self.Pixelfly.off()
-                self.Camera.off()
-                self.Ref.sw.off()
-                self.Probe_TTL.off()
-                self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-            delay(5*ms)
-
-            # **************************** Slice 6: Repumping **************************
-            with parallel:
-                self.Repump707.pulse(15*ms)
-                self.Repump679.pulse(15*ms)
-
-            self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-            delay(10*ms)
-            self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-            
-            # **************************** Slice 7: Excited State **************************
-            self.Probe_TTL.on()
-            delay(2.8*ms)
-
-            with parallel:
-                self.Ref.sw.on()
-                self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-            
-            delay(0.5*ms)
-            
-            with parallel:
-                self.Ref.sw.off()
-                self.Probe_TTL.off()
-                self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-            delay(5*ms)
-
-            self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-            delay(10*ms)
-            self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-
-            # **************************** Slice 7: Background State **************************
-            self.Probe_TTL.on()
-            delay(2.8 *ms)
-
-            with parallel:
-                self.Ref.sw.on()
-                self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-
-            delay(0.5 *ms)
-            
-            with parallel:
-                self.Ref.sw.off()
-                self.Probe_TTL.off()
-                self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-
-            print("ending Detection Slice")
-                # with sequential:
-                #     for k in range(int32(num_samples)):   
-                #         self.Sampler.sample(samples[k])
-                #         delay(sample_period*s)
-                #     # delay(sampling_duration*s)
-
-            
-            # samples_ch0 = [float(s[0]) for s in samples]
+            samples_ch0 = [float(s[0]) for s in samples]
         
             # print("done sampling")
-            # self.set_dataset("excitation_fraction", samples_ch0, broadcast=True, archive=True)
-            # self.set_dataset("samples", list(range(num_samples)), broadcast=True, archive=True)
+            self.set_dataset("excitation_fraction", samples_ch0, broadcast=True, archive=True)
+            self.set_dataset("samples", list(range(num_samples)), broadcast=True, archive=True)
 
             # self.ccb.issue("create_applet", 
             #             "plotting", 
