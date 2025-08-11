@@ -25,15 +25,15 @@ class clock_transition_lookup_v2(EnvExperiment):
 
 
         self.setattr_argument("Probe_ON", NumberValue(default=1))
-        self.setattr_argument("Loading_Time", NumberValue(default=2000))
+        self.setattr_argument("Loading_Time", NumberValue(default=1000))
         self.setattr_argument("Transfer_Time", NumberValue(default=40))
         self.setattr_argument("Holding_Time", NumberValue(default=40))
         self.setattr_argument("Compression_Time", NumberValue(default=8))
         self.setattr_argument("Single_Freq_Time", NumberValue(default=40))
         self.setattr_argument("State_Preparation_Time", NumberValue(default=40))
-        self.setattr_argument("Clock_Interrogation_Time", NumberValue(default=50))
+        self.setattr_argument("Clock_Interrogation_Time", NumberValue(default=300))
 
-        self.setattr_argument("Center_Frequency", NumberValue(default=80.068, ndecimals=4))
+        self.setattr_argument("Center_Frequency", NumberValue(default=80.033, ndecimals=4))
         self.setattr_argument("Step_Size", NumberValue(default=500, ndecimals=4))
         self.setattr_argument("Scan_Range", NumberValue(default=100, ndecimals=4)) 
 

@@ -26,12 +26,12 @@ class redMOT_v3_1(EnvExperiment):
 
         self.setattr_argument("Cycle", NumberValue(default=1))
         self.setattr_argument("Probe_ON", NumberValue(default=1))
-        self.setattr_argument("Loading_Time", NumberValue(default=2000))
-        self.setattr_argument("Transfer_Time", NumberValue(default=15))
-        self.setattr_argument("Holding_Time", NumberValue(default=10))
-        self.setattr_argument("Compression_Time", NumberValue(default=10))
-        self.setattr_argument("Single_Freq_Time", NumberValue(default=20))
-        self.setattr_argument("Time_of_Flight", NumberValue(default=0))
+        self.setattr_argument("Loading_Time", NumberValue(default=1500))
+        self.setattr_argument("Transfer_Time", NumberValue(default=40))
+        self.setattr_argument("Holding_Time", NumberValue(default=40))
+        self.setattr_argument("Compression_Time", NumberValue(default=8))
+        self.setattr_argument("Single_Freq_Time", NumberValue(default=40))
+        self.setattr_argument("Time_of_Flight", NumberValue(default=40))
 
     @kernel
     def run(self):
