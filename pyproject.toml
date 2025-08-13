@@ -47,6 +47,7 @@ dependencies = [
     "pytest",
     "pytest-asyncio",
     "pandas>=2.3.1",
+    "matplotlib>=3.10.5",
 ]
 
 [project.scripts]
