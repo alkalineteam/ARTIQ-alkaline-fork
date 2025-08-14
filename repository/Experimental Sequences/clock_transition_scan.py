@@ -66,6 +66,7 @@ class clock_transition_scan(EnvExperiment):
         self.feedback_list = []
         self.atom_lock_list = []
         self.error_log_list = []
+        
 
     @kernel
     def initialise_modules(self):
@@ -323,7 +324,7 @@ class clock_transition_scan(EnvExperiment):
         self.clock_shutter.off()
         
     @kernel
-    def normalised_detection(self,j,gs_list,es_list,excitation_fraction_list):        #This function should be sampling from the PMT at the same time as the camera being triggered for seperate probe
+    def normalised_detection(self,j,gs_list,es_list,excitation_fraction_list,atom_count_list):        #This function should be sampling from the PMT at the same time as the camera being triggered for seperate probe
         self.core.break_realtime()
         sample_period = 1 / 25000   #10kHz sampling rate should give us enough data points
         sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
@@ -365,10 +366,10 @@ class clock_transition_scan(EnvExperiment):
                 delay(5*ms)                         #repumping
 
                 with parallel:
-                    self.repump_shutter_679.pulse(14*ms)
-                    self.repump_shutter_707.pulse(14*ms)
+                    self.repump_shutter_679.pulse(25*ms)
+                    self.repump_shutter_707.pulse(25*ms)
 
-                delay(20*ms)                         #repumping 
+                delay(25*ms)                         #repumping
 
                 # ###############################Excited State##################################
 
@@ -380,7 +381,7 @@ class clock_transition_scan(EnvExperiment):
                 self.probe_aom.sw.off()
                 # self.probe_shutter.off()
     
-                delay(22*ms)
+                delay(6*ms)
 
                 # self.probe_shutter.on()
                 # delay(4.1*ms)
@@ -411,8 +412,12 @@ class clock_transition_scan(EnvExperiment):
 
         
         baseline_mean = 0.0
+        # gs = samples_ch0[90:110]
+        # es = samples_ch0[908:928]
+        # bg = samples_ch0[1334:1354]
+
         gs = samples_ch0[90:110]
-        es = samples_ch0[908:928]
+        es = samples_ch0[1205:1225]
         bg = samples_ch0[1334:1354]
        
 
@@ -466,15 +471,16 @@ class clock_transition_scan(EnvExperiment):
                     excitation_fraction = 0.0
             else:
                 excitation_fraction = float(0) # or 0.5 or some fallback value depending on experiment
+            atom_count_list[j] = float(denominator*1000.0)
             gs_list[j] = float(gs_measurement)
             es_list[j] = float(es_measurement)
             excitation_fraction_list[j] = float(excitation_fraction)
-            
-    
+
+            self.set_dataset("total_atom_number_count", atom_count_list, broadcast=True, archive=True)
 
         delay(500*us)
         return excitation_fraction
-        delay(25*ms)
+        delay(1*ms)
         
         # ef.append(self.excitation_fraction_list)
 
@@ -566,6 +572,7 @@ class clock_transition_scan(EnvExperiment):
         gs_list = [0.0] * cycles
         es_list = [0.0] * cycles
         excitation_fraction_list = [0.0] * cycles
+        atom_count_list = [0.0] * cycles
 
 
         
@@ -656,7 +663,7 @@ class clock_transition_scan(EnvExperiment):
                 pulse_time = self.rabi_pulse_duration_ms,
             )
 
-            self.normalised_detection(j,gs_list,es_list,excitation_fraction_list)
+            self.normalised_detection(j,gs_list,es_list,excitation_fraction_list,atom_count_list)
             
             delay(2*ms)
 
@@ -790,7 +797,7 @@ class clock_transition_scan(EnvExperiment):
                         pulse_time = self.rabi_pulse_duration_ms,
                     )
                 
-                    low_side = self.normalised_detection(0,[0.0],[0.0],[0.0])
+                    low_side = self.normalised_detection(0,[0.0],[0.0],[0.0],[0.0])
 
                     self.atom_lock_ex(low_side)
                     # print("low_side")
@@ -805,7 +812,7 @@ class clock_transition_scan(EnvExperiment):
                         aom_frequency = center_frequency + self.linewidth/2,
                         pulse_time = self.rabi_pulse_duration_ms,
                     )
-                    high_side = self.normalised_detection(0,[0.0],[0.0],[0.0])
+                    high_side = self.normalised_detection(0,[0.0],[0.0],[0.0],[0.0])
                     # print("high_side")
                     self.atom_lock_ex(high_side)
                     delay(2*ms)

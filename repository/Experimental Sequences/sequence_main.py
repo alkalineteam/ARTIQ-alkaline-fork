@@ -112,7 +112,7 @@ class sequence_main(EnvExperiment):
         self.atom_lock_aom.set_att(13*dB)
 
         #Lattice AOM - for magic wavelength lattice measurements
-        self.lattice_aom.set(frequency = 100 *MHz)
+        self.lattice_aom.set(frequency = 80 *MHz)
         self.lattice_aom.set_att(14*dB)
 
         #Dedrift AOM - counteracting drift of 1397 clock laser
