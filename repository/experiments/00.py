@@ -131,7 +131,8 @@ class Everything_ON(EnvExperiment):
                 delay(1500*ms)
 
         if self.Idle_State == True:
-            self.Clock.set_att(self.Clock_Attenuation)
+            self.Repump707.of()
+            self.Repump679.of()
             self.MOT_Coil_1.write_dac(0, 4.055)
             self.MOT_Coil_2.write_dac(1, 4.083)
 
