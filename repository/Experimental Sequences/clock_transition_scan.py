@@ -66,6 +66,7 @@ class clock_transition_scan(EnvExperiment):
         self.feedback_list = []
         self.atom_lock_list = []
         self.error_log_list = []
+        self.atom_no_list = []
         
 
     @kernel
@@ -471,12 +472,11 @@ class clock_transition_scan(EnvExperiment):
                     excitation_fraction = 0.0
             else:
                 excitation_fraction = float(0) # or 0.5 or some fallback value depending on experiment
-            atom_count_list[j] = float(denominator*1000.0)
             gs_list[j] = float(gs_measurement)
             es_list[j] = float(es_measurement)
             excitation_fraction_list[j] = float(excitation_fraction)
 
-            self.set_dataset("total_atom_number_count", atom_count_list, broadcast=True, archive=True)
+            self.atom_no_log(denominator*1000000.0)
 
         delay(500*us)
         return excitation_fraction
@@ -525,14 +525,21 @@ class clock_transition_scan(EnvExperiment):
     def error_log(self,value):
         self.error_log_list.append(value)
         """This function is used to log the error in the clock frequency"""
-        self.set_dataset("error_log", self.error_log_list, broadcast=True, archive=True)
+        self.set_dataset("atom_servo.error_log", self.error_log_list, broadcast=True, archive=True)
 
     @rpc
     def atom_lock_ex(self,value):
         """This function is used to lock the atom frequency to the center of the clock transition"""
         self.atom_lock_list.append(value)
-        self.set_dataset("atom_lock_list", self.atom_lock_list, broadcast=True, archive=True)
+        self.set_dataset("atom_servo.atom_lock_list", self.atom_lock_list, broadcast=True, archive=True)
       
+
+    
+    @rpc
+    def atom_no_log(self,value):
+        """This function is used to log the atom number"""
+        self.atom_no_list.append(value)
+        self.set_dataset("atom_servo.atom_number_list", self.atom_no_list, broadcast=True, archive=True)
     
    
     @kernel
@@ -839,24 +846,25 @@ class clock_transition_scan(EnvExperiment):
 
                         if error_signal == 0.0:
                             frequency_correction = 0.0
-                            print("No correction made")
+                            # print("No correction made")
                         elif high_side+low_side <= 0.05:
                             frequency_correction = 0.0
-                            print("No correction made - too low")
+                            # print("No correction made - too low")
                         elif high_side+low_side >= 1.0:
                             frequency_correction = 0.0
-                            print("No correction made - too high")
+                            # print("No correction made - too high")
                         else:
-                            frequency_correction = - (self.servo_gain * error_signal * self.linewidth) / (2 * contrast)
+                            frequency_correction =  -(self.servo_gain * error_signal * self.linewidth) / (2* (2 * contrast))
 
-
+                        self.core.break_realtime()
                         delay(500*us)
+                        
                         feedback_aom_frequency = feedback_aom_frequency + frequency_correction
-                        print(feedback_aom_frequency)
-                        delay(10*ms)
+                    #    print(feedback_aom_frequency)
+                        delay(5*ms)
 
                         self.atom_lock_aom.set(frequency = feedback_aom_frequency)
-                        delay(10*ms)
+                        delay(5*ms)
 
 
                         self.error_log(error_signal)

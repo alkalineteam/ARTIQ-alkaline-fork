@@ -10,7 +10,7 @@ import datetime
 class TestSampler(EnvExperiment):
     def build(self):
         self.setattr_device("core")
-        self.ttl:TTLOut=self.get_device("ttl14")
+        self.ttl:TTLOut=self.get_device("ttl11")
         self.sampler:Sampler = self.get_device("sampler0")
 
         self.setattr_argument("sample_rate", NumberValue())
@@ -33,6 +33,7 @@ class TestSampler(EnvExperiment):
         self.core.break_realtime()
 
         self.sampler.init()
+        delay(100*us)
 
         num_samples = int32(self.sample_number)
         samples = [[0.0 for i in range(8)] for i in range(num_samples)]
@@ -50,7 +51,7 @@ class TestSampler(EnvExperiment):
 
         # delay(5000*ms)
 
-        sample2 = [i[0] for i in samples]
+        sample2 = [i[1] for i in samples]
         self.set_dataset("samples", sample2, broadcast=True, archive=True)
         # self.save_data("sampler_test.csv", sample2)
         print(sample2)

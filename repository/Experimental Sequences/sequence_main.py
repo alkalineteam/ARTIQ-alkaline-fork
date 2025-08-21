@@ -541,8 +541,6 @@ class sequence_main(EnvExperiment):
 
 
 
-    
-
             self.broadband_red_mot(                                  #Switch to low field gradient for Red MOT, switches off the blue beams
                 rmot_voltage_1= self.bb_rmot_coil_1_voltage,
                 rmot_voltage_2 = self.bb_rmot_coil_2_voltage
@@ -564,7 +562,7 @@ class sequence_main(EnvExperiment):
                 f_start = 80.6,
                 f_end = 81,
                 A_start = 0.04,
-                A_end = 0.0035
+                A_end = 0.0025
             )
 
 
@@ -579,8 +577,7 @@ class sequence_main(EnvExperiment):
                 tof = self.time_of_flight,
                 probe_duration =1* ms ,
                 probe_frequency= 205 * MHz
-            )      
-                
+            )
 
 
 
