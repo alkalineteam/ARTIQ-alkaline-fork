@@ -30,7 +30,7 @@ import os
 import csv
 from datetime import datetime
 
-class quad_zeeman_shift_disc(EnvExperiment):
+class quad_zeeman_shift_trad(EnvExperiment):
 
     def build(self):
         self.setattr_device("core")
@@ -159,8 +159,8 @@ class quad_zeeman_shift_disc(EnvExperiment):
         comp_field = 1.35 * 0.14    # comp current * scaling factor from measurement
         bias_at_coil = (bias_field - comp_field)/ 0.914   #bias field dips in center of coils due to geometry, scaling factor provided by modelling field
         current_per_coil = ((bias_at_coil) / 2.0086) / 2   
-        coil_2_voltage = current_per_coil + 5.0
-        coil_1_voltage = 5.0 - (current_per_coil / 0.94 )           #Scaled against coil 1
+        coil_1_voltage = current_per_coil + 5.0
+        coil_2_voltage = 5.0 - (current_per_coil / 0.94 )           #Scaled against coil 1
 
        
        
@@ -616,47 +616,47 @@ class quad_zeeman_shift_disc(EnvExperiment):
             )  
   
         self.analyse_fit(1,scan_frequency_values,excitation_fraction_list_param_1)
-        # ############################### Scan Parameter 2: High Bias Field ###############################
-        # for j in range(int32(cycles)):        
-        #     self.run_sequence(j,
-        #         self.bias_field_mT_high,                    #parameter 2
-        #         scan_frequency_values[j],  #stepping aom values
-        #         self.rabi_pulse_duration_ms_param_2,
-        #         2,                         #parameter marker
-        #         excitation_fraction_list_param_1,
-        #         excitation_fraction_list_param_2    
-        #     )  
+        ############################### Scan Parameter 2: High Bias Field ###############################
+        for j in range(int32(cycles)):        
+            self.run_sequence(j,
+                self.bias_field_mT_high,                    #parameter 2
+                scan_frequency_values[j],  #stepping aom values
+                self.rabi_pulse_duration_ms_param_2,
+                2,                         #parameter marker
+                excitation_fraction_list_param_1,
+                excitation_fraction_list_param_2    
+            )  
 
-        # #process data and do fit from the scan
+        #process data and do fit from the scan
 
         
-        # self.analyse_fit(2,scan_frequency_values,excitation_fraction_list_param_2)
+        self.analyse_fit(2,scan_frequency_values,excitation_fraction_list_param_2)
 
         # from the excitation fraction list we need to manually extract the peak height and center_frequency. 
 
         max_val_1 = excitation_fraction_list_param_1[0]
         max_idx_1 = 0
-        # max_val_2 = excitation_fraction_list_param_2[0]
-        # max_idx_2 = 0
+        max_val_2 = excitation_fraction_list_param_2[0]
+        max_idx_2 = 0
 
         # Loop through the lists
         for i in range(1, len(excitation_fraction_list_param_1)):
             if excitation_fraction_list_param_1[i] > max_val_1:
                 max_val_1 = excitation_fraction_list_param_1[i]
                 max_idx_1 = i
-            # if excitation_fraction_list_param_2[i] > max_val_2:
-            #     max_val_2 = excitation_fraction_list_param_2[i]
-            #     max_idx_2 = i
+            if excitation_fraction_list_param_2[i] > max_val_2:
+                max_val_2 = excitation_fraction_list_param_2[i]
+                max_idx_2 = i
 
         # Assign contrast and center frequency
         contrast_1 = 0.5
         center_frequency_1 = scan_frequency_values[max_idx_1]
 
         contrast_2 = 0.5
-        # center_frequency_2 = scan_frequency_values[max_idx_2]
+        center_frequency_2 = scan_frequency_values[max_idx_2]
 
-        # param_shift = center_frequency_2 - center_frequency_1
-        param_shift = self.param_shift_guess
+        param_shift = center_frequency_2 - center_frequency_1
+
         # param_shift = center_frequency_2 - center_frequency_1 + total_drift
     
         print(param_shift)
@@ -672,7 +672,7 @@ class quad_zeeman_shift_disc(EnvExperiment):
             self.core.break_realtime()                                       # How many seconds there are in a month
             count = 0
             feedback_aom_frequency_1 = 125.0 * MHz 
-            feedback_aom_frequency_2 = feedback_aom_frequency_1 + (param_shift / 2)
+            feedback_aom_frequency_2 = feedback_aom_frequency_1 + param_shift 
             print("Feedback AOM Frequency 1: ", feedback_aom_frequency_1)
             print("Feedback AOM Frequency 2: ", feedback_aom_frequency_2)
             

@@ -45,7 +45,7 @@ class clock_transition_scan(EnvExperiment):
         self.lattice_aom=self.get_device("urukul1_ch0")
         self.stepping_aom=self.get_device("urukul1_ch1")
         self.atom_lock_aom=self.get_device("urukul1_ch2")
-        self.dedrift_aom=self.get_device("urukul1_ch3")    
+         
         #Zotino
         self.mot_coil_1=self.get_device("zotino0")
         self.mot_coil_2=self.get_device("zotino0")
@@ -62,7 +62,7 @@ class clock_transition_scan(EnvExperiment):
         self.setattr_argument("linewidth", NumberValue(default=100 * Hz), group="Locking")  # This is the linewidth of the clock transition, adjust as necessary
         self.setattr_argument("drift_rate", NumberValue(default=0.2*Hz),group="Locking")
 
-        self.drift_output_frequency = self.get_dataset("drift_aom_frequency")
+        
         self.feedback_list = []
         self.atom_lock_list = []
         self.error_log_list = []
@@ -102,8 +102,7 @@ class clock_transition_scan(EnvExperiment):
         self.stepping_aom.init()
         self.atom_lock_aom.init()
         self.atom_lock_aom.cpld.init()
-        self.dedrift_aom.cpld.init()
-        self.dedrift_aom.init()
+       
 
         self.sampler.init() 
 
@@ -113,6 +112,7 @@ class clock_transition_scan(EnvExperiment):
         self.stepping_aom.set(frequency = 80* MHz)
         self.stepping_aom.set_att(16*dB)
 
+        
         #Atom Lock AOM - for feeding back to 1397 clock laser 
         self.atom_lock_aom.set(frequency = 125 * MHz)
         self.atom_lock_aom.set_att(13*dB)
@@ -121,10 +121,7 @@ class clock_transition_scan(EnvExperiment):
         self.lattice_aom.set(frequency = 100 *MHz)
         self.lattice_aom.set_att(14*dB)
 
-        #Dedrift AOM - counteracting drift of 1397 clock laser
-        self.dedrift_aom.set(frequency = self.drift_output_frequency)
-        self.dedrift_aom.set_att(16*dB)
-
+      
         # Set initial states of AOMs
         self.probe_aom.sw.off()
         self.atom_lock_aom.sw.on()
@@ -132,7 +129,7 @@ class clock_transition_scan(EnvExperiment):
         self.zeeman_slower_aom.sw.on()
         self.stepping_aom.sw.on()
         self.atom_lock_aom.sw.on()
-        self.dedrift_aom.sw.on()
+      
         self.lattice_aom.sw.on()
 
         # Set the RF attenuation for AD9910s
@@ -583,7 +580,8 @@ class clock_transition_scan(EnvExperiment):
 
 
         
-        for j in range(int32(cycles)):        
+        for j in range(int32(cycles)):      
+            self.core.break_realtime()  
             t1 = self.core.get_rtio_counter_mu()
             ####################################################### Blue MOT loading #############################################################
 
@@ -721,7 +719,7 @@ class clock_transition_scan(EnvExperiment):
             thue_morse = [0]
             while len(thue_morse) <= n:
                 thue_morse = thue_morse + [1 - bit for bit in thue_morse] 
-            feedback_aom_frequency = (125.000) * MHz  
+            feedback_aom_frequency = (125.000 * MHz)
             print(feedback_aom_frequency)
         
 

@@ -125,8 +125,10 @@ class probe_light_shift_disc(EnvExperiment):
         self.atom_lock_aom.init()
         self.atom_lock_aom.cpld.init()
 
-        self.atom_lock_aom.set(frequency = 61 * MHz)
-        self.atom_lock_aom.set_att(26*dB)
+            #Atom Lock AOM - for feeding back to 1397 clock laser 
+        self.atom_lock_aom.set(frequency = 125 * MHz)
+        self.atom_lock_aom.set_att(13*dB)
+
 
         # Set the RF channels ON
         self.blue_mot_aom.sw.on()
@@ -695,8 +697,8 @@ class probe_light_shift_disc(EnvExperiment):
                     excitation_fraction_list_param_2    
                 )
 
-                delta_f1 = (self.servo_gain_1 * (p_1_high - p_1_low) * self.linewidth_1 ) / 2 * contrast_1        #Scaling into Hz
-                delta_f2 = (self.servo_gain_2 * (p_2_high - p_2_low) * self.linewidth_2) / 2 * contrast_2
+                delta_f1 = -(self.servo_gain_1 * (p_1_high - p_1_low) * self.linewidth_1 ) / (4 * contrast_1 )       #Scaling into Hz
+                delta_f2 = -(self.servo_gain_2 * (p_2_high - p_2_low) * self.linewidth_2) / (4 * contrast_2)
 
                 feedback_aom_frequency_1 = feedback_aom_frequency_1 + delta_f1
                 feedback_aom_frequency_2 = feedback_aom_frequency_2 + delta_f2
