@@ -118,7 +118,7 @@ class clock_transition_scan(EnvExperiment):
         self.atom_lock_aom.set_att(13*dB)
 
         #Lattice AOM - for magic wavelength lattice measurements
-        self.lattice_aom.set(frequency = 100 *MHz)
+        self.lattice_aom.set(frequency = 80 *MHz)
         self.lattice_aom.set_att(14*dB)
 
       
@@ -291,9 +291,10 @@ class clock_transition_scan(EnvExperiment):
         comp_field = 1.35 * 0.14    # comp current * scaling factor from measurement
         bias_at_coil = (self.bias_field_mT - comp_field)/ 0.914   #bias field dips in center of coils due to geometry, scaling factor provided by modelling field
         current_per_coil = ((bias_at_coil) / 2.0086) / 2   
-        coil_1_voltage = current_per_coil + 5.0
-        coil_2_voltage = 5.0 - (current_per_coil / 0.94 )           #Scaled against coil 1
-
+        coil_1_voltage = (current_per_coil + 4.7225) / 0.9487
+        coil_2_voltage = (-current_per_coil + 5.0154) / 1.0147        #scaled with coil calibration
+        print("Coil 1 voltage: ", coil_1_voltage)
+        print("Coil 2 voltage: ", coil_2_voltage)
 
          #Switch to Helmholtz
         self.mot_coil_1.write_dac(1, coil_1_voltage)  
@@ -307,7 +308,7 @@ class clock_transition_scan(EnvExperiment):
         # self.camera_shutter.on()
           
 
-        delay(50*ms)  #wait for coils to switch
+        delay(70*ms)  #wait for coils to switch
 
         self.clock_shutter.on()  
         delay(4*ms)
@@ -553,13 +554,13 @@ class clock_transition_scan(EnvExperiment):
         red_mot_compression_time = 7
         single_frequency_time = 30
         time_of_flight = 0 
-        blue_mot_coil_1_voltage = 8.0
+        blue_mot_coil_1_voltage = 8.14
         blue_mot_coil_2_voltage = 7.9
-        compressed_blue_mot_coil_1_voltage = 8.62
+        compressed_blue_mot_coil_1_voltage = 8.67
         compressed_blue_mot_coil_2_voltage = 8.39
         bmot_amp = 0.06
         compress_bmot_amp = 0.0035
-        bb_rmot_coil_1_voltage = 5.24
+        bb_rmot_coil_1_voltage = 5.26
         bb_rmot_coil_2_voltage = 5.22
         sf_rmot_coil_1_voltage = 5.72
         sf_rmot_coil_2_voltage = 5.64

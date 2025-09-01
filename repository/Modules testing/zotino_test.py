@@ -16,7 +16,7 @@ class TestZotino(EnvExperiment):
 
         self.zotino.init()
 
-        self.zotino.write_dac(1, self.Voltage)  
+        self.zotino.write_dac(0, self.Voltage)  
         self.zotino.load()
 
         print("Zotino tested successfully!") 

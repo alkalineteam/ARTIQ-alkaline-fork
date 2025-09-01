@@ -112,12 +112,14 @@ class sequence_main(EnvExperiment):
         self.atom_lock_aom.set_att(13*dB)
 
         #Lattice AOM - for magic wavelength lattice measurements
-        self.lattice_aom.set(frequency = 80 *MHz)
+        self.lattice_aom.set(frequency = 100 *MHz)
         self.lattice_aom.set_att(14*dB)
 
         #Dedrift AOM - counteracting drift of 1397 clock laser
         self.dedrift_aom.set(frequency = self.output_frequency)
         self.dedrift_aom.set_att(16*dB)
+
+
 
         # Set initial states of AOMs
         self.probe_aom.sw.off()
@@ -525,6 +527,8 @@ class sequence_main(EnvExperiment):
 
 
 
+
+
             self.blue_mot_compression(                           #Here we are ramping up the blue MOT field and ramping down the blue power
                 bmot_voltage_1 = self.blue_mot_coil_1_voltage,
                 bmot_voltage_2 = self.blue_mot_coil_2_voltage,
@@ -546,9 +550,7 @@ class sequence_main(EnvExperiment):
                 rmot_voltage_2 = self.bb_rmot_coil_2_voltage
             )
 
-            delay(self.broadband_red_mot_time*ms)
-
-        
+            delay(self.broadband_red_mot_time*ms)    
 
             self.red_mot_aom.set(frequency = 80.55 *MHz, amplitude = 0.05)
 
@@ -572,14 +574,13 @@ class sequence_main(EnvExperiment):
             delay(self.single_frequency_time*ms)
             self.red_mot_aom.sw.off()
             
-                        
+
             self.seperate_probe(
                 tof = self.time_of_flight,
                 probe_duration =1* ms ,
                 probe_frequency= 205 * MHz
             )
-
-
+                        
 
 
 
