@@ -112,8 +112,8 @@ class sequence_main(EnvExperiment):
         self.atom_lock_aom.set_att(13*dB)
 
         #Lattice AOM - for magic wavelength lattice measurements
-        self.lattice_aom.set(frequency = 100 *MHz)
-        self.lattice_aom.set_att(14*dB)
+        self.lattice_aom.set(frequency = 80 *MHz)
+        self.lattice_aom.set_att(30*dB)
 
         #Dedrift AOM - counteracting drift of 1397 clock laser
         self.dedrift_aom.set(frequency = self.output_frequency)
@@ -523,7 +523,10 @@ class sequence_main(EnvExperiment):
             self.red_mot_aom.sw.on()
 
 
-            delay((self.blue_mot_loading_time )* ms)
+            # delay(self.blue_mot_loading_time * ms)
+            delay(1000 * ms)
+
+            self.red_mot_aom.sw.off()
 
 
 
