@@ -116,8 +116,8 @@ class sequence_main_v002(EnvExperiment):
         self.lattice_aom.set_att(30*dB)
 
         #Dedrift AOM - counteracting drift of 1397 clock laser
-        self.dedrift_aom.set(frequency = self.output_frequency)
-        self.dedrift_aom.set_att(16*dB)
+        # self.dedrift_aom.set(frequency = self.output_frequency)
+        # self.dedrift_aom.set_att(16*dB)
 
 
 
@@ -128,7 +128,7 @@ class sequence_main_v002(EnvExperiment):
         self.zeeman_slower_aom.sw.on()
         self.stepping_aom.sw.on()
         self.atom_lock_aom.sw.on()
-        self.dedrift_aom.sw.on()
+        # self.dedrift_aom.sw.on()
         self.lattice_aom.sw.on()
 
         # Set the RF attenuation for AD9910s
