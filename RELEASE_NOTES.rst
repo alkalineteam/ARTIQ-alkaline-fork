@@ -34,6 +34,9 @@ ARTIQ-9 (Unreleased)
      header context menu.
    - State files are now automatically backed up upon successful loading.
    - Experiments can now use ``restart_applet`` CCB command to restart applets.
+* ``artiq_session`` has been revamped. Output now indicates the originating process. Dashboard
+   is started after the controller manager. All processes are cleanly terminated after dashboard
+   is closed.
 * ``afws_client`` now uses the "happy eyeballs" algorithm (RFC 6555) for a faster and more
   reliable connection to the server.
 * Compiler can now give automatic suggestions for ``kernel_invariants``. 
@@ -41,6 +44,26 @@ ARTIQ-9 (Unreleased)
 * Python 3.12 and 3.13 support.
 * The Zadig driver installer was added to the MSYS2 offline installer.
 * ``artiq.coredevice.fmcdio_vhdci_eem`` has been removed.
+
+Breaking changes:
+
+* Migration to PYON v2:
+   - Serialized data is always stored as PYON v2. Ensure backups of existing PYON v1 data
+     exist before starting ARTIQ-9. Keep a backup of the PYON v1 dataset DB.
+   - Both PYON v1 and PYON v2 sipyco pc_rpc controllers are supported simultaneously.
+     PYON v2 support will be required in a future sipyco/ARTIQ release.
+   - Custom applets, sync_struct/broadcast consumers (dataset db, scheduler, log, experiment db)
+     require PYON v2: ensure sipyco v2 is used.
+   - When PYON v2 decoding fails in the following contexts, decoding as PYON v1 is attempted.
+     The support for PYON v1 decoding will be removed in a future ARTIQ release.
+      + Dataset DB file
+      + HDF5 results ``expid``. Note that existing files are never altered.
+      + artiq_client set-dataset
+      + command line experiment arguments (artiq_run/artiq_client submit/artiq_compile)
+      + PYONValue data
+      + Interactive arguments (artiq_run, artiq_client)
+      + Waveform channel list file
+      + devarg overrides
 
 ARTIQ-8
 -------

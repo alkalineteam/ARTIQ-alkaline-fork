@@ -61,8 +61,12 @@ def get_argparser():
 
     p_read = subparsers.add_parser("read",
                                    help="read key from core device config")
-    p_read.add_argument("key", metavar="KEY", type=str,
-                        help="key to be read from core device config")
+    p_read.add_argument("-f", "--file", nargs=2, action="append",
+                        default=[], metavar=("KEY", "FILENAME"), type=str,
+                        help="write contents of read from key to file")
+    p_read.add_argument("-s", "--string", action="append",
+                        default=[], metavar="KEY", type=str,
+                        help="print contents of read from key to stdout")
 
     p_write = subparsers.add_parser("write",
                                     help="write key-value records to core "
@@ -91,7 +95,7 @@ def get_argparser():
 
     # flashing
     t_flash = tools.add_parser("flash",
-                               help="flash the running system")
+                               help="flash the core device and reboot into the new system")
 
     p_directory = t_flash.add_argument("directory",
                                        metavar="DIRECTORY", type=str,
@@ -145,11 +149,13 @@ def main():
 
     if args.tool == "config":
         if args.action == "read":
-            value = mgmt.config_read(args.key)
-            if not value:
-                print("Key {} does not exist".format(args.key))
-            else:
-                print(value)
+            for key in args.string:
+                value = mgmt.config_read(key)
+                print(value.decode("utf-8"))
+            for key, filename in args.file:
+                value = mgmt.config_read(key)
+                with open(filename, "wb") as fi:
+                    fi.write(value)
         if args.action == "write":
             for key, value in args.string:
                 mgmt.config_write(key, value.encode("utf-8"))
