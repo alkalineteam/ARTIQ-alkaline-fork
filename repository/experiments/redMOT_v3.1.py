@@ -83,8 +83,8 @@ class redMOT_v3_1(EnvExperiment):
             self.Probe.set(frequency=65 * MHz, amplitude=0.02)
             self.Single_Freq.set(frequency=80 * MHz, amplitude=0.35)
             
-            voltage_1 = 1.02
-            voltage_2 = 0.42
+            voltage_1 = 1.1
+            voltage_2 = 0.52
             self.MOT_Coil_1.write_dac(0, voltage_1)
             self.MOT_Coil_2.write_dac(1, voltage_2)
 
@@ -185,7 +185,7 @@ class redMOT_v3_1(EnvExperiment):
                 self.Broadband_Off.pulse(10*ms)
                 self.Single_Freq.sw.on()
 
-            voltage_1_com = 2.54
+            voltage_1_com = 2.55
             voltage_2_com = 2.26
             red_amp = 0.35
             amp_com = 0.02

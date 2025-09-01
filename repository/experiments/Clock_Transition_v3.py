@@ -1,5 +1,5 @@
 from artiq.experiment import *
-from artiq.coredevice.sampler import *
+from artiq.coredevice.sampler import Sampler
 from artiq.coredevice.ttl import TTLOut
 from numpy import int64, int32
 
@@ -23,7 +23,7 @@ class clock_transition_lookup_v3(EnvExperiment):
         self.Clock=self.get_device("urukul0_ch0")
         self.MOT_Coil_1=self.get_device("zotino0")
         self.MOT_Coil_2=self.get_device("zotino0")
-        self.Sampler=self.get_device("sampler0")
+        self.sampler:Sampler=self.get_device("sampler0")
         self.Ref = self.get_device("urukul0_ch3")
 
 
@@ -139,7 +139,7 @@ class clock_transition_lookup_v3(EnvExperiment):
         self.Single_Freq.init()
         self.Clock.cpld.init()
         self.Clock.init()
-        self.Sampler.init()
+        self.sampler.init()
 
         self.Ref.cpld.init()
         self.Ref.init()
@@ -167,147 +167,147 @@ class clock_transition_lookup_v3(EnvExperiment):
         start = center_freq - (cycles/2)*(step_size/1e6)
 
         for j in range(cycles + 1):
-            # **************************** Slice 1: Loading ****************************
-            delay(0.5*ms)
-            # blue_amp = 0.08
-            self.BMOT_AOM.set(frequency=90 * MHz, amplitude=0.08)
-            self.ZeemanSlower.set(frequency=180 * MHz, amplitude=0.35)
-            self.Probe.set(frequency= 65 * MHz, amplitude=0.02)
-            self.Single_Freq.set(frequency= 80 * MHz, amplitude=0.35)
+            # # **************************** Slice 1: Loading ****************************
+            delay(0.5*s)
+            # # blue_amp = 0.08
+            # self.BMOT_AOM.set(frequency=90 * MHz, amplitude=0.08)
+            # self.ZeemanSlower.set(frequency=180 * MHz, amplitude=0.35)
+            # self.Probe.set(frequency= 65 * MHz, amplitude=0.02)
+            # self.Single_Freq.set(frequency= 80 * MHz, amplitude=0.35)
             
-            voltage_1 = 1.02
-            voltage_2 = 0.42
-            self.MOT_Coil_1.write_dac(0, voltage_1)
-            self.MOT_Coil_2.write_dac(1, voltage_2)
+            # voltage_1 = 1.14
+            # voltage_2 = 0.52
+            # self.MOT_Coil_1.write_dac(0, voltage_1)
+            # self.MOT_Coil_2.write_dac(1, voltage_2)
 
-            with parallel:
-                self.MOT_Coil_1.load()
-                self.MOT_Coil_2.load()
-                self.BMOT_TTL.on()
-                self.Probe_TTL.off()
-                self.Broadband_On.pulse(10*ms)
-                self.Single_Freq.sw.off()
-                self.Zeeman_Slower_TTL.on()
-                self.Repump707.on()
-                self.Repump679.on()
+            # with parallel:
+            #     self.MOT_Coil_1.load()
+            #     self.MOT_Coil_2.load()
+            #     self.BMOT_TTL.on()
+            #     self.Probe_TTL.off()
+            #     self.Broadband_On.pulse(10*ms)
+            #     self.Single_Freq.sw.off()
+            #     self.Zeeman_Slower_TTL.on()
+            #     self.Repump707.on()
+            #     self.Repump679.on()
 
-            delay(self.Loading_Time*ms)
+            # delay(self.Loading_Time*ms)
 
-            # **************************** Slice 2: Transfer ****************************
-            self.ZeemanSlower.set(frequency=180 * MHz, amplitude=0.00)
-            self.Zeeman_Slower_TTL.off()
-            delay(4.0*ms)
+            # # **************************** Slice 2: Transfer ****************************
+            # self.ZeemanSlower.set(frequency=180 * MHz, amplitude=0.00)
+            # self.Zeeman_Slower_TTL.off()
+            # delay(4.0*ms)
 
-            steps_tr = self.Transfer_Time
-            t_tr = self.Transfer_Time/steps_tr
+            # steps_tr = self.Transfer_Time
+            # t_tr = self.Transfer_Time/steps_tr
 
-            for i in range(int64(steps_tr)):
-                amp_steps = (0.08 - 0.003)/steps_tr
-                amp = 0.08 - ((i+1) * amp_steps)
-                self.BMOT_AOM.set(frequency=90*MHz, amplitude=amp)
-                delay(t_tr*ms)
+            # for i in range(int64(steps_tr)):
+            #     amp_steps = (0.08 - 0.003)/steps_tr
+            #     amp = 0.08 - ((i+1) * amp_steps)
+            #     self.BMOT_AOM.set(frequency=90*MHz, amplitude=amp)
+            #     delay(t_tr*ms)
 
-            delay(200*ms)
+            # delay(200*ms)
 
-            with parallel:
-                self.BMOT_TTL.off()
-                self.Repump707.off()
-                self.Repump679.off()
+            # with parallel:
+            #     self.BMOT_TTL.off()
+            #     self.Repump707.off()
+            #     self.Repump679.off()
 
-            delay(4*ms)
-            self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
+            # delay(4*ms)
+            # self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
 
-            voltage_1_Tr = 4.012
-            voltage_2_Tr = 4.027
-            self.MOT_Coil_1.write_dac(0, voltage_1_Tr)
-            self.MOT_Coil_2.write_dac(1, voltage_2_Tr)
-            self.MOT_Coil_1.load()
-            self.MOT_Coil_2.load()
+            # voltage_1_Tr = 4.012
+            # voltage_2_Tr = 4.027
+            # self.MOT_Coil_1.write_dac(0, voltage_1_Tr)
+            # self.MOT_Coil_2.write_dac(1, voltage_2_Tr)
+            # self.MOT_Coil_1.load()
+            # self.MOT_Coil_2.load()
 
-            # **************************** Slice 3: Holding ****************************
-            delay(self.Holding_Time*ms)
+            # # **************************** Slice 3: Holding ****************************
+            # delay(self.Holding_Time*ms)
 
-            # **************************** Slice 4: Compression ****************************
-            with parallel:
-                self.Broadband_Off.pulse(10*ms)
-                self.Single_Freq.sw.on()
+            # # **************************** Slice 4: Compression ****************************
+            # with parallel:
+            #     self.Broadband_Off.pulse(10*ms)
+            #     self.Single_Freq.sw.on()
 
-            voltage_1_com = 2.54
-            voltage_2_com = 2.26
-            red_amp = 0.35
-            amp_com = 0.02
-            red_freq = 80.0
-            red_freq_com = 80.3
-            steps_com = self.Compression_Time
-            t_com = self.Compression_Time/steps_com
-            volt_1_steps = (voltage_1_Tr - voltage_1_com)/steps_com
-            volt_2_steps = (voltage_2_Tr - voltage_2_com)/steps_com
-            amp_steps = (red_amp-amp_com)/steps_com
-            freq_steps = (red_freq_com - red_freq)/steps_com
+            # voltage_1_com = 2.55
+            # voltage_2_com = 2.26
+            # red_amp = 0.35
+            # amp_com = 0.02
+            # red_freq = 80.0
+            # red_freq_com = 80.3
+            # steps_com = self.Compression_Time
+            # t_com = self.Compression_Time/steps_com
+            # volt_1_steps = (voltage_1_Tr - voltage_1_com)/steps_com
+            # volt_2_steps = (voltage_2_Tr - voltage_2_com)/steps_com
+            # amp_steps = (red_amp-amp_com)/steps_com
+            # freq_steps = (red_freq_com - red_freq)/steps_com
 
-            with parallel:
-                for i in range(int64(steps_com)):
-                    voltage_1 = voltage_1 - volt_1_steps
-                    voltage_2 = voltage_2 - volt_2_steps
-                    self.MOT_Coil_1.write_dac(0, voltage_1)
-                    self.MOT_Coil_2.write_dac(1, voltage_2)
-                    with parallel:
-                        self.MOT_Coil_1.load()
-                        self.MOT_Coil_2.load()
-                    delay(t_com*ms)
+            # with parallel:
+            #     for i in range(int64(steps_com)):
+            #         voltage_1 = voltage_1 - volt_1_steps
+            #         voltage_2 = voltage_2 - volt_2_steps
+            #         self.MOT_Coil_1.write_dac(0, voltage_1)
+            #         self.MOT_Coil_2.write_dac(1, voltage_2)
+            #         with parallel:
+            #             self.MOT_Coil_1.load()
+            #             self.MOT_Coil_2.load()
+            #         delay(t_com*ms)
 
-                for i in range(int64(steps_com)):
-                    amp = red_amp - ((i+1) * amp_steps)
-                    freq = red_freq + ((i+1) * freq_steps)
-                    self.Single_Freq.set(frequency=freq*MHz, amplitude=amp)
-                    delay(t_com*ms)
+            #     for i in range(int64(steps_com)):
+            #         amp = red_amp - ((i+1) * amp_steps)
+            #         freq = red_freq + ((i+1) * freq_steps)
+            #         self.Single_Freq.set(frequency=freq*MHz, amplitude=amp)
+            #         delay(t_com*ms)
 
-            # **************************** Slice 5: Single Frequency ****************************
-            self.Single_Freq.set(frequency=80.3*MHz, amplitude=amp_com)
-            delay(self.Single_Freq_Time*ms)
-            self.Single_Freq.sw.off()
+            # # **************************** Slice 5: Single Frequency ****************************
+            # self.Single_Freq.set(frequency=80.3*MHz, amplitude=amp_com)
+            # delay(self.Single_Freq_Time*ms)
+            # self.Single_Freq.sw.off()
 
-            # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 7.01)# 5.56/2.28 = 1.85; 7.01/0.42 = 3.5; 4.9/3.1 = 1;
-            self.MOT_Coil_2.write_dac(1, 0.42)
-            with parallel:
-                self.MOT_Coil_1.load()
-                self.MOT_Coil_2.load()
+            # # **************************** Slice 5: State Preparation *****************************
+            # self.MOT_Coil_1.write_dac(0, 7.14)# 5.61/2.24 = 1.80; 7.14/0.52 = 3.5; 4.9/3.1 = 1;
+            # self.MOT_Coil_2.write_dac(1, 0.52)
+            # with parallel:
+            #     self.MOT_Coil_1.load()
+            #     self.MOT_Coil_2.load()
 
-            delay(self.State_Preparation_Time*ms)
+            # delay(self.State_Preparation_Time*ms)
 
-            # **************************** Slice 5: Clock Interrogation *****************************
-            self.Clock.sw.on()
+            # # **************************** Slice 5: Clock Interrogation *****************************
+            # self.Clock.sw.on()
 
-            self.Clock.set(frequency=start*MHz)
-            print("Clock Frequency:", start, "MHz, Cycle:", j)
-            start += (step_size/1e6)
+            # self.Clock.set(frequency=start*MHz)
+            # print("Clock Frequency:", start, "MHz, Cycle:", j)
+            # start += (step_size/1e6)
 
-            delay(self.Clock_Interrogation_Time*ms)
-            self.Clock.sw.off()
+            # delay(self.Clock_Interrogation_Time*ms)
+            # self.Clock.sw.off()
 
-            # Sampler initialization
-            sample_period = 1 / 25000  #10kHz sampling rate should give us enough data points
-            sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
+            # # Sampler initialization
+            # sample_period = 1 / 25000  #10kHz sampling rate should give us enough data points
+            # sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
 
             num_samples = 55
             samples = [[0.0 for i in range(8)] for i in range(num_samples)]
 
             # **************************** Slice 5: Detection : Ground State**************************
-            with parallel:
-                self.detection()
-                for k in range(num_samples):   
-                    self.Sampler.sample(samples[k])
-                    delay(1 * ms)
-
-                
+            # with parallel:
+                # self.detection()
+            for k in range(num_samples):   
+                self.sampler.sample(samples[k])
+                delay(1 * ms)
 
             
-            samples_ch0 = [float(s[0]) for s in samples]
+            samples_ch0 = [float(s[1]) for s in samples]
         
             # print("done sampling")
             self.set_dataset("excitation_fraction", samples_ch0, broadcast=True, archive=True)
             self.set_dataset("samples", list(range(num_samples)), broadcast=True, archive=True)
+
+            print("samples_ch0:", samples_ch0)
 
             # self.ccb.issue("create_applet", 
             #             "plotting", 

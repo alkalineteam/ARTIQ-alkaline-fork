@@ -23,7 +23,6 @@ class clock_transition_lookup_v2(EnvExperiment):
         self.MOT_Coil_2=self.get_device("zotino0")
         self.Ref = self.get_device("urukul0_ch3")
 
-
         self.setattr_argument("Probe_ON", NumberValue(default=1))
         self.setattr_argument("Loading_Time", NumberValue(default=1000))
         self.setattr_argument("Transfer_Time", NumberValue(default=40))
@@ -36,7 +35,6 @@ class clock_transition_lookup_v2(EnvExperiment):
         self.setattr_argument("Center_Frequency", NumberValue(default=80.033, ndecimals=4))
         self.setattr_argument("Step_Size", NumberValue(default=500, ndecimals=4))
         self.setattr_argument("Scan_Range", NumberValue(default=100, ndecimals=4)) 
-
 
     @kernel
     def run(self):
@@ -97,8 +95,8 @@ class clock_transition_lookup_v2(EnvExperiment):
             self.Probe.set(frequency= 65 * MHz, amplitude=0.02)
             self.Single_Freq.set(frequency= 80 * MHz, amplitude=0.35)
             
-            voltage_1 = 1.02
-            voltage_2 = 0.42
+            voltage_1 = 1.1
+            voltage_2 = 0.52
             self.MOT_Coil_1.write_dac(0, voltage_1)
             self.MOT_Coil_2.write_dac(1, voltage_2)
 
@@ -154,7 +152,7 @@ class clock_transition_lookup_v2(EnvExperiment):
                 self.Broadband_Off.pulse(10*ms)
                 self.Single_Freq.sw.on()
 
-            voltage_1_com = 2.54
+            voltage_1_com = 2.55
             voltage_2_com = 2.26
             red_amp = 0.35
             amp_com = 0.02
@@ -190,8 +188,8 @@ class clock_transition_lookup_v2(EnvExperiment):
             self.Single_Freq.sw.off()
 
             # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 7.01)# 5.56/2.28 = 1.85; 7.01/0.42 = 3.5; 4.9/3.1 = 1;
-            self.MOT_Coil_2.write_dac(1, 0.42)
+            self.MOT_Coil_1.write_dac(0, 7.14)# 5.61/2.24 = 1.80; 7.085/0.52 = 3.5; 4.9/3.1 = 1;
+            self.MOT_Coil_2.write_dac(1, 0.6)
             with parallel:
                 self.MOT_Coil_1.load()
                 self.MOT_Coil_2.load()

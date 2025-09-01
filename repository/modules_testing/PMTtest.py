@@ -9,7 +9,7 @@ class PMTtest(EnvExperiment):
     def build(self):
         self.setattr_device("core")
         self.setattr_device("ccb")
-        self.sampler=self.get_device("sampler0")
+        self.sampler:Sampler=self.get_device("sampler0")
         self.reference=self.get_device("urukul0_ch3")
 
         self.setattr_argument("sample_number", NumberValue(precision=3, default=0))
@@ -23,6 +23,8 @@ class PMTtest(EnvExperiment):
         self.sampler.init()
         self.reference.cpld.init()
         self.reference.init()
+
+        delay(100*us)
 
         self.reference.set(frequency=80 * MHz)
         self.reference.set_att(0.0)
@@ -38,7 +40,7 @@ class PMTtest(EnvExperiment):
             self.sampler.sample(samples[i])
             delay(sampling_period * s)
 
-        sample2 = [i[0] for i in samples]
+        sample2 = [i[1] for i in samples]
         self.set_dataset("test.samples", sample2, broadcast=True, archive=True)
         self.set_dataset("test.samples_x", [x for x in range(num_samples)], broadcast=True, archive=True)
         

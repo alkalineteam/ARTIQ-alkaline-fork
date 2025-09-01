@@ -10,7 +10,8 @@ import datetime
 class TestSampler(EnvExperiment):
     def build(self):
         self.setattr_device("core")
-        self.ttl:TTLOut=self.get_device("ttl4") 
+        self.setattr_device("ccb")
+        self.ttl:TTLOut=self.get_device("ttl15") 
         self.sampler:Sampler = self.get_device("sampler0")
 
         self.setattr_argument("sample_rate", NumberValue())
@@ -34,7 +35,7 @@ class TestSampler(EnvExperiment):
 
         self.sampler.init()
 
-        delay(40000*ms)
+        delay(100*us)
 
         num_samples = int32(self.sample_number)
         samples = [[0.0 for i in range(8)] for i in range(num_samples)]
@@ -50,11 +51,19 @@ class TestSampler(EnvExperiment):
                     self.sampler.sample(samples[j])
                     delay(sampling_period * s)
 
-        # delay(5000*ms)
-
-        sample2 = [i[0] for i in samples]
-        self.set_dataset("samples", sample2, broadcast=True, archive=True)
+        sample2 = [i[1] for i in samples]
+        self.set_dataset("test.samples", sample2, broadcast=True, archive=True)
+        self.set_dataset("test.samples_x", [x for x in range(len(sample2))], broadcast=True, archive=True)
         # self.save_data("sampler_test.csv", sample2)
         print(sample2)
+
+        self.ccb.issue("create_applet", 
+                    "test sampler", 
+                    "${artiq_applet}plot_xy"
+                    " samples"
+                    " --x samples_x"
+                    " --title PMTtest", 
+                    group = "test"
+                )
 
         print("Sampler Test Complete")
