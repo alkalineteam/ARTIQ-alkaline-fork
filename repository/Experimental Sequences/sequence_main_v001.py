@@ -15,7 +15,7 @@ default_cfr2 = (
     | (1 << 24) # the amplitude is scaled by the ASF from the active profile (without this, the DDS outputs max. possible amplitude -> cracked AOM crystals)
 )
 
-class sequence_main(EnvExperiment):
+class sequence_main_v001(EnvExperiment):
 
     def build(self):
         self.setattr_device("core")

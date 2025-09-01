@@ -8,7 +8,7 @@ from artiq.coredevice.sampler import Sampler
 import numpy as np
 
 
-class sequence_main(EnvExperiment):
+class sequence_main_v002(EnvExperiment):
 
     def build(self):
         self.setattr_device("core")
@@ -59,7 +59,7 @@ class sequence_main(EnvExperiment):
         self.setattr_argument("sf_frequency", NumberValue(default=80.92))
 
 
-        self.output_frequency = self.get_dataset("drift_aom_frequency")
+        # self.output_frequency = self.get_dataset("drift_aom_frequency")
 
 
 
@@ -524,7 +524,7 @@ class sequence_main(EnvExperiment):
 
 
             # delay(self.blue_mot_loading_time * ms)
-            delay(1000 * ms)
+            delay(100 * ms)
 
             self.red_mot_aom.sw.off()
 
