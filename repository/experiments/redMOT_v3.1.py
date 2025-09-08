@@ -24,7 +24,7 @@ class redMOT_v3_1(EnvExperiment):
 
         self.Ref = self.get_device("urukul0_ch3")
 
-        self.setattr_argument("Cycle", NumberValue(default=1))
+        self.setattr_argument("Cycle", NumberValue(default=500))
         self.setattr_argument("Probe_ON", NumberValue(default=1))
         self.setattr_argument("Loading_Time", NumberValue(default=1500))
         self.setattr_argument("Transfer_Time", NumberValue(default=40))

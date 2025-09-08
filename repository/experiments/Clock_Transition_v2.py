@@ -24,7 +24,7 @@ class clock_transition_lookup_v2(EnvExperiment):
         self.Ref = self.get_device("urukul0_ch3")
 
         self.setattr_argument("Probe_ON", NumberValue(default=1))
-        self.setattr_argument("Loading_Time", NumberValue(default=1000))
+        self.setattr_argument("Loading_Time", NumberValue(default=1500))
         self.setattr_argument("Transfer_Time", NumberValue(default=40))
         self.setattr_argument("Holding_Time", NumberValue(default=40))
         self.setattr_argument("Compression_Time", NumberValue(default=8))
@@ -188,8 +188,8 @@ class clock_transition_lookup_v2(EnvExperiment):
             self.Single_Freq.sw.off()
 
             # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 7.14)# 5.61/2.24 = 1.80; 7.085/0.52 = 3.5; 4.9/3.1 = 1;
-            self.MOT_Coil_2.write_dac(1, 0.6)
+            self.MOT_Coil_1.write_dac(0, 7.13)# 5.61/2.24 = 1.80; 7.085/0.52 = 3.5; 4.9/3.1 = 1;
+            self.MOT_Coil_2.write_dac(1, 0.52)
             with parallel:
                 self.MOT_Coil_1.load()
                 self.MOT_Coil_2.load()
