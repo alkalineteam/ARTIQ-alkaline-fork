@@ -21,20 +21,20 @@ device_db = {
         "port": 1068,
         "command": "aqctl_corelog -p {port} --bind {bind} " + core_addr
     },
-    "core_moninj": {
-        "type": "controller",
-        "host": "::1",
-        "port_proxy": 1383,
-        "port": 1384,
-        "command": "aqctl_moninj_proxy --port-proxy {port_proxy} --port-control {port} --bind {bind} " + core_addr
-    },
-    "core_analyzer": {
-        "type": "controller",
-        "host": "::1",
-        "port_proxy": 1385,
-        "port": 1386,
-        "command": "aqctl_coreanalyzer_proxy --port-proxy {port_proxy} --port-control {port} --bind {bind} " + core_addr
-    },
+    # "core_moninj": {
+    #     "type": "controller",
+    #     "host": "::1",
+    #     "port_proxy": 1383,
+    #     "port": 1384,
+    #     "command": "aqctl_moninj_proxy --port-proxy {port_proxy} --port-control {port} --bind {bind} " + core_addr
+    # },
+    # "core_analyzer": {
+    #     "type": "controller",
+    #     "host": "::1",
+    #     "port_proxy": 1385,
+    #     "port": 1386,
+    #     "command": "aqctl_coreanalyzer_proxy --port-proxy {port_proxy} --port-control {port} --bind {bind} " + core_addr
+    # },
     "core_cache": {
         "type": "local",
         "module": "artiq.coredevice.cache",
@@ -267,7 +267,7 @@ device_db["urukul0_cpld"] = {
         "refclk": 125000000.0,
         "clk_sel": 2,
         "clk_div": 0,
-        "proto_rev": 9
+        "proto_rev": 8
     }
 }
 
@@ -386,7 +386,7 @@ device_db["urukul1_cpld"] = {
         "refclk": 125000000.0,
         "clk_sel": 2,
         "clk_div": 0,
-        "proto_rev": 9
+        "proto_rev": 8
     }
 }
 
