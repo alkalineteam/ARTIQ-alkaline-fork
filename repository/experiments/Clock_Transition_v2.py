@@ -95,8 +95,8 @@ class clock_transition_lookup_v2(EnvExperiment):
             self.Probe.set(frequency= 65 * MHz, amplitude=0.02)
             self.Single_Freq.set(frequency= 80 * MHz, amplitude=0.35)
             
-            voltage_1 = 1.06
-            voltage_2 = 0.44
+            voltage_1 = 1.04
+            voltage_2 = 0.45
             self.MOT_Coil_1.write_dac(0, voltage_1)
             self.MOT_Coil_2.write_dac(1, voltage_2)
 
@@ -152,8 +152,8 @@ class clock_transition_lookup_v2(EnvExperiment):
                 self.Broadband_Off.pulse(10*ms)
                 self.Single_Freq.sw.on()
 
-            voltage_1_com = 2.55
-            voltage_2_com = 2.26
+            voltage_1_com = 2.51
+            voltage_2_com = 2.23
             red_amp = 0.35
             amp_com = 0.02
             red_freq = 80.0
@@ -188,8 +188,8 @@ class clock_transition_lookup_v2(EnvExperiment):
             self.Single_Freq.sw.off()
 
             # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 7.04)# 5.61/2.24 = 1.80; 7.085/0.52 = 3.5; 4.9/3.1 = 1;
-            self.MOT_Coil_2.write_dac(1, 0.44)
+            self.MOT_Coil_1.write_dac(0, 4.903)# 5.62/2.24 = 1.80; 7.07/0.45 = 3.5; 4.903/3.1 = 1;
+            self.MOT_Coil_2.write_dac(1, 3.1)
             with parallel:
                 self.MOT_Coil_1.load()
                 self.MOT_Coil_2.load()
