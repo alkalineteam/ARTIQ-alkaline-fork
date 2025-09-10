@@ -27,7 +27,8 @@
         },
         {
             "type": "sampler",
-            "ports": [2, 3]
+            "ports": [2, 3],
+            "hw_rev": "v2.3.1"
         },
         {
             "type": "urukul",
@@ -39,6 +40,7 @@
         },
         {
             "type": "urukul",
+            "hw_rev": "v1.5",
             "dds": "ad9910",
             "ports": [6, 7],
             "clk_sel": 2,
