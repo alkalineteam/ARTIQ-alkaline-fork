@@ -1,7 +1,11 @@
 from artiq.experiment import *
-from artiq.coredevice.sampler import Sampler
 from artiq.coredevice.ttl import TTLOut
+from artiq.language.core import delay
+from artiq.test.lit.iodelay import sequential
+from artiq.coredevice.sampler import Sampler
+from artiq.language.units import *
 from numpy import int64, int32
+import datetime
 
 class clock_transition_lookup_v3(EnvExperiment):
     def build(self):
@@ -23,102 +27,78 @@ class clock_transition_lookup_v3(EnvExperiment):
         self.Clock=self.get_device("urukul0_ch0")
         self.MOT_Coil_1=self.get_device("zotino0")
         self.MOT_Coil_2=self.get_device("zotino0")
-        self.sampler:Sampler=self.get_device("sampler0")
+        self.sampler:Sampler = self.get_device("sampler0")
         self.Ref = self.get_device("urukul0_ch3")
+        self.ttl:TTLOut=self.get_device("ttl15")
 
-
-        self.setattr_argument("Loading_Time", NumberValue(default=2000))
+        self.setattr_argument("Loading_Time", NumberValue(default=1500))
         self.setattr_argument("Transfer_Time", NumberValue(default=40))
         self.setattr_argument("Holding_Time", NumberValue(default=40))
         self.setattr_argument("Compression_Time", NumberValue(default=8))
         self.setattr_argument("Single_Freq_Time", NumberValue(default=40))
-        self.setattr_argument("State_Preparation_Time", NumberValue(default=40))
-        self.setattr_argument("Clock_Interrogation_Time", NumberValue(default=50))
+        self.setattr_argument("State_Preparation_Time", NumberValue(default=30))
+        self.setattr_argument("Clock_Interrogation_Time", NumberValue(default=300))
 
-        self.setattr_argument("Center_Frequency", NumberValue(default=80.068, precision=4))
+        self.setattr_argument("Center_Frequency", NumberValue(default=80.033, precision=4))
         self.setattr_argument("Step_Size", NumberValue(default=500, precision=4))
-        self.setattr_argument("Scan_Range", NumberValue(default=100, precision=4)) 
+        self.setattr_argument("Scan_Range", NumberValue(default=100, precision=4))
 
+        self.setattr_argument("sampling_rate", NumberValue(unit="kHz", default=1))
 
-    @kernel
-    def detection(self):
-        self.MOT_Coil_1.write_dac(0, 4.08)
-        self.MOT_Coil_2.write_dac(1, 4.11)
-        with parallel:
-            self.MOT_Coil_1.load()
-            self.MOT_Coil_2.load()
-        
-        self.Probe_TTL.on()
-        self.BMOT_AOM.set(frequency=10*MHz, amplitude=0.08)
-        delay(2.8 *ms)
-
-        with parallel:
-            self.Camera.on()
-            self.Pixelfly.on()
-            self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-            self.Ref.sw.on()
-        
-        delay(0.5 *ms)
-        
-        with parallel:
-            self.Pixelfly.off()
-            self.Camera.off()
-            self.Ref.sw.off()
-            self.Probe_TTL.off()
-            self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-
-        delay(5 *ms)
-
-        # **************************** Slice 7: Repumping **************************
-        with parallel:
-            self.Repump707.pulse(15*ms)
-            self.Repump679.pulse(15*ms)
-
-        self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-        delay(10*ms)
-        self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-        
-        # **************************** Slice 7: Excited State **************************
-        self.Probe_TTL.on()
-        delay(2.8*ms)
-
-        with parallel:
-            self.Ref.sw.on()
-            self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-        
-        delay(0.5*ms)
-        
-        with parallel:
-            self.Ref.sw.off()
-            self.Probe_TTL.off()
-            self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-        delay(5*ms)
-
-        self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-        delay(10*ms)
-        self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-
-        # **************************** Slice 7: Background State **************************
-        self.Probe_TTL.on()
-        delay(2.8 *ms)
-
-        with parallel:
-            self.Ref.sw.on()
-            self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-
-        delay(0.5 *ms)
-        
-        with parallel:
-            self.Ref.sw.off()
-            self.Probe_TTL.off()
-            self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-
-        print("ending Detection Slice")
+    @rpc
+    def save_data(self, filename, data):
+        current_time = datetime.datetime.now()
+        current_time = str(current_time.day) + '-' + str(current_time.month) + '-' + str(current_time.year) + '_' + str(current_time.hour) + '-' + str(current_time.minute) + '-' + str(current_time.second)
+        filenameplusdate = current_time + filename
+        np.savetxt(filenameplusdate, data)
 
     @kernel
     def run(self):
         self.core.reset()
         self.core.break_realtime()
+
+        # Initialize the modules
+        self.Pixelfly.output()
+        self.Camera.output()
+        self.BMOT_TTL.output()
+        self.Probe_TTL.output()
+        self.Zeeman_Slower_TTL.output()
+        self.Repump707.output()
+        self.MOT_Coil_1.init()
+        self.MOT_Coil_2.init()
+        self.sampler.init()
+        self.BMOT_AOM.cpld.init()
+        self.BMOT_AOM.init()
+        self.ZeemanSlower.cpld.init()
+        self.ZeemanSlower.init()
+        self.Probe.cpld.init()
+        self.Probe.init()
+        self.Single_Freq.cpld.init()
+        self.Single_Freq.init()
+        self.Clock.cpld.init()
+        self.Clock.init()
+
+        self.Ref.cpld.init()
+        self.Ref.init()
+
+        # Set the RF channels ON
+        self.BMOT_AOM.sw.on()
+        self.ZeemanSlower.sw.on()
+        self.Probe.sw.on()
+
+        # Set the RF attenuation
+        self.BMOT_AOM.set_att(0.0)
+        self.ZeemanSlower.set_att(0.0)
+        self.Probe.set_att(0.0)
+        self.Single_Freq.set_att(0.0)
+        self.Clock.set_att(0.0)
+
+        self.Ref.set(frequency=80 * MHz)
+        self.Ref.set_att(0.0)
+
+        # Clock parameters
+        step_size = self.Step_Size
+        center_freq = self.Center_Frequency
 
         # Initialize the modules
         self.Pixelfly.output()
@@ -139,7 +119,6 @@ class clock_transition_lookup_v3(EnvExperiment):
         self.Single_Freq.init()
         self.Clock.cpld.init()
         self.Clock.init()
-        self.sampler.init()
 
         self.Ref.cpld.init()
         self.Ref.init()
@@ -157,232 +136,234 @@ class clock_transition_lookup_v3(EnvExperiment):
         self.Clock.set_att(0.0)
 
         self.Ref.set(frequency=80 * MHz)
-        self.Ref.set_att(10.0)
+        self.Ref.set_att(0.0)
 
-        # Clock parameters
         step_size = self.Step_Size
         center_freq = self.Center_Frequency
         scan_range = self.Scan_Range
         cycles = int64((scan_range)*1e3/step_size)
         start = center_freq - (cycles/2)*(step_size/1e6)
 
-        for j in range(cycles + 1):
-            # # **************************** Slice 1: Loading ****************************
-            delay(0.5*s)
-            # # blue_amp = 0.08
-            # self.BMOT_AOM.set(frequency=90 * MHz, amplitude=0.08)
-            # self.ZeemanSlower.set(frequency=180 * MHz, amplitude=0.35)
-            # self.Probe.set(frequency= 65 * MHz, amplitude=0.02)
-            # self.Single_Freq.set(frequency= 80 * MHz, amplitude=0.35)
+        for j in range(cycles+1):
+            delay(50*ms)
+            # **************************** Blue MOT Loading ****************************
+            # blue_amp = 0.08
+            self.BMOT_AOM.set(frequency=90 * MHz, amplitude=0.08)
+            self.ZeemanSlower.set(frequency=180 * MHz, amplitude=0.35)
+            self.Probe.set(frequency= 65 * MHz, amplitude=0.02)
+            self.Single_Freq.set(frequency= 80 * MHz, amplitude=0.35)
             
-            # voltage_1 = 1.14
-            # voltage_2 = 0.52
-            # self.MOT_Coil_1.write_dac(0, voltage_1)
-            # self.MOT_Coil_2.write_dac(1, voltage_2)
+            voltage_1 = 1.02
+            voltage_2 = 0.45
+            self.MOT_Coil_1.write_dac(0, voltage_1)
+            self.MOT_Coil_2.write_dac(1, voltage_2)
 
-            # with parallel:
-            #     self.MOT_Coil_1.load()
-            #     self.MOT_Coil_2.load()
-            #     self.BMOT_TTL.on()
-            #     self.Probe_TTL.off()
-            #     self.Broadband_On.pulse(10*ms)
-            #     self.Single_Freq.sw.off()
-            #     self.Zeeman_Slower_TTL.on()
-            #     self.Repump707.on()
-            #     self.Repump679.on()
+            with parallel:
+                self.MOT_Coil_1.load()
+                self.MOT_Coil_2.load()
+                self.BMOT_TTL.on()
+                self.Probe_TTL.off()
+                self.Broadband_On.pulse(10*ms)
+                self.Single_Freq.sw.off()
+                self.Zeeman_Slower_TTL.on()
+                self.Repump707.on()
+                self.Repump679.on()
 
-            # delay(self.Loading_Time*ms)
+            delay(self.Loading_Time*ms)
 
-            # # **************************** Slice 2: Transfer ****************************
-            # self.ZeemanSlower.set(frequency=180 * MHz, amplitude=0.00)
-            # self.Zeeman_Slower_TTL.off()
-            # delay(4.0*ms)
+            # **************************** Transfer ****************************
+            self.ZeemanSlower.set(frequency=180 * MHz, amplitude=0.00)
+            self.Zeeman_Slower_TTL.off()
+            delay(4.0*ms)
 
-            # steps_tr = self.Transfer_Time
-            # t_tr = self.Transfer_Time/steps_tr
+            steps_tr = self.Transfer_Time
+            t_tr = self.Transfer_Time/steps_tr
 
-            # for i in range(int64(steps_tr)):
-            #     amp_steps = (0.08 - 0.003)/steps_tr
-            #     amp = 0.08 - ((i+1) * amp_steps)
-            #     self.BMOT_AOM.set(frequency=90*MHz, amplitude=amp)
-            #     delay(t_tr*ms)
+            for i in range(int64(steps_tr)):
+                amp_steps = (0.08 - 0.003)/steps_tr
+                amp = 0.08 - ((i+1) * amp_steps)
+                self.BMOT_AOM.set(frequency=90*MHz, amplitude=amp)
+                delay(t_tr*ms)
 
-            # delay(200*ms)
+            delay(200*ms)
 
-            # with parallel:
-            #     self.BMOT_TTL.off()
-            #     self.Repump707.off()
-            #     self.Repump679.off()
+            with parallel:
+                self.BMOT_TTL.off()
+                self.Repump707.off()
+                self.Repump679.off()
 
-            # delay(4*ms)
-            # self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
+            delay(4*ms)
+            self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
 
-            # voltage_1_Tr = 4.012
-            # voltage_2_Tr = 4.027
-            # self.MOT_Coil_1.write_dac(0, voltage_1_Tr)
-            # self.MOT_Coil_2.write_dac(1, voltage_2_Tr)
-            # self.MOT_Coil_1.load()
-            # self.MOT_Coil_2.load()
+            voltage_1_Tr = 4.012
+            voltage_2_Tr = 4.027
+            self.MOT_Coil_1.write_dac(0, voltage_1_Tr)
+            self.MOT_Coil_2.write_dac(1, voltage_2_Tr)
+            self.MOT_Coil_1.load()
+            self.MOT_Coil_2.load()
 
-            # # **************************** Slice 3: Holding ****************************
-            # delay(self.Holding_Time*ms)
+            # **************************** Broadband Red MOT ****************************
+            delay(self.Holding_Time*ms)
 
-            # # **************************** Slice 4: Compression ****************************
-            # with parallel:
-            #     self.Broadband_Off.pulse(10*ms)
-            #     self.Single_Freq.sw.on()
+            # **************************** Br Red MOT Compression ****************************
+            with parallel:
+                self.Broadband_Off.pulse(10*ms)
+                self.Single_Freq.sw.on()
 
-            # voltage_1_com = 2.55
-            # voltage_2_com = 2.26
-            # red_amp = 0.35
-            # amp_com = 0.02
-            # red_freq = 80.0
-            # red_freq_com = 80.3
-            # steps_com = self.Compression_Time
-            # t_com = self.Compression_Time/steps_com
-            # volt_1_steps = (voltage_1_Tr - voltage_1_com)/steps_com
-            # volt_2_steps = (voltage_2_Tr - voltage_2_com)/steps_com
-            # amp_steps = (red_amp-amp_com)/steps_com
-            # freq_steps = (red_freq_com - red_freq)/steps_com
+            voltage_1_com = 2.51
+            voltage_2_com = 2.23
+            red_amp = 0.35
+            amp_com = 0.02
+            red_freq = 80.0
+            red_freq_com = 80.3
+            steps_com = self.Compression_Time
+            t_com = self.Compression_Time/steps_com
+            volt_1_steps = (voltage_1_Tr - voltage_1_com)/steps_com
+            volt_2_steps = (voltage_2_Tr - voltage_2_com)/steps_com
+            amp_steps = (red_amp-amp_com)/steps_com
+            freq_steps = (red_freq_com - red_freq)/steps_com
 
-            # with parallel:
-            #     for i in range(int64(steps_com)):
-            #         voltage_1 = voltage_1 - volt_1_steps
-            #         voltage_2 = voltage_2 - volt_2_steps
-            #         self.MOT_Coil_1.write_dac(0, voltage_1)
-            #         self.MOT_Coil_2.write_dac(1, voltage_2)
-            #         with parallel:
-            #             self.MOT_Coil_1.load()
-            #             self.MOT_Coil_2.load()
-            #         delay(t_com*ms)
+            with parallel:
+                for i in range(int64(steps_com)):
+                    voltage_1 = voltage_1 - volt_1_steps
+                    voltage_2 = voltage_2 - volt_2_steps
+                    self.MOT_Coil_1.write_dac(0, voltage_1)
+                    self.MOT_Coil_2.write_dac(1, voltage_2)
+                    with parallel:
+                        self.MOT_Coil_1.load()
+                        self.MOT_Coil_2.load()
+                    delay(t_com*ms)
 
-            #     for i in range(int64(steps_com)):
-            #         amp = red_amp - ((i+1) * amp_steps)
-            #         freq = red_freq + ((i+1) * freq_steps)
-            #         self.Single_Freq.set(frequency=freq*MHz, amplitude=amp)
-            #         delay(t_com*ms)
+                for i in range(int64(steps_com)):
+                    amp = red_amp - ((i+1) * amp_steps)
+                    freq = red_freq + ((i+1) * freq_steps)
+                    self.Single_Freq.set(frequency=freq*MHz, amplitude=amp)
+                    delay(t_com*ms)
 
-            # # **************************** Slice 5: Single Frequency ****************************
-            # self.Single_Freq.set(frequency=80.3*MHz, amplitude=amp_com)
-            # delay(self.Single_Freq_Time*ms)
-            # self.Single_Freq.sw.off()
+            # **************************** Single Frequency Red MOT****************************
+            self.Single_Freq.set(frequency=80.3*MHz, amplitude=amp_com)
+            delay(self.Single_Freq_Time*ms)
+            self.Single_Freq.sw.off()
 
-            # # **************************** Slice 5: State Preparation *****************************
-            # self.MOT_Coil_1.write_dac(0, 7.14)# 5.61/2.24 = 1.80; 7.14/0.52 = 3.5; 4.9/3.1 = 1;
-            # self.MOT_Coil_2.write_dac(1, 0.52)
-            # with parallel:
-            #     self.MOT_Coil_1.load()
-            #     self.MOT_Coil_2.load()
+            # **************************** State Preparation *****************************
+            self.MOT_Coil_1.write_dac(0, 7.06) # 5.62/2.24 = 1.80; 7.03/0.45 = 3.5; 4.903/3.1 = 1;
+            self.MOT_Coil_2.write_dac(1, 0.45)
+            with parallel:
+                self.MOT_Coil_1.load()
+                self.MOT_Coil_2.load()
 
-            # delay(self.State_Preparation_Time*ms)
+            delay(self.State_Preparation_Time*ms)
 
-            # # **************************** Slice 5: Clock Interrogation *****************************
-            # self.Clock.sw.on()
+            # **************************** Clock Interrogation *****************************
+            self.Clock.sw.on()
+            self.Clock.set(frequency=start*MHz)
+            print("Clock Frequency:", start, "MHz, Cycle:", j)
+            start += (step_size/1e6)
+            delay(self.Clock_Interrogation_Time*ms)
+            self.Clock.sw.off()
 
-            # self.Clock.set(frequency=start*MHz)
-            # print("Clock Frequency:", start, "MHz, Cycle:", j)
-            # start += (step_size/1e6)
+            # Turn off MOT coils for detection
+            self.MOT_Coil_1.write_dac(0, 4.08)
+            self.MOT_Coil_2.write_dac(1, 4.11)
+            with parallel:
+                self.MOT_Coil_1.load()
+                self.MOT_Coil_2.load()
 
-            # delay(self.Clock_Interrogation_Time*ms)
-            # self.Clock.sw.off()
-
-            # # Sampler initialization
-            # sample_period = 1 / 25000  #10kHz sampling rate should give us enough data points
-            # sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
-
-            num_samples = 55
+            # Sampler variables
+            sample_duration = 0.05  # 50 ms: detection cycle duration ~ 48 ms
+            sampling_period = 1/self.sampling_rate
+            num_samples = int32(sample_duration / sampling_period)
             samples = [[0.0 for i in range(8)] for i in range(num_samples)]
 
-            # **************************** Slice 5: Detection : Ground State**************************
-            # with parallel:
-                # self.detection()
-            for k in range(num_samples):   
-                self.sampler.sample(samples[k])
-                delay(1 * ms)
+            # **************************** Detection *****************************
+            with parallel:
+                with sequential:
+                    # **************************** Ground State ****************************
+                    self.Probe_TTL.on()
+                    self.BMOT_AOM.set(frequency=10*MHz, amplitude=0.08)
+                    delay(2.8 *ms)
 
-            
-            samples_ch0 = [float(s[1]) for s in samples]
-        
-            # print("done sampling")
-            self.set_dataset("excitation_fraction", samples_ch0, broadcast=True, archive=True)
-            self.set_dataset("samples", list(range(num_samples)), broadcast=True, archive=True)
+                    with parallel:
+                        self.Camera.on()
+                        self.Pixelfly.on()
+                        self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                        self.Ref.sw.on()
+                    
+                    delay(0.5 *ms)
+                    
+                    with parallel:
+                        self.Pixelfly.off()
+                        self.Camera.off()
+                        self.Ref.sw.off()
+                        self.Probe_TTL.off()
+                        self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+                    delay(5 *ms)
 
-            print("samples_ch0:", samples_ch0)
+                    # **************************** Repumping ****************************
+                    with parallel:
+                        self.Repump707.pulse(15*ms)
+                        self.Repump679.pulse(15*ms)
 
-            # self.ccb.issue("create_applet", 
-            #             "plotting", 
-            #             "${artiq_applet}plot_xy "
-            #             "excitation_fraction"
-            #             "--x samples"
-            #             "--title Excitation Fraction",
-            # )
-                                    
-            # # Split the samples
-            # baseline = samples_ch0[0:40]
-            # baseline_mean = 0.0
-            # gs = samples_ch0[70:130]
-            # es = samples_ch0[680:740]
-            # bg = samples_ch0[1100:1160]
+                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                    delay(10*ms)
+                    self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
 
+                    # **************************** Excited State ****************************
+                    self.Probe_TTL.on()
+                    delay(2.8*ms)
 
-            # with parallel: 
-            #     baseline_sum = 0.0
-            #     for x in baseline:
-            #         baseline_sum += float(x)
-            #         baseline_mean = baseline_sum / len(baseline)
+                    with parallel:
+                        self.Ref.sw.on()
+                        self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                    
+                    delay(0.5*ms)
+                    
+                    with parallel:
+                        self.Ref.sw.off()
+                        self.Probe_TTL.off()
+                        self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+                    delay(5*ms)
 
-            #     gs_counts = 0.0
-            #     es_counts = 0.0
-            #     bg_counts = 0.0
+                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                    delay(10*ms)
+                    self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
 
-            #     measurement_time = 600.0 * sample_period     #set to 600 as each slice size is 600 samples at the moment,
-            #                                                 # we should trim this tighter to the peaks to avoid added noise
-            #     for val in gs[1:]:
-            #         gs_counts += val
-            #     for val in es[1:]:
-            #         es_counts += val
-            #     for val in bg[1:]:
-            #         bg_counts += val
+                    # **************************** Background ****************************
+                    self.Probe_TTL.on()
+                    delay(2.8 *ms)
 
-            
-            # #if we want the PMT to determine atom no, we will probably want photon counts,
-            # # will need expected collection efficiency of the telescope,Quantum efficiency etc, maybe use the camera atom no calculation to get this
-            
-            # with parallel:
-            #     gs_measurement = ((gs_counts-baseline_mean)) * measurement_time         #integrates over the slice time to get the total photon counts
-            #     es_measurement = ((es_counts-baseline_mean))  * measurement_time
-            #     bg_measurement = ((bg_counts-baseline_mean)) * measurement_time
+                    # with parallel:
+                    #     self.Ref.sw.on()
+                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
 
-        
+                    delay(0.5 *ms)
+                    
+                    # with parallel:
+                    #     self.Ref.sw.off()
+                    #     self.Probe_TTL.off()
+                    self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+                    # print("Detection done")
+
+                with sequential:
+                    for j in range(num_samples):
+                        self.sampler.sample(samples[j])
+                        delay(sampling_period * s)
                         
-            #     #if we want the PMT to determine atom no, we will probably want photon counts,
-            #     # will need expected collection efficiency of the telescope,Quantum efficiency etc, maybe use the camera atom no calculation to get this
-
-
-            #     numerator = es_measurement - bg_measurement
-            #     denominator = (gs_measurement - bg_measurement) + (es_measurement - bg_measurement)
-            #     if denominator != 0.0:
-            #         excitation_fraction = ((numerator / denominator ) )
-            #         if excitation_fraction < 0.0:
-            #             excitation_fraction = 0.0
-            #     else:
-            #         excitation_fraction = float(0) # or 0.5 or some fallback value depending on experiment
-                
-            #     if is_param_1 == True: 
-            #         excitation_fraction_list_param_1[j] = float(excitation_fraction)
-            #     elif is_param_1 == False:
-            #         excitation_fraction_list_param_2[j] = float(excitation_fraction)
-                
-        
-
-            # delay(500*us)
-            # print(excitation_fraction)
+            self.Probe_TTL.off()
             
-            # **************************** Slice 4 ****************************
-            # delay(4.0*ms)
-            self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-            self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
-            self.Broadband_On.pulse(10*ms)
-            delay(100*ms)
-        
-        print("clock transition scan completed!!")
+            sample2 = [x[0] for x in samples]
+            self.set_dataset("excitation.samples", sample2, broadcast=True, archive=True)
+            self.set_dataset("excitation.samples_x", [x for x in range(len(sample2))], broadcast=True, archive=True)
+            # self.save_data("sampler_test.csv", sample2)
+            print(sample2)
+
+            self.ccb.issue("create_applet", 
+                        "Excitation Plot", 
+                        "${artiq_applet}plot_xy"
+                        " samples"
+                        " --x samples_x"
+                        " --title Excitation", 
+                        group = "excitation"
+                    )
+
+        print("Test Complete")
