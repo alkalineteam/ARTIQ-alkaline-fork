@@ -83,7 +83,7 @@ class redMOT_v3_1(EnvExperiment):
             self.Probe.set(frequency=65 * MHz, amplitude=0.02)
             self.Single_Freq.set(frequency=80 * MHz, amplitude=0.35)
             
-            voltage_1 = 1.04
+            voltage_1 = 1.02
             voltage_2 = 0.45
             self.MOT_Coil_1.write_dac(0, voltage_1)
             self.MOT_Coil_2.write_dac(1, voltage_2)

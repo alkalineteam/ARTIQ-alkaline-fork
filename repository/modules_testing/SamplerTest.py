@@ -51,7 +51,7 @@ class TestSampler(EnvExperiment):
                     self.sampler.sample(samples[j])
                     delay(sampling_period * s)
 
-        sample2 = [i[1] for i in samples]
+        sample2 = [i[7] for i in samples]
         self.set_dataset("test.samples", sample2, broadcast=True, archive=True)
         self.set_dataset("test.samples_x", [x for x in range(len(sample2))], broadcast=True, archive=True)
         # self.save_data("sampler_test.csv", sample2)
@@ -62,7 +62,7 @@ class TestSampler(EnvExperiment):
                     "${artiq_applet}plot_xy"
                     " samples"
                     " --x samples_x"
-                    " --title PMTtest", 
+                    " --title Sampler Test", 
                     group = "test"
                 )
 
