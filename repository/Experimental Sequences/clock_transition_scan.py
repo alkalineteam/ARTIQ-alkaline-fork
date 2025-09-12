@@ -10,16 +10,16 @@ import os
 import csv
 from datetime import datetime
 
-default_cfr1 = (
-    (1 << 1)    # configures the serial data I/O pin (SDIO) as an input only pin; 3-wire serial programming mode
-)
-default_cfr2 = (
-    (1 << 5)    # forces the SYNC_SMP_ERR pin to a Logic 0; this pin indicates (active high) detection of a synchronization pulse sampling error
-    | (1 << 16) # a serial I/O port read operation of the frequency tuning word register reports the actual 32-bit word appearing at the input to the DDS phase accumulator (i.e. not the contents of the frequency tuning word register)
-    | (1 << 24) # the amplitude is scaled by the ASF from the active profile (without this, the DDS outputs max. possible amplitude -> cracked AOM crystals)
-)
+# default_cfr1 = (
+#     (1 << 1)    # configures the serial data I/O pin (SDIO) as an input only pin; 3-wire serial programming mode
+# )
+# default_cfr2 = (
+#     (1 << 5)    # forces the SYNC_SMP_ERR pin to a Logic 0; this pin indicates (active high) detection of a synchronization pulse sampling error
+#     | (1 << 16) # a serial I/O port read operation of the frequency tuning word register reports the actual 32-bit word appearing at the input to the DDS phase accumulator (i.e. not the contents of the frequency tuning word register)
+#     | (1 << 24) # the amplitude is scaled by the ASF from the active profile (without this, the DDS outputs max. possible amplitude -> cracked AOM crystals)
+# )
 
-class clock_transition_scan(EnvExperiment):
+class Atom_Servo(EnvExperiment):
 
     def build(self):
         self.setattr_device("core")
@@ -60,7 +60,7 @@ class clock_transition_scan(EnvExperiment):
         self.setattr_argument("Enable_Lock", BooleanValue(default=False), group="Locking")
         self.setattr_argument("servo_gain", NumberValue(default=0.3), group="Locking")
         self.setattr_argument("linewidth", NumberValue(default=100 * Hz), group="Locking")  # This is the linewidth of the clock transition, adjust as necessary
-        self.setattr_argument("drift_rate", NumberValue(default=0.2*Hz),group="Locking")
+      
 
         
         self.feedback_list = []
@@ -119,7 +119,7 @@ class clock_transition_scan(EnvExperiment):
 
         #Lattice AOM - for magic wavelength lattice measurements
         self.lattice_aom.set(frequency = 80 *MHz)
-        self.lattice_aom.set_att(14*dB)
+        self.lattice_aom.set_att(13*dB)
 
       
         # Set initial states of AOMs
@@ -293,9 +293,7 @@ class clock_transition_scan(EnvExperiment):
         current_per_coil = ((bias_at_coil) / 2.0086) / 2   
         coil_1_voltage = (current_per_coil + 4.7225) / 0.9487
         coil_2_voltage = (-current_per_coil + 5.0154) / 1.0147        #scaled with coil calibration
-        print("Coil 1 voltage: ", coil_1_voltage)
-        print("Coil 2 voltage: ", coil_2_voltage)
-
+        
          #Switch to Helmholtz
         self.mot_coil_1.write_dac(1, coil_1_voltage)  
         self.mot_coil_2.write_dac(0, coil_2_voltage)
@@ -551,14 +549,14 @@ class clock_transition_scan(EnvExperiment):
         bmot_compression_time = 20 
         blue_mot_cooling_time = 60 
         broadband_red_mot_time = 10
-        red_mot_compression_time = 7
-        single_frequency_time = 30
+        red_mot_compression_time = 5
+        single_frequency_time = 50
         time_of_flight = 0 
         blue_mot_coil_1_voltage = 8.14
         blue_mot_coil_2_voltage = 7.9
         compressed_blue_mot_coil_1_voltage = 8.67
         compressed_blue_mot_coil_2_voltage = 8.39
-        bmot_amp = 0.06
+        bmot_amp = 0.08
         compress_bmot_amp = 0.0035
         bb_rmot_coil_1_voltage = 5.26
         bb_rmot_coil_2_voltage = 5.22
@@ -567,7 +565,7 @@ class clock_transition_scan(EnvExperiment):
         rmot_f_start = 80.6,
         rmot_f_end = 81,
         rmot_A_start = 0.05,
-        rmot_A_end = 0.0025,
+        rmot_A_end = 0.003
 
         scan_start = int32(self.scan_center_frequency_Hz - (int32(self.scan_range_Hz )/ 2))
         scan_end =int32(self.scan_center_frequency_Hz + (int32(self.scan_range_Hz ) / 2))
@@ -663,12 +661,12 @@ class clock_transition_scan(EnvExperiment):
 
             #################################################################### Clock Spectroscopy ##################################################################################
 
-            # delay(40*ms)
+       
             self.clock_spectroscopy(
                 aom_frequency = scan_frequency_values[j],
                 pulse_time = self.rabi_pulse_duration_ms,
             )
-
+            
             self.normalised_detection(j,gs_list,es_list,excitation_fraction_list,atom_count_list)
             
             delay(2*ms)
@@ -695,18 +693,11 @@ class clock_transition_scan(EnvExperiment):
         contrast = 0.6
         center_frequency = scan_frequency_values[max_idx]
         
-        recenter_peak = self.drift_rate *(cycles - (max_idx+1)) * 1.5
-        print(recenter_peak)
-
-
+       
         # print(contrast)
         # print(center_frequency)
         
-        # print((t2-t1)*1e-9, "s")
-
-
-
-        delay(1*ms)
+        # print((t2-t1)*1
 
         # if atom lock is enabled as True, then begin new while loop which will run the clock sequence but steps the stepping_aom by half the linewidth
         if self.Enable_Lock == True:

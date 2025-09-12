@@ -19,7 +19,7 @@ default_cfr2 = (
     | (1 << 24) # the amplitude is scaled by the ASF from the active profile (without this, the DDS outputs max. possible amplitude -> cracked AOM crystals)
 )
 
-class clock_transition_scan(EnvExperiment):
+class clock_transition_scan_no_func(EnvExperiment):
 
     def build(self):
         self.setattr_device("core")

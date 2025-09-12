@@ -8,7 +8,9 @@ from artiq.coredevice.sampler import Sampler
 import numpy as np
 
 
-class sequence_main_v002(EnvExperiment):
+
+
+class sequence_main(EnvExperiment):
 
     def build(self):
         self.setattr_device("core")
@@ -40,14 +42,14 @@ class sequence_main_v002(EnvExperiment):
         self.mot_coil_2=self.get_device("zotino0")
         
         # Arguments to appear in the GUI     
-        self.setattr_argument("cycles", NumberValue(default=1))
+        self.setattr_argument("cycles", NumberValue(default=500))
         self.setattr_argument("blue_mot_loading_time", NumberValue(default=2000))
         self.setattr_argument("blue_mot_compression_time", NumberValue(default=20))
         self.setattr_argument("blue_mot_cooling_time", NumberValue(default=60))
         self.setattr_argument("broadband_red_mot_time", NumberValue(default=10))
         self.setattr_argument("red_mot_compression_time", NumberValue(default=5))
         self.setattr_argument("single_frequency_time", NumberValue(default=25))
-        self.setattr_argument("time_of_flight", NumberValue(default=40))
+        self.setattr_argument("time_of_flight", NumberValue(default=0))
         self.setattr_argument("blue_mot_coil_1_voltage", NumberValue(default=8.0))
         self.setattr_argument("blue_mot_coil_2_voltage", NumberValue(default=7.9))
         self.setattr_argument("compressed_blue_mot_coil_1_voltage", NumberValue(default=8.62))
@@ -105,7 +107,7 @@ class sequence_main_v002(EnvExperiment):
         
         #Stepping AOM - closest to the atoms
         self.stepping_aom.set(frequency = 80* MHz)
-        self.stepping_aom.set_att(16*dB)
+        self.stepping_aom.set_att(25*dB)
 
         #Atom Lock AOM - for feeding back to 1397 clock laser 
         self.atom_lock_aom.set(frequency = 125 * MHz)
@@ -113,7 +115,7 @@ class sequence_main_v002(EnvExperiment):
 
         #Lattice AOM - for magic wavelength lattice measurements
         self.lattice_aom.set(frequency = 80 *MHz)
-        self.lattice_aom.set_att(30*dB)
+        self.lattice_aom.set_att(13*dB)
 
         #Dedrift AOM - counteracting drift of 1397 clock laser
         # self.dedrift_aom.set(frequency = self.output_frequency)
@@ -269,7 +271,7 @@ class sequence_main_v002(EnvExperiment):
 
             with parallel:
                     self.camera_trigger.pulse(2*ms)
-                    self.probe_aom.set(frequency=probe_frequency, amplitude=0.5)
+                    self.probe_aom.set(frequency=probe_frequency, amplitude=0.45)
                     self.probe_aom.sw.on()
                     
             delay(probe_duration)
@@ -523,10 +525,8 @@ class sequence_main_v002(EnvExperiment):
             self.red_mot_aom.sw.on()
 
 
-            # delay(self.blue_mot_loading_time * ms)
-            delay(100 * ms)
-
-            self.red_mot_aom.sw.off()
+            delay(self.blue_mot_loading_time * ms)
+            
 
 
 
@@ -546,8 +546,6 @@ class sequence_main_v002(EnvExperiment):
 
             delay(self.blue_mot_cooling_time*ms)   #Allowing further cooling of the cloud by just holding the atoms here
 
-
-
             self.broadband_red_mot(                                  #Switch to low field gradient for Red MOT, switches off the blue beams
                 rmot_voltage_1= self.bb_rmot_coil_1_voltage,
                 rmot_voltage_2 = self.bb_rmot_coil_2_voltage
@@ -555,6 +553,9 @@ class sequence_main_v002(EnvExperiment):
 
             delay(self.broadband_red_mot_time*ms)    
 
+
+
+    
             self.red_mot_aom.set(frequency = 80.55 *MHz, amplitude = 0.05)
 
             delay(5*ms)
@@ -566,23 +567,36 @@ class sequence_main_v002(EnvExperiment):
                 sf_rmot_volt_2 = self.sf_rmot_coil_2_voltage,
                 f_start = 80.6,
                 f_end = 81,
-                A_start = 0.04,
-                A_end = 0.0025
+                A_start = 0.05,
+                A_end = 0.003
             )
 
 
             delay(self.red_mot_compression_time*ms)
 
 
+
+
             delay(self.single_frequency_time*ms)
-            self.red_mot_aom.sw.off()
-            
+
+
+
 
             self.seperate_probe(
                 tof = self.time_of_flight,
-                probe_duration =1* ms ,
+                probe_duration =1 * ms ,
                 probe_frequency= 205 * MHz
             )
+
+            
+
+            self.red_mot_aom.sw.off()
+            
+
+
+
+ 
+
                         
 
 

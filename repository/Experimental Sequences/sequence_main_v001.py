@@ -15,7 +15,7 @@ default_cfr2 = (
     | (1 << 24) # the amplitude is scaled by the ASF from the active profile (without this, the DDS outputs max. possible amplitude -> cracked AOM crystals)
 )
 
-class sequence_main_v001(EnvExperiment):
+class sequence_main_w_drg(EnvExperiment):
 
     def build(self):
         self.setattr_device("core")
@@ -67,6 +67,7 @@ class sequence_main_v001(EnvExperiment):
         self.setattr_argument("sf_rmot_coil_1_voltage", NumberValue(default=5.7))
         self.setattr_argument("sf_rmot_coil_2_voltage", NumberValue(default=5.66))
         self.setattr_argument("sf_frequency", NumberValue(default=80.92))
+        self.setattr_argument("red_mot_mod_amp", NumberValue(default=0.1))
 
 
 
@@ -253,6 +254,7 @@ class sequence_main_v001(EnvExperiment):
             
             delay(t_com*ms)
 
+
     @kernel
     def broadband_red_mot(self,rmot_voltage_1,rmot_voltage_2):      
              
@@ -270,30 +272,24 @@ class sequence_main_v001(EnvExperiment):
                 self.mot_coil_1.load()
                 self.mot_coil_2.load()
             delay(self.broadband_red_mot_time*ms)
-
-    @kernel
-    def red_mot_compression(self,bb_rmot_volt_1,bb_rmot_volt_2,sf_rmot_volt_1,sf_rmot_volt_2,frequency,A_start,A_end):
-
-
-        start_freq = 80.7
-        end_freq = 81
-
-
     
+    @kernel
+    def red_mot_compression(self,bb_rmot_volt_1,bb_rmot_volt_2,sf_rmot_volt_1,sf_rmot_volt_2,f_start,f_end,A_start,A_end):
 
+
+        start_freq = f_start
+        end_freq = f_end
 
 
         bb_rmot_amp = A_start
         compress_rmot_amp= A_end
 
         comp_time = self.red_mot_compression_time
-        step_duration = 0.1
+        step_duration = 0.05
         steps_com = int(comp_time / step_duration)  
 
         freq_steps = (start_freq - end_freq)/steps_com
 
-        # steps_com = self.red_mot_compression_time 
-        # t_com = self.red_mot_compression_time/steps_com
         volt_1_steps = (sf_rmot_volt_1 - bb_rmot_volt_1)/steps_com
         volt_2_steps = (sf_rmot_volt_2 - bb_rmot_volt_2)/steps_com
 
@@ -318,10 +314,7 @@ class sequence_main_v001(EnvExperiment):
             
             delay(step_duration*ms)
 
-
-            
-
-    @kernel 
+    @kernel
     def seperate_probe(self,tof,probe_duration,probe_frequency):
             with parallel:
                 self.red_mot_aom.sw.off()
@@ -538,24 +531,7 @@ class sequence_main_v001(EnvExperiment):
         self.set_dataset("normalised_detection", samples_ch0, broadcast=True, archive=True)
 
 
-
-    @kernel
-    def run(self):
-        self.core.reset()
-        self.core.break_realtime()
-
-        self.initialise_modules()
-
-        for j in range(int(self.cycles)):          #This runs the actual sequence
-            delay(100*us)
-
-
-            self.blue_mot_loading(
-                 bmot_voltage_1 = self.blue_mot_coil_1_voltage,
-                 bmot_voltage_2 = self.blue_mot_coil_2_voltage
-            )
-
-            # self.red_modulation_on(
+                # self.red_modulation_on(
             #     f_start = 80 * MHz,        #Starting frequency of the ramp
             #     A_start = 0.06,            #initial amplitude of the ramp
             #     f_SWAP_start = 80* MHz,   #Ramp lower limit
@@ -564,12 +540,46 @@ class sequence_main_v001(EnvExperiment):
             #     A_SWAP = 0.04,             #Amplitude during modulation
             # )
 
-            self.red_mot_aom.set(frequency = 80.5 *MHz, amplitude = 0.07)
-            self.red_mot_aom.sw.on()
+
+            # self.red_modulation_off(                   #switch to single frequency
+            #     f_SF = self.sf_frequency * MHz,
+            #     A_SF = 0.03
+            # )
 
 
-            delay((self.blue_mot_loading_time )* ms)
+    @kernel
+    def run(self):
+        self.core.reset()
+        self.core.break_realtime()
 
+        self.initialise_modules()
+        delay(100*us)
+
+
+        for j in range(int(self.cycles)):          #This runs the actual sequence
+
+
+            delay(100*us)
+
+
+            self.blue_mot_loading(
+                bmot_voltage_1 = self.blue_mot_coil_1_voltage,
+                bmot_voltage_2 = self.blue_mot_coil_2_voltage
+            )
+
+            self.red_modulation_on(
+                f_start = 80 * MHz,        #Starting frequency of the ramp
+                A_start = 0.06,            #initial amplitude of the ramp
+                f_SWAP_start = 80* MHz,   #Ramp lower limit
+                f_SWAP_end = 81 * MHz,     #Ramp upper limit
+                T_SWAP = 35 * us,          #Time spent on each step, 40us is equivalent to 25kHz modulation rate
+                A_SWAP = self.red_mot_mod_amp,             #Amplitude during modulation
+            )
+
+
+
+            delay(self.blue_mot_loading_time * ms)
+            
 
 
             self.blue_mot_compression(                           #Here we are ramping up the blue MOT field and ramping down the blue power
@@ -581,121 +591,82 @@ class sequence_main_v001(EnvExperiment):
                 compress_bmot_amp = 0.0035
             )
 
-
             delay(self.blue_mot_compression_time*ms)
 
 
-
             delay(self.blue_mot_cooling_time*ms)   #Allowing further cooling of the cloud by just holding the atoms here
-
-
-  
 
             self.broadband_red_mot(                                  #Switch to low field gradient for Red MOT, switches off the blue beams
                 rmot_voltage_1= self.bb_rmot_coil_1_voltage,
                 rmot_voltage_2 = self.bb_rmot_coil_2_voltage
             )
 
-            delay(self.broadband_red_mot_time*ms)
+            delay(self.broadband_red_mot_time*ms)    
+
+            self.seperate_probe(
+                tof = self.time_of_flight,
+                probe_duration = 1* ms ,
+                probe_frequency= 205 * MHz
+            )
 
 
+            self.red_mot_aom.set(frequency = 80.55 *MHz, amplitude = 0.05)
 
+            delay(5*ms)
 
-            # self.red_modulation_off(                   #switch to single frequency
-            #     f_SF = self.sf_frequency * MHz,
-            #     A_SF = 0.03
-            # )
-
-
-
-
-
-
-        
             self.red_mot_compression(                         #Compressing the red MOT by ramping down power, field ramping currently not active
                 bb_rmot_volt_1 = self.bb_rmot_coil_1_voltage,
                 bb_rmot_volt_2 = self.bb_rmot_coil_2_voltage,
                 sf_rmot_volt_1 = self.sf_rmot_coil_1_voltage,
                 sf_rmot_volt_2 = self.sf_rmot_coil_2_voltage,
-                frequency= self.sf_frequency,
-                A_start = 0.03,
-                A_end = 0.005
+                f_start = 80.6,
+                f_end = 81,
+                A_start = 0.04,
+                A_end = 0.0025
             )
 
 
             delay(self.red_mot_compression_time*ms)
 
 
-
             delay(self.single_frequency_time*ms)
-
-            # self.red_mot_compression_two(                         #Compressing the red MOT by ramping down power, field ramping currently not active
-            #     bb_rmot_volt_1 = self.sf_rmot_coil_1_voltage,
-            #     bb_rmot_volt_2 = self.bb_rmot_coil_2_voltage,
-            #     sf_rmot_volt_1 = 5.1,
-            #     sf_rmot_volt_2 = 5.1,
-            #     frequency= self.sf_frequency,
-            #     A_start = 0.006,
-            #     A_end = 0.003
-            # )
-
-            # delay(10*ms)
-
-
-            self.seperate_probe(
-                tof = self.time_of_flight,
-                probe_duration = 0.5* ms ,
-                probe_frequency= 205 * MHz
-            )
-
- 
-
             self.red_mot_aom.sw.off()
-
-
-
-
-            # self.clock_spectroscopy(
-            #     aom_frequency = 0*Hz,
-            #     pulse_time = 2000*ms,
-            #     B = 3.0
-
-            # )
-
-
-            #          #Switch to Helmholtz
-            # self.mot_coil_1.write_dac(0, 2.0)  
-            # self.mot_coil_2.write_dac(1, 8.0)
-        
-            # with parallel:
-            #     self.mot_coil_1.load()
-            #     self.mot_coil_2.load()
-
-            # delay(50*ms)
-
-            
-            # self.seperate_probe(
-            #     tof = self.time_of_flight,
-            #     probe_duration = 0.2*ms ,
-            #     probe_frequency= 200 * MHz
-            # )
-
-
-            # self.pmt_capture(
-            #     sampling_duration = 0.2,
-            #     sampling_rate= 10000,
-            #     tof =self.time_of_flight
-            # )
-
-            # self.normalised_detection()
             
 
-            delay(50*ms)
+                        
 
 
 
 
-            
+    #          #Switch to Helmholtz
+    # self.mot_coil_1.write_dac(0, 2.0)  
+    # self.mot_coil_2.write_dac(1, 8.0)
+
+    # with parallel:
+    #     self.mot_coil_1.load()
+    #     self.mot_coil_2.load()
+
+    # delay(50*ms)
+
+    
+    # self.seperate_probe(
+    #     tof = self.time_of_flight,
+    #     probe_duration = 0.2*ms ,
+    #     probe_frequency= 200 * MHz
+    # )
+
+
+    # self.pmt_capture(
+    #     sampling_duration = 0.2,
+    #     sampling_rate= 10000,
+    #     tof =self.time_of_flight
+    # )
+
+    # self.normalised_detection()
+    
+
+        # delay(50*ms)
+
 
 
 
