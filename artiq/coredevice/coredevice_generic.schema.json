@@ -134,7 +134,7 @@
                 },
                 "hw_rev": {
                     "type": "string",
-                    "enum": ["v1.0", "v1.1"]
+                    "enum": ["v1.0", "v1.1", "v1.2"]
                 }
             }
         }
@@ -406,6 +406,13 @@
                             "pattern": "^v[0-9]+\\.[0-9]+",
                             "default": "v2.2"
                         },
+                        "urukul_ports": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/urukul_ports_pair"
+                            },
+                            "minItems": 1
+                        },
                         "urukul0_ports": {
                             "type": "array",
                             "items": {
@@ -449,7 +456,15 @@
                             "default": 9
                         }
                     },
-                    "required": ["sampler_ports", "urukul0_ports"]
+                    "oneOf": [
+                        {
+                            "required": ["sampler_ports", "urukul0_ports"]
+                        },
+                        {
+                            "required": ["sampler_ports", "urukul_ports"],
+                            "not": { "required": ["urukul1_ports"] }
+                        }
+                    ]
                 }
             }, {
                 "title": "Zotino",
@@ -678,6 +693,15 @@
                     }
                 }
             }]
+        },
+
+        "urukul_ports_pair": {
+            "type": "array",
+            "items": {
+                "type": "integer"
+            },
+            "minItems": 2,
+            "maxItems": 2
         }
     }
 }
