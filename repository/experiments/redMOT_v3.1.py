@@ -27,10 +27,10 @@ class redMOT_v3_1(EnvExperiment):
         self.setattr_argument("Cycle", NumberValue(default=500))
         self.setattr_argument("Probe_ON", NumberValue(default=1))
         self.setattr_argument("Loading_Time", NumberValue(default=1500))
-        self.setattr_argument("Transfer_Time", NumberValue(default=40))
-        self.setattr_argument("Holding_Time", NumberValue(default=40))
+        self.setattr_argument("Transfer_Time", NumberValue(default=80))
+        self.setattr_argument("Holding_Time", NumberValue(default=80))
         self.setattr_argument("Compression_Time", NumberValue(default=8))
-        self.setattr_argument("Single_Freq_Time", NumberValue(default=40))
+        self.setattr_argument("Single_Freq_Time", NumberValue(default=80))
         self.setattr_argument("Time_of_Flight", NumberValue(default=40))
 
     @kernel
@@ -83,7 +83,7 @@ class redMOT_v3_1(EnvExperiment):
             self.Probe.set(frequency=65 * MHz, amplitude=0.02)
             self.Single_Freq.set(frequency=80 * MHz, amplitude=0.35)
             
-            voltage_1 = 1.02
+            voltage_1 = 1.03
             voltage_2 = 0.45
             self.MOT_Coil_1.write_dac(0, voltage_1)
             self.MOT_Coil_2.write_dac(1, voltage_2)
@@ -185,7 +185,7 @@ class redMOT_v3_1(EnvExperiment):
                 self.Broadband_Off.pulse(10*ms)
                 self.Single_Freq.sw.on()
 
-            voltage_1_com = 2.51
+            voltage_1_com = 2.535
             voltage_2_com = 2.23
             red_amp = 0.35
             amp_com = 0.03
@@ -260,9 +260,9 @@ class redMOT_v3_1(EnvExperiment):
                 with parallel:
                     self.Camera.on()
                     self.Pixelfly.on()
-                    self.Probe.set(frequency=65*MHz, amplitude=0.02)
+                    self.Probe.set(frequency=65*MHz, amplitude=0.05)
                     self.Ref.sw.on()
-                # delay(1000000*ms)
+            
                 delay(0.5 *ms)
                 
                 with parallel:

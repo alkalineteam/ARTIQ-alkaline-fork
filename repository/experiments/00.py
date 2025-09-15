@@ -45,7 +45,7 @@ class Everything_ON(EnvExperiment):
         self.setattr_argument("Probe_Amplitude", NumberValue(default = 0.02)) 
         # self.setattr_argument("Probe_Attenuation", NumberValue(default = 0.0))
 
-        self.setattr_argument("Clock_Frequency", NumberValue(default = 80.00))
+        self.setattr_argument("Clock_Frequency", NumberValue(default = 79.95))
         self.setattr_argument("Clock_Attenuation", NumberValue(default = 0.0))
 
     @kernel
@@ -120,7 +120,7 @@ class Everything_ON(EnvExperiment):
                 self.Clock.sw.on()
                 delay(1500*ms)
 
-                self.MOT_Coil_1.write_dac(0, 2.55)
+                self.MOT_Coil_1.write_dac(0, 2.535)
                 self.MOT_Coil_2.write_dac(1, 2.26)
                 self.ZeemanSlower.set(frequency=self.Zeeman_Frequency * MHz, amplitude=0.0)
 

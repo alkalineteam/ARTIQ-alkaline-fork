@@ -32,14 +32,14 @@ class clock_transition_lookup_v3(EnvExperiment):
         self.ttl:TTLOut=self.get_device("ttl15")
 
         self.setattr_argument("Loading_Time", NumberValue(default=1500))
-        self.setattr_argument("Transfer_Time", NumberValue(default=40))
-        self.setattr_argument("Holding_Time", NumberValue(default=40))
+        self.setattr_argument("Transfer_Time", NumberValue(default=80))
+        self.setattr_argument("Holding_Time", NumberValue(default=80))
         self.setattr_argument("Compression_Time", NumberValue(default=8))
-        self.setattr_argument("Single_Freq_Time", NumberValue(default=40))
+        self.setattr_argument("Single_Freq_Time", NumberValue(default=80))
         self.setattr_argument("State_Preparation_Time", NumberValue(default=30))
         self.setattr_argument("Clock_Interrogation_Time", NumberValue(default=300))
 
-        self.setattr_argument("Center_Frequency", NumberValue(unit="MHz", default=79.96e6, precision=4))
+        self.setattr_argument("Center_Frequency", NumberValue(unit="MHz", default=79.95e6, precision=4))
         self.setattr_argument("Scan_Range", NumberValue(unit="kHz", default=100e3, precision=4))
         self.setattr_argument("Step_Size", NumberValue(unit="Hz", default=500, precision=4))
         
@@ -85,10 +85,6 @@ class clock_transition_lookup_v3(EnvExperiment):
 
         self.Ref.set(frequency=80 * MHz)
         self.Ref.set_att(0.0)
-
-        # Clock parameters
-        step_size = self.Step_Size
-        center_freq = self.Center_Frequency
 
         # Initialize the modules
         self.Pixelfly.output()
@@ -140,21 +136,21 @@ class clock_transition_lookup_v3(EnvExperiment):
         start = center_freq - self.Scan_Range/2
 
         # Sampler params
-        sample_duration = 0.06  # 60 ms: detection cycle duration ~ 54 ms
+        sample_duration = 0.05  # 50 ms: detection cycle duration ~ 54 ms
         sampling_period = 1/self.sampling_rate
         num_samples = int32(sample_duration / sampling_period)
         samples = [[0.0 for i in range(8)] for i in range(num_samples)]
         excitation_fraction_list = [0.0 for i in range(cycles+1)]
 
         for j in range(cycles+1):
-            delay(1000*ms)
+            delay(500*ms)
             # **************************** Blue MOT Loading ****************************
             self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
             self.ZeemanSlower.set(frequency=180*MHz, amplitude=0.35)
             self.Probe.set(frequency=65*MHz, amplitude=0.02)
             self.Single_Freq.set(frequency=80*MHz, amplitude=0.35)
 
-            voltage_1 = 1.02
+            voltage_1 = 1.03
             voltage_2 = 0.45
             self.MOT_Coil_1.write_dac(0, voltage_1)
             self.MOT_Coil_2.write_dac(1, voltage_2)
@@ -211,7 +207,7 @@ class clock_transition_lookup_v3(EnvExperiment):
                 self.Broadband_Off.pulse(10*ms)
                 self.Single_Freq.sw.on()
 
-            voltage_1_com = 2.51
+            voltage_1_com = 2.535
             voltage_2_com = 2.23
             red_amp = 0.35
             amp_com = 0.03
@@ -247,7 +243,7 @@ class clock_transition_lookup_v3(EnvExperiment):
             self.Single_Freq.sw.off()
 
             # **************************** State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 7.06) # 5.62/2.24 = 1.80; 7.03/0.45 = 3.5; 4.903/3.1 = 1;
+            self.MOT_Coil_1.write_dac(0, 7.045) # 5.62/2.24 = 1.80; 7.03/0.45 = 3.5; 4.903/3.1 = 1;
             self.MOT_Coil_2.write_dac(1, 0.45)
             with parallel:
                 self.MOT_Coil_1.load()
@@ -336,58 +332,69 @@ class clock_transition_lookup_v3(EnvExperiment):
             self.Probe_TTL.off()
             
             detection = [x[0] for x in samples]
-            self.set_dataset("excitation.samples", detection, broadcast=True, archive=True)
-            self.set_dataset("excitation.samples_x", [x for x in range(len(detection))], broadcast=True, archive=True)
+            self.set_dataset("excitation.detection", detection, broadcast=True, archive=True)
+            self.set_dataset("excitation.detection_x", [x for x in range(len(detection))], broadcast=True, archive=True)
 
-            ground = detection[0:250]
+            self.ccb.issue("create_applet", 
+                        "Detection Plot", 
+                        "${artiq_applet}plot_xy"
+                        " excitation.detection"
+                        " --x excitation.detection_x"
+                        " --title Detection", 
+                        group = "excitation"
+                    )
+
+            ground = detection[0:200]
             excited = detection[1200:1400]
-            background = detection[1700:2000]
+            background = detection[1800:2000]
 
             gs_counts = 0.0
             es_counts = 0.0
             bg_counts = 0.0
 
-            for val in ground[1:]:
+            for val in ground:
                 gs_counts += val
-            for val in excited[1:]:
+            for val in excited:
                 es_counts += val
-            for val in background[1:]:
+            for val in background:
                 bg_counts += val
 
             gs_avg = gs_counts / len(ground)
             es_avg = es_counts / len(excited)
             bg_avg = bg_counts / len(background)
 
-            numerator = es_avg - bg_avg
-            denominator = (gs_avg - bg_avg) + (es_avg - bg_avg)
+            baseline = detection[200:1200]
+            baseline_sum = 0.0
+            baseline_mean = 0.0
+            for x in baseline:
+                baseline_sum += float(x)
+                baseline_mean = baseline_sum / len(baseline)
+
+            ground_state = gs_avg - baseline_mean
+            excited_state = es_avg - baseline_mean
+            background_state = bg_avg - baseline_mean
+
+            numerator = excited_state - background_state
+            denominator = excited_state + ground_state - 2*background_state
 
             if denominator != 0.0:
-                excitation_fraction = ((numerator / denominator ) )
+                excitation_fraction = numerator / denominator
                 if excitation_fraction < 0.0:
                     excitation_fraction = 0.0
             else:
-                excitation_fraction = float(0) # or 0.5 or some fallback value depending on experiment
+                excitation_fraction = float(0)
 
             excitation_fraction_list[j] = excitation_fraction
 
             self.set_dataset("excitation.excitation_fraction", excitation_fraction_list, broadcast=True, archive=True)
-            self.set_dataset("excitation.excitation_fraction_x", [x for x in range(len(excitation_fraction_list))], broadcast=True, archive=True)
-
-            self.ccb.issue("create_applet", 
-                        "Detection Plot", 
-                        "${artiq_applet}plot_xy"
-                        " excitation.samples"
-                        " --x excitation.samples_x"
-                        " --title Detection", 
-                        group = "excitation"
-                    )
+            self.set_dataset("excitation.excitation_fraction_x", [x for x in range(len(excitation_fraction_list))], broadcast=True, archive=True)   
             
             self.ccb.issue("create_applet", 
                         "Excitation Fraction Plot", 
                         "${artiq_applet}plot_xy"
                         " excitation.excitation_fraction"
                         " --x excitation.excitation_fraction_x"
-                        " --title Excitation Fraction", 
+                        " --title Excitation_Fraction",
                         group = "excitation"
                     )
 
