@@ -331,6 +331,7 @@ class clock_transition_lookup_v3(EnvExperiment):
                         
             self.Probe_TTL.off()
             
+            # **************************** 3 pulse plot ****************************
             detection = [x[0] for x in samples]
             self.set_dataset("excitation.detection", detection, broadcast=True, archive=True)
             self.set_dataset("excitation.detection_x", [x for x in range(len(detection))], broadcast=True, archive=True)
@@ -343,7 +344,8 @@ class clock_transition_lookup_v3(EnvExperiment):
                         " --title Detection", 
                         group = "excitation"
                     )
-
+            
+            # **************************** Excitation Fraction Plot ****************************
             ground = detection[0:200]
             excited = detection[1200:1400]
             background = detection[1800:2000]
