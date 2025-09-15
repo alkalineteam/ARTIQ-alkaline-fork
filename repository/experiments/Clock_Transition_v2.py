@@ -155,7 +155,7 @@ class clock_transition_lookup_v2(EnvExperiment):
             voltage_1_com = 2.51
             voltage_2_com = 2.23
             red_amp = 0.35
-            amp_com = 0.02
+            amp_com = 0.03
             red_freq = 80.0
             red_freq_com = 80.3
             steps_com = self.Compression_Time
@@ -188,7 +188,7 @@ class clock_transition_lookup_v2(EnvExperiment):
             self.Single_Freq.sw.off()
 
             # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 7.06)# 5.62/2.24 = 1.80; 7.03/0.45 = 3.5; 4.903/3.1 = 1;
+            self.MOT_Coil_1.write_dac(0, 7.07)# 5.62/2.24 = 1.80; 7.03/0.45 = 3.5; 4.903/3.1 = 1;
             self.MOT_Coil_2.write_dac(1, 0.45)
             with parallel:
                 self.MOT_Coil_1.load()

@@ -26,8 +26,8 @@ class Everything_ON(EnvExperiment):
         self.setattr_argument("Cycle", NumberValue(default = 100))
         self.setattr_argument("High_Low", BooleanValue(default=False))
         self.setattr_argument("Idle_State", BooleanValue(default=False))
-        self.setattr_argument("Coil_1_voltage", NumberValue(default = 1.06, unit="V"))
-        self.setattr_argument("Coil_2_voltage", NumberValue(default = 0.44, unit="V"))
+        self.setattr_argument("Coil_1_voltage", NumberValue(default = 1.06, unit="V", precision=3))
+        self.setattr_argument("Coil_2_voltage", NumberValue(default = 0.44, unit="V", precision=3))
 
         self.setattr_argument("BMOT_Frequency", NumberValue(default = 90.0))
         self.setattr_argument("BMOT_Amplitude", NumberValue(default = 0.08))
@@ -110,7 +110,7 @@ class Everything_ON(EnvExperiment):
 
         if self.High_Low == True:
             for i in range(int64(self.Cycle)):
-                self.MOT_Coil_1.write_dac(0, 1.04)
+                self.MOT_Coil_1.write_dac(0, 1.03)
                 self.MOT_Coil_2.write_dac(1, 0.45)
 
                 with parallel:

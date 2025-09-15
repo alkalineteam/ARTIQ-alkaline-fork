@@ -188,7 +188,7 @@ class redMOT_v3_1(EnvExperiment):
             voltage_1_com = 2.51
             voltage_2_com = 2.23
             red_amp = 0.35
-            amp_com = 0.02
+            amp_com = 0.03
             red_freq = 80.0
             red_freq_com = 80.3
             steps_com = self.Compression_Time
