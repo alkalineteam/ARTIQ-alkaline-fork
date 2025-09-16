@@ -57,7 +57,7 @@ class clock_transition_lookup_v4(EnvExperiment):
         self.sampling_period = 0.0
         self.samples = []
         self.detection_data = []
-        self.excitation_fraction_list_data = []
+        self.excitation_fraction_list = []
 
     @kernel
     def initialise(self):
@@ -359,34 +359,34 @@ class clock_transition_lookup_v4(EnvExperiment):
             self.clock_interrogation() 
             self.detection()
         
-        # Plot detection data
-        self.detection_data = [x[0] for x in self.samples]
-        self.set_dataset("excitation.detection", self.detection_data, broadcast=True, archive=True)
-        self.set_dataset("excitation.detection_x", [x for x in range(len(self.detection_data))], broadcast=True, archive=True)
+            # Plot detection data
+            self.detection_data = [x[0] for x in self.samples]
+            self.set_dataset("excitation.detection", self.detection_data, broadcast=True, archive=True)
+            self.set_dataset("excitation.detection_x", [x for x in range(len(self.detection_data))], broadcast=True, archive=True)
 
-        self.ccb.issue("create_applet", 
-                        "Detection Plot", 
-                        "${artiq_applet}plot_xy"
-                        " excitation.detection"
-                        " --x excitation.detection_x"
-                        " --title Detection", 
-                        group = "excitation"
-                    )
-        
-        # Plot excitation fraction
-        self.excitation_fraction_list[j] = self.excitation_fraction()
-        
-        self.set_dataset("excitation.fractions", self.excitation_fraction_list, broadcast=True, archive=True)
-        frequencies = [(self.Center_Frequency - self.Scan_Range/2 + i*self.Step_Size)*1e-6 for i in range(self.cycles+1)]
-        self.set_dataset("excitation.frequencies_MHz", frequencies, broadcast=True, archive=True)
+            self.ccb.issue("create_applet", 
+                            "Detection Plot", 
+                            "${artiq_applet}plot_xy"
+                            " excitation.detection"
+                            " --x excitation.detection_x"
+                            " --title Detection", 
+                            group = "excitation"
+                        )
+            
+            # Plot excitation fraction
+            self.excitation_fraction_list[j] = self.excitation_fraction()
+            
+            self.set_dataset("excitation.fractions", self.excitation_fraction_list, broadcast=True, archive=True)
+            frequencies = [(self.Center_Frequency - self.Scan_Range/2 + i*self.Step_Size)*1e-6 for i in range(self.cycles+1)]
+            self.set_dataset("excitation.frequencies_MHz", frequencies, broadcast=True, archive=True)
 
-        self.ccb.issue("create_applet", 
-                        "Excitation Fraction Plot", 
-                        "${artiq_applet}plot_xy"
-                        " excitation.fractions"
-                        " --x excitation.frequencies_MHz"
-                        " --title Excitation_Fraction", 
-                        group = "excitation"
-                    )
+            self.ccb.issue("create_applet", 
+                            "Excitation Fraction Plot", 
+                            "${artiq_applet}plot_xy"
+                            " excitation.fractions"
+                            " --x excitation.frequencies_MHz"
+                            " --title Excitation_Fraction", 
+                            group = "excitation"
+                        )
         
         print("Test Complete")
