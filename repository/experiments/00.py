@@ -20,8 +20,8 @@ class Everything_ON(EnvExperiment):
         self.Repump707:TTLOut=self.get_device("ttl4")
         self.Repump679:TTLOut=self.get_device("ttl9")
         self.BMOT_TTL:TTLOut=self.get_device("ttl6")
-        self.RMOT_TTL:TTLOut=self.get_device("ttl8")
         self.Zeeman_Slower_TTL:TTLOut=self.get_device("ttl12")
+        self.Probe_TTL:TTLOut=self.get_device("ttl8")
         
         self.setattr_argument("Cycle", NumberValue(default = 100))
         self.setattr_argument("High_Low", BooleanValue(default=False))
@@ -93,8 +93,8 @@ class Everything_ON(EnvExperiment):
             self.Repump707.on()
             self.Repump679.on()
             self.BMOT_TTL.on()
-            self.RMOT_TTL.on()
             self.Zeeman_Slower_TTL.on()
+            self.Probe_TTL.off()
 
         self.BMOT.set(frequency= self.BMOT_Frequency * MHz, amplitude=self.BMOT_Amplitude)
 
