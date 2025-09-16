@@ -299,23 +299,8 @@ class clock_transition_lookup_v4(EnvExperiment):
                     self.sampler.sample(self.samples[j])
                     delay(self.sampling_period * s)
 
-    @kernel
-    def detection_plot(self):
-        self.detection_data = [x[0] for x in self.samples]
-        self.set_dataset("excitation.detection", self.detection_data, broadcast=True, archive=True)
-        self.set_dataset("excitation.detection_x", [x for x in range(len(self.detection_data))], broadcast=True, archive=True)
-
-        self.ccb.issue("create_applet", 
-                        "Detection Plot", 
-                        "${artiq_applet}plot_xy"
-                        " excitation.detection"
-                        " --x excitation.detection_x"
-                        " --title Detection", 
-                        group = "excitation"
-                    )
-        
     @rpc
-    def excitation_fraction_list(self, j) -> float:
+    def excitation_fraction(self) -> float:
         ground = np.array(self.detection_data[0:200])
         excited = np.array(self.detection_data[1200:1400])
         background = np.array(self.detection_data[1800:2000])
@@ -343,8 +328,6 @@ class clock_transition_lookup_v4(EnvExperiment):
                 excitation_fraction = 0.0
         else:
             excitation_fraction = float(0)
-
-        self.excitation_fraction_list[j] = excitation_fraction
         
         return excitation_fraction
 
@@ -375,12 +358,35 @@ class clock_transition_lookup_v4(EnvExperiment):
             self.state_preparation()
             self.clock_interrogation() 
             self.detection()
-            self.detection_plot()
-            self.excitation_fraction_list(j)
         
-        # Save the excitation fraction scan data
-        self.set_dataset("excitation.fractions", self.excitation_fraction_list_data, broadcast=True, archive=True)
+        # Plot detection data
+        self.detection_data = [x[0] for x in self.samples]
+        self.set_dataset("excitation.detection", self.detection_data, broadcast=True, archive=True)
+        self.set_dataset("excitation.detection_x", [x for x in range(len(self.detection_data))], broadcast=True, archive=True)
+
+        self.ccb.issue("create_applet", 
+                        "Detection Plot", 
+                        "${artiq_applet}plot_xy"
+                        " excitation.detection"
+                        " --x excitation.detection_x"
+                        " --title Detection", 
+                        group = "excitation"
+                    )
+        
+        # Plot excitation fraction
+        self.excitation_fraction_list[j] = self.excitation_fraction()
+        
+        self.set_dataset("excitation.fractions", self.excitation_fraction_list, broadcast=True, archive=True)
         frequencies = [(self.Center_Frequency - self.Scan_Range/2 + i*self.Step_Size)*1e-6 for i in range(self.cycles+1)]
         self.set_dataset("excitation.frequencies_MHz", frequencies, broadcast=True, archive=True)
 
+        self.ccb.issue("create_applet", 
+                        "Excitation Fraction Plot", 
+                        "${artiq_applet}plot_xy"
+                        " excitation.fractions"
+                        " --x excitation.frequencies_MHz"
+                        " --title Excitation_Fraction", 
+                        group = "excitation"
+                    )
+        
         print("Test Complete")
