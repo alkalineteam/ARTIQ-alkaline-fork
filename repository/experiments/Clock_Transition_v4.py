@@ -315,7 +315,7 @@ class clock_transition_lookup_v4(EnvExperiment):
                     )
         
     @rpc
-    def excitation_fraction_list(self):
+    def excitation_fraction_list(self) -> float:
         ground = np.array(self.detection_data[0:250])
         excited = np.array(self.detection_data[1200:1400])
         background = np.array(self.detection_data[1700:2000])
