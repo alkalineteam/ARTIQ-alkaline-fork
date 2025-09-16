@@ -110,15 +110,15 @@ class clock_transition_lookup_v4(EnvExperiment):
         self.Ref.set_att(0.0)
 
     @kernel
-    def blue_mot(self):
+    def blue_mot(self, coil_1_voltage, coil_2_voltage):
         # **************************** Blue MOT Loading ****************************
         self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
         self.ZeemanSlower.set(frequency=180*MHz, amplitude=0.35)
         self.Probe.set(frequency=65*MHz, amplitude=0.02)
         self.Single_Freq.set(frequency=80*MHz, amplitude=0.35)
 
-        self.voltage_1 = 1.02
-        self.voltage_2 = 0.45
+        self.voltage_1 = coil_1_voltage
+        self.voltage_2 = coil_2_voltage
         self.MOT_Coil_1.write_dac(0, self.voltage_1)
         self.MOT_Coil_2.write_dac(1, self.voltage_2)
 
@@ -219,10 +219,10 @@ class clock_transition_lookup_v4(EnvExperiment):
         self.Single_Freq.sw.off()
 
     @kernel
-    def state_preparation(self):
+    def state_preparation(self, coil_1_voltage, coil_2_voltage):
         # **************************** State Preparation *****************************
-        self.MOT_Coil_1.write_dac(0, 7.06) # 5.62/2.24 = 1.80; 7.03/0.45 = 3.5; 4.903/3.1 = 1;
-        self.MOT_Coil_2.write_dac(1, 0.45)
+        self.MOT_Coil_1.write_dac(0, coil_1_voltage)
+        self.MOT_Coil_2.write_dac(1, coil_2_voltage)
         with parallel:
             self.MOT_Coil_1.load()
             self.MOT_Coil_2.load()
@@ -334,7 +334,7 @@ class clock_transition_lookup_v4(EnvExperiment):
             if excitation_fraction < 0.0:
                 excitation_fraction = 0.0
         else:
-            excitation_fraction = float(0)
+            excitation_fraction = 0.0
         
         return excitation_fraction
 
@@ -346,12 +346,12 @@ class clock_transition_lookup_v4(EnvExperiment):
 
         for j in range(self.cycles+1):
             delay(500*ms)
-            self.blue_mot()
+            self.blue_mot(coil_1_voltage=1.05, coil_2_voltage=0.45)
             self.transfer()
             self.broadband_red_mot()
             self.broadband_red_mot_compression()
             self.single_frequency_red_mot()
-            self.state_preparation()
+            self.state_preparation(coil_1_voltage=6.996, coil_2_voltage=0.4)
             self.clock_interrogation(j) 
             self.detection()
             
