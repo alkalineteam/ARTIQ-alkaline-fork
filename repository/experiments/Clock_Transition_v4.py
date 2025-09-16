@@ -51,13 +51,18 @@ class clock_transition_lookup_v4(EnvExperiment):
         self.voltage_1_Tr = 0.0
         self.voltage_2_Tr = 0.0
         self.amp_com = 0.0
-        self.start = 0.0
-        self.cycles = 0
-        self.num_samples = 0
-        self.sampling_period = 0.0
-        self.samples = []
         self.detection_data = []
-        self.excitation_fraction_list = []
+
+        # Clock params
+        self.cycles = int32(self.Scan_Range/self.Step_Size)
+        self.start = self.Center_Frequency - self.Scan_Range/2
+
+        # Sampler params
+        sample_duration = 0.05  # 50 ms: detection cycle duration ~ 54 ms
+        self.sampling_period = 1/self.sampling_rate
+        self.num_samples = int32(sample_duration / self.sampling_period)
+        self.samples = [[0.0 for i in range(8)] for i in range(self.num_samples)]
+        self.excitation_fraction_list = [0.0 for i in range(self.cycles+1)]
 
     @kernel
     def initialise(self):
@@ -336,17 +341,6 @@ class clock_transition_lookup_v4(EnvExperiment):
         self.core.reset()
         self.core.break_realtime()
         self.initialise()
-
-        # Clock params
-        self.cycles = int32(self.Scan_Range/self.Step_Size)
-        self.start = self.Center_Frequency - self.Scan_Range/2
-
-        # Sampler params
-        sample_duration = 0.05  # 50 ms: detection cycle duration ~ 54 ms
-        self.sampling_period = 1/self.sampling_rate
-        self.num_samples = int32(sample_duration / self.sampling_period)
-        self.samples = [[0.0 for i in range(8)] for i in range(self.num_samples)]
-        self.excitation_fraction_list_data = [0.0 for i in range(self.cycles+1)]
 
         for j in range(self.cycles+1):
             delay(500*ms)
