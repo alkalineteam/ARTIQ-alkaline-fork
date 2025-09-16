@@ -5,7 +5,6 @@ from artiq.language.core import delay
 from artiq.coredevice.sampler import Sampler
 from artiq.language.units import *
 from numpy import int64, int32
-import numpy as np
 
 class clock_transition_lookup_v3(EnvExperiment):
     def build(self):
@@ -86,43 +85,6 @@ class clock_transition_lookup_v3(EnvExperiment):
         self.Ref.set(frequency=80 * MHz)
         self.Ref.set_att(0.0)
 
-        # Initialize the modules
-        self.Pixelfly.output()
-        self.Camera.output()
-        self.BMOT_TTL.output()
-        self.Probe_TTL.output()
-        self.Zeeman_Slower_TTL.output()
-        self.Repump707.output()
-        self.MOT_Coil_1.init()
-        self.MOT_Coil_2.init()
-        self.BMOT_AOM.cpld.init()
-        self.BMOT_AOM.init()
-        self.ZeemanSlower.cpld.init()
-        self.ZeemanSlower.init()
-        self.Probe.cpld.init()
-        self.Probe.init()
-        self.Single_Freq.cpld.init()
-        self.Single_Freq.init()
-        self.Clock.cpld.init()
-        self.Clock.init()
-
-        self.Ref.cpld.init()
-        self.Ref.init()
-
-        # Set the RF channels ON
-        self.BMOT_AOM.sw.on()
-        self.ZeemanSlower.sw.on()
-        self.Probe.sw.on()
-
-        # Set the RF attenuation
-        self.BMOT_AOM.set_att(0.0)
-        self.ZeemanSlower.set_att(0.0)
-        self.Probe.set_att(0.0)
-        self.Single_Freq.set_att(0.0)
-        self.Clock.set_att(0.0)
-
-        self.Ref.set(frequency=80 * MHz)
-        self.Ref.set_att(0.0)
 
     @kernel
     def run(self):
@@ -139,8 +101,8 @@ class clock_transition_lookup_v3(EnvExperiment):
         sample_duration = 0.05  # 50 ms: detection cycle duration ~ 54 ms
         sampling_period = 1/self.sampling_rate
         num_samples = int32(sample_duration / sampling_period)
-        samples = [[0.0 for i in range(8)] for i in range(num_samples)]
-        excitation_fraction_list = [0.0 for i in range(cycles+1)]
+        samples = [[0.0 for i in range(8)] for _ in range(num_samples)]
+        excitation_fraction_list = [0.0 for _ in range(cycles+1)]
 
         for j in range(cycles+1):
             delay(500*ms)
@@ -276,13 +238,13 @@ class clock_transition_lookup_v3(EnvExperiment):
                     with parallel:
                         self.Camera.on()
                         self.Probe.set(frequency=65*MHz, amplitude=0.02)
-                        self.Ref.sw.on()
+                        # self.Ref.sw.on()
 
                     delay(0.5*ms)
 
                     with parallel:
                         self.Camera.off()
-                        self.Ref.sw.off()
+                        # self.Ref.sw.off()
                         self.Probe_TTL.off()
                         self.Probe.set(frequency=65*MHz, amplitude=0.00)
                     delay(5*ms)
@@ -300,14 +262,11 @@ class clock_transition_lookup_v3(EnvExperiment):
                     self.Probe_TTL.on()
                     delay(2.8*ms)
 
-                    with parallel:
-                        self.Ref.sw.on()
-                        self.Probe.set(frequency=65*MHz, amplitude=0.02)
+                    self.Probe.set(frequency=65*MHz, amplitude=0.02)
                     
                     delay(0.5*ms)
                     
                     with parallel:
-                        self.Ref.sw.off()
                         self.Probe_TTL.off()
                         self.Probe.set(frequency=65*MHz, amplitude=0.00)
                     delay(5*ms)
@@ -321,18 +280,23 @@ class clock_transition_lookup_v3(EnvExperiment):
                     delay(2.8*ms)
 
                     self.Probe.set(frequency=65*MHz, amplitude=0.02)
-                    delay(0.5*ms)
-                    self.Probe.set(frequency=65*MHz, amplitude=0.00)
 
+                    delay(0.5*ms)
+
+                    with parallel:
+                        self.Probe_TTL.off()
+                        self.Probe.set(frequency=65*MHz, amplitude=0.00)
+                        
                 with sequential:
                     for k in range(num_samples):
                         self.sampler.sample(samples[k])
                         delay(sampling_period * s)
                         
-            self.Probe_TTL.off()
+            self.Probe.set(frequency=65*MHz, amplitude=0.02)
             
             # **************************** 3 pulse plot ****************************
-            detection = [x[0] for x in samples]
+            detection = [i[0] for i in samples]
+                
             self.set_dataset("excitation.detection", detection, broadcast=True, archive=True)
             self.set_dataset("excitation.detection_x", [x for x in range(len(detection))], broadcast=True, archive=True)
 
