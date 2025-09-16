@@ -1,6 +1,0 @@
-[submodule "ndscan-alkaline-fork"]
-	path = ndscan-alkaline-fork
-	url = https://github.com/alkalineteam/ndscan-alkaline-fork.git
-[submodule "oitg-alkaline-fork"]
-	path = oitg-alkaline-fork
-	url = https://github.com/alkalineteam/oitg-alkaline-fork.git
