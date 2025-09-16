@@ -154,7 +154,6 @@ class clock_transition_lookup_v4(EnvExperiment):
     @kernel
     def broadband_red_mot(self):
         # **************************** Broadband Red MOT ****************************
-        # Remove 'global' keyword, use self instead
         self.voltage_1_Tr = 4.903
         self.voltage_2_Tr = 4.027
         self.MOT_Coil_1.write_dac(0, self.voltage_1_Tr)
@@ -175,15 +174,15 @@ class clock_transition_lookup_v4(EnvExperiment):
         voltage_1_com = 2.51
         voltage_2_com = 2.23
         red_amp = 0.35
-        # Remove 'global' keyword, use self instead
         self.amp_com = 0.03
         red_freq = 80.0
         red_freq_com = 80.3
         steps_com = self.Compression_Time
         t_com = self.Compression_Time/steps_com
-        volt_1_steps = (voltage_1_Tr - voltage_1_com)/steps_com
-        volt_2_steps = (voltage_2_Tr - voltage_2_com)/steps_com
-        amp_steps = (red_amp-amp_com)/steps_com
+        # Fixed: Use self.voltage_1_Tr and self.voltage_2_Tr
+        volt_1_steps = (self.voltage_1_Tr - voltage_1_com)/steps_com
+        volt_2_steps = (self.voltage_2_Tr - voltage_2_com)/steps_com
+        amp_steps = (red_amp-self.amp_com)/steps_com
         freq_steps = (red_freq_com - red_freq)/steps_com
 
         with parallel:
@@ -234,71 +233,71 @@ class clock_transition_lookup_v4(EnvExperiment):
     @kernel
     def detection(self):
         # **************************** Detection *****************************
-            # Turn off MOT coils for detection
-            self.MOT_Coil_1.write_dac(0, 4.08)
-            self.MOT_Coil_2.write_dac(1, 4.11)
-            with parallel:
-                self.MOT_Coil_1.load()
-                self.MOT_Coil_2.load()
+        # Turn off MOT coils for detection
+        self.MOT_Coil_1.write_dac(0, 4.08)
+        self.MOT_Coil_2.write_dac(1, 4.11)
+        with parallel:
+            self.MOT_Coil_1.load()
+            self.MOT_Coil_2.load()
 
-            with parallel:
-                with sequential:
-                    # **************************** Ground State ****************************
-                    self.Probe_TTL.on()
-                    delay(2.8*ms)
+        with parallel:
+            with sequential:
+                # **************************** Ground State ****************************
+                self.Probe_TTL.on()
+                delay(2.8*ms)
 
-                    with parallel:
-                        self.Camera.on()
-                        self.Probe.set(frequency=65*MHz, amplitude=0.02)
-
-                    delay(0.5*ms)
-
-                    with parallel:
-                        self.Camera.off()
-                        self.Probe_TTL.off()
-                        self.Probe.set(frequency=65*MHz, amplitude=0.00)
-                    delay(5*ms)
-
-                    # **************************** Repumping ****************************
-                    with parallel:
-                        self.Repump707.pulse(15*ms)
-                        self.Repump679.pulse(15*ms)
-
+                with parallel:
+                    self.Camera.on()
                     self.Probe.set(frequency=65*MHz, amplitude=0.02)
-                    delay(10*ms)
+
+                delay(0.5*ms)
+
+                with parallel:
+                    self.Camera.off()
+                    self.Probe_TTL.off()
+                    self.Probe.set(frequency=65*MHz, amplitude=0.00)
+                delay(5*ms)
+
+                # **************************** Repumping ****************************
+                with parallel:
+                    self.Repump707.pulse(15*ms)
+                    self.Repump679.pulse(15*ms)
+
+                self.Probe.set(frequency=65*MHz, amplitude=0.02)
+                delay(10*ms)
+                self.Probe.set(frequency=65*MHz, amplitude=0.00)
+
+                # **************************** Excited State ****************************
+                self.Probe_TTL.on()
+                delay(2.8*ms)
+
+                self.Probe.set(frequency=65*MHz, amplitude=0.02)
+                
+                delay(0.5*ms)
+                
+                with parallel:
+                    self.Probe_TTL.off()
+                    self.Probe.set(frequency=65*MHz, amplitude=0.00)
+                delay(5*ms)
+
+                self.Probe.set(frequency=65*MHz, amplitude=0.02)
+                delay(10*ms)
+                self.Probe.set(frequency=65*MHz, amplitude=0.00)
+
+                # **************************** Background ****************************
+                self.Probe_TTL.on()
+                delay(2.8*ms)
+
+                self.Probe.set(frequency=65*MHz, amplitude=0.02)
+                delay(0.5*ms)
+                with parallel:
+                    self.Probe_TTL.off()
                     self.Probe.set(frequency=65*MHz, amplitude=0.00)
 
-                    # **************************** Excited State ****************************
-                    self.Probe_TTL.on()
-                    delay(2.8*ms)
-
-                    self.Probe.set(frequency=65*MHz, amplitude=0.02)
-                    
-                    delay(0.5*ms)
-                    
-                    with parallel:
-                        self.Probe_TTL.off()
-                        self.Probe.set(frequency=65*MHz, amplitude=0.00)
-                    delay(5*ms)
-
-                    self.Probe.set(frequency=65*MHz, amplitude=0.02)
-                    delay(10*ms)
-                    self.Probe.set(frequency=65*MHz, amplitude=0.00)
-
-                    # **************************** Background ****************************
-                    self.Probe_TTL.on()
-                    delay(2.8*ms)
-
-                    self.Probe.set(frequency=65*MHz, amplitude=0.02)
-                    delay(0.5*ms)
-                    with parallel:
-                        self.Probe_TTL.off()
-                        self.Probe.set(frequency=65*MHz, amplitude=0.00)
-
-                with sequential:
-                    for j in range(self.num_samples):
-                        self.sampler.sample(self.samples[j])
-                        delay(self.sampling_period * s)
+            with sequential:
+                for j in range(self.num_samples):
+                    self.sampler.sample(self.samples[j])
+                    delay(self.sampling_period * s)
 
     @kernel
     def detection_plot(self):
@@ -325,8 +324,11 @@ class clock_transition_lookup_v4(EnvExperiment):
         background_avg = background[background > 0.8].mean()
 
         print(ground_avg, excited_avg, background_avg)
-
-        return (ground_avg, excited_avg, background_avg)
+        
+        # Calculate excitation fraction
+        excitation_fraction = (excited_avg - background_avg) / (ground_avg - background_avg)
+        
+        return excitation_fraction
 
     @kernel
     def run(self):
@@ -356,6 +358,12 @@ class clock_transition_lookup_v4(EnvExperiment):
             self.clock_interrogation() 
             self.detection()
             self.detection_plot()
-            self.excitation_fraction_list()
+            # Store the excitation fraction
+            self.excitation_fraction_list_data[j] = self.excitation_fraction_list()
+        
+        # Save the excitation fraction scan data
+        self.set_dataset("excitation.fractions", self.excitation_fraction_list_data, broadcast=True, archive=True)
+        frequencies = [(self.Center_Frequency - self.Scan_Range/2 + i*self.Step_Size)*1e-6 for i in range(self.cycles+1)]
+        self.set_dataset("excitation.frequencies_MHz", frequencies, broadcast=True, archive=True)
 
         print("Test Complete")
