@@ -51,7 +51,6 @@ class clock_transition_lookup_v4(EnvExperiment):
         self.voltage_1_Tr = 0.0
         self.voltage_2_Tr = 0.0
         self.amp_com = 0.0
-        self.detection_data = []
 
         # Clock params
         self.cycles = int32(self.Scan_Range/self.Step_Size)
@@ -61,8 +60,13 @@ class clock_transition_lookup_v4(EnvExperiment):
         sample_duration = 0.05  # 50 ms: detection cycle duration ~ 54 ms
         self.sampling_period = 1/self.sampling_rate
         self.num_samples = int32(sample_duration / self.sampling_period)
+        
+        # Pre-allocate arrays
         self.samples = [[0.0 for i in range(8)] for i in range(self.num_samples)]
+        self.detection_data = [0.0 for i in range(self.num_samples)]
+        self.detection_x = [i for i in range(self.num_samples)]
         self.excitation_fraction_list = [0.0 for i in range(self.cycles+1)]
+        self.frequencies_MHz = [(self.Center_Frequency - self.Scan_Range/2 + i*self.Step_Size)*1e-6 for i in range(self.cycles+1)]
 
     @kernel
     def initialise(self):
@@ -226,11 +230,11 @@ class clock_transition_lookup_v4(EnvExperiment):
         delay(self.State_Preparation_Time*ms)
 
     @kernel
-    def clock_interrogation(self):
+    def clock_interrogation(self, j):
         # **************************** Clock Interrogation *****************************
         self.Clock.sw.on()
         self.Clock.set(frequency=self.start)
-        print("Clock Frequency:", self.start*1e-6, "MHz")
+        print("Clock Frequency:", self.start*1e-6, "MHz, Cycle:", j)
         self.start += self.Step_Size
         delay(self.Clock_Interrogation_Time*ms)
         self.Clock.sw.off()
@@ -303,7 +307,7 @@ class clock_transition_lookup_v4(EnvExperiment):
                 for j in range(self.num_samples):
                     self.sampler.sample(self.samples[j])
                     delay(self.sampling_period * s)
-
+   
     @rpc
     def excitation_fraction(self) -> float:
         ground = np.array(self.detection_data[0:200])
@@ -322,7 +326,7 @@ class clock_transition_lookup_v4(EnvExperiment):
 
         # Once you have fixed PMT allignment, you don't need baseline mean as you can directly ignore the noise floor and set a threshold
 
-        print("GS:", ground_state, "ES:", excited_state, "BS:", background_state)
+        print("GS:", ground_avg, "ES:", excited_avg, "BS:", background_avg, "BL:", baseline_mean)
 
         numerator = excited_state
         denominator = excited_state + ground_state - 2*background_state
@@ -350,37 +354,39 @@ class clock_transition_lookup_v4(EnvExperiment):
             self.broadband_red_mot_compression()
             self.single_frequency_red_mot()
             self.state_preparation()
-            self.clock_interrogation() 
+            self.clock_interrogation(j) 
             self.detection()
-        
-            # Plot detection data
-            self.detection_data = [x[0] for x in self.samples]
-            self.set_dataset("excitation.detection", self.detection_data, broadcast=True, archive=True)
-            self.set_dataset("excitation.detection_x", [x for x in range(len(self.detection_data))], broadcast=True, archive=True)
-
-            self.ccb.issue("create_applet", 
-                            "Detection Plot", 
-                            "${artiq_applet}plot_xy"
-                            " excitation.detection"
-                            " --x excitation.detection_x"
-                            " --title Detection", 
-                            group = "excitation"
-                        )
             
-            # Plot excitation fraction
+            # Detection data
+            for i in range(self.num_samples):
+                self.detection_data[i] = self.samples[i][0]
+
+            self.set_dataset("excitation.detection", self.detection_data, broadcast=True, archive=True)
+            self.set_dataset("excitation.detection_x", self.detection_x, broadcast=True, archive=True)
+
+            # Excitation fraction
             self.excitation_fraction_list[j] = self.excitation_fraction()
             
             self.set_dataset("excitation.fractions", self.excitation_fraction_list, broadcast=True, archive=True)
-            frequencies = [(self.Center_Frequency - self.Scan_Range/2 + i*self.Step_Size)*1e-6 for i in range(self.cycles+1)]
-            self.set_dataset("excitation.frequencies_MHz", frequencies, broadcast=True, archive=True)
-
-            self.ccb.issue("create_applet", 
-                            "Excitation Fraction Plot", 
-                            "${artiq_applet}plot_xy"
-                            " excitation.fractions"
-                            " --x excitation.frequencies_MHz"
-                            " --title Excitation_Fraction", 
-                            group = "excitation"
-                        )
+            self.set_dataset("excitation.frequencies_MHz", self.frequencies_MHz, broadcast=True, archive=True)
+            
+            # Plot both
+            if j == 0:
+                self.ccb.issue("create_applet", 
+                              "Detection Plot", 
+                              "${artiq_applet}plot_xy"
+                              " excitation.detection"
+                              " --x excitation.detection_x"
+                              " --title Detection", 
+                              group = "excitation"
+                          )
+                self.ccb.issue("create_applet", 
+                              "Excitation Fraction Plot", 
+                              "${artiq_applet}plot_xy"
+                              " excitation.fractions"
+                              " --x excitation.frequencies_MHz"
+                              " --title Excitation_Fraction", 
+                              group = "excitation"
+                          )
         
         print("Test Complete")
