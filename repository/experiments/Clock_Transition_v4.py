@@ -32,10 +32,10 @@ class clock_transition_lookup_v4(EnvExperiment):
         self.ttl:TTLOut=self.get_device("ttl15")
 
         self.setattr_argument("Loading_Time", NumberValue(default=1500))
-        self.setattr_argument("Transfer_Time", NumberValue(default=40))
-        self.setattr_argument("Holding_Time", NumberValue(default=40))
+        self.setattr_argument("Transfer_Time", NumberValue(default=80))
+        self.setattr_argument("Holding_Time", NumberValue(default=80))
         self.setattr_argument("Compression_Time", NumberValue(default=8))
-        self.setattr_argument("Single_Freq_Time", NumberValue(default=40))
+        self.setattr_argument("Single_Freq_Time", NumberValue(default=80))
         self.setattr_argument("State_Preparation_Time", NumberValue(default=30))
         self.setattr_argument("Clock_Interrogation_Time", NumberValue(default=300))
 
