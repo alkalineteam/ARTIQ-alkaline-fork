@@ -315,18 +315,36 @@ class clock_transition_lookup_v4(EnvExperiment):
                     )
         
     @rpc
-    def excitation_fraction_list(self) -> float:
-        ground = np.array(self.detection_data[0:250])
+    def excitation_fraction_list(self, j) -> float:
+        ground = np.array(self.detection_data[0:200])
         excited = np.array(self.detection_data[1200:1400])
-        background = np.array(self.detection_data[1700:2000])
-        ground_avg = ground[ground > 0.8].mean()
-        excited_avg = excited[excited > 0.8].mean()
-        background_avg = background[background > 0.8].mean()
+        background = np.array(self.detection_data[1800:2000])
+        baseline = np.array(self.detection_data[200:1200])
 
-        print(ground_avg, excited_avg, background_avg)
-        
-        # Calculate excitation fraction
-        excitation_fraction = (excited_avg - background_avg) / (ground_avg - background_avg)
+        ground_avg = ground.mean()
+        excited_avg = excited.mean()
+        background_avg = background.mean()        
+        baseline_mean = baseline.mean()
+
+        ground_state = ground_avg - baseline_mean
+        excited_state = excited_avg - baseline_mean
+        background_state = background_avg - baseline_mean
+
+        # Once you have fixed PMT allignment, you don't need baseline mean as you can directly ignore the noise floor and set a threshold
+
+        print("GS:", ground_state, "ES:", excited_state, "BS:", background_state)
+
+        numerator = excited_state
+        denominator = excited_state + ground_state - 2*background_state
+
+        if denominator != 0.0:
+            excitation_fraction = numerator / denominator
+            if excitation_fraction < 0.0:
+                excitation_fraction = 0.0
+        else:
+            excitation_fraction = float(0)
+
+        self.excitation_fraction_list[j] = excitation_fraction
         
         return excitation_fraction
 
@@ -358,8 +376,7 @@ class clock_transition_lookup_v4(EnvExperiment):
             self.clock_interrogation() 
             self.detection()
             self.detection_plot()
-            # Store the excitation fraction
-            self.excitation_fraction_list_data[j] = self.excitation_fraction_list()
+            self.excitation_fraction_list(j)
         
         # Save the excitation fraction scan data
         self.set_dataset("excitation.fractions", self.excitation_fraction_list_data, broadcast=True, archive=True)
