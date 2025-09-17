@@ -34,6 +34,10 @@ class clock_transition_lookup_v4(EnvExperiment):
         self.Ref = self.get_device("urukul0_ch3")
         self.ttl:TTLOut=self.get_device("ttl15")
 
+        self.setattr_argument(
+            "sampler_channel", EnumerationValue(choices=[str(i) for i in range(8)], default="0", quickstyle=True)
+        )
+
         self.setattr_argument("Loading_Time", NumberValue(default=1500))
         self.setattr_argument("Transfer_Time", NumberValue(default=80))
         self.setattr_argument("Holding_Time", NumberValue(default=80))
