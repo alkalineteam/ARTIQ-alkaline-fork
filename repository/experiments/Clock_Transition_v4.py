@@ -1,3 +1,4 @@
+import logging
 from artiq.experiment import *
 from artiq.coredevice.ttl import TTLOut
 from artiq.language.core import delay
@@ -6,6 +7,8 @@ from artiq.coredevice.sampler import Sampler
 from artiq.language.units import *
 from numpy import int64, int32
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 class clock_transition_lookup_v4(EnvExperiment):
     def build(self):
@@ -45,7 +48,7 @@ class clock_transition_lookup_v4(EnvExperiment):
         
         self.setattr_argument("sampling_rate", NumberValue(unit="kHz", default=50000))
 
-        # Initialize class attributes that will be used across methods
+        # Initialize class variables that are to be used across methods
         self.voltage_1 = 0.0
         self.voltage_2 = 0.0
         self.voltage_1_Tr = 0.0
@@ -341,6 +344,13 @@ class clock_transition_lookup_v4(EnvExperiment):
         print(f"Excitation Fraction: {excitation_fraction:.3f}, Cycle: {j}")
         return excitation_fraction
 
+    @rpc
+    def save_data(self,dataset, filepath):
+        with open(filepath, "w") as file:
+            for i in range(len(dataset)):
+                row_str = str(dataset[i])  # Convert each element to string and join with tab delimiter
+                file.write(row_str + "\n")
+
     @kernel
     def run(self):
         self.core.reset()
@@ -381,7 +391,7 @@ class clock_transition_lookup_v4(EnvExperiment):
                             " --x excitation.detection_x"
                             " --title Detection", 
                             group = "excitation"
-                          )
+                        )
                 self.ccb.issue(
                             "create_applet", 
                             "Excitation Fraction Plot", 
@@ -390,6 +400,6 @@ class clock_transition_lookup_v4(EnvExperiment):
                             " --x excitation.frequencies_MHz"
                             " --title Excitation_Fraction", 
                             group = "excitation"
-                          )
+                        )
         
         print("Test Complete")
