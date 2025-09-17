@@ -298,7 +298,9 @@ class clock_transition_lookup_v4(EnvExperiment):
                 delay(2.8*ms)
 
                 self.Probe.set(frequency=65*MHz, amplitude=0.02)
+
                 delay(0.5*ms)
+
                 with parallel:
                     self.Probe_TTL.off()
                     self.Probe.set(frequency=65*MHz, amplitude=0.00)
@@ -307,9 +309,11 @@ class clock_transition_lookup_v4(EnvExperiment):
                 for j in range(self.num_samples):
                     self.sampler.sample(self.samples[j])
                     delay(self.sampling_period * s)
-   
+                    
+        self.Probe.set(frequency=65*MHz, amplitude=0.02)
+
     @rpc
-    def excitation_fraction(self, detection_data) -> float:
+    def excitation_fraction(self, detection_data, j) -> float:
         ground = np.array(detection_data[0:200])
         excited = np.array(detection_data[1200:1400])
         background = np.array(detection_data[1800:2000])
@@ -325,17 +329,16 @@ class clock_transition_lookup_v4(EnvExperiment):
         background_state = background_mean - baseline_mean
 
         # Once you have fixed PMT allignment, you don't need baseline mean as you can directly ignore the noise floor and set a threshold
-
         numerator = excited_state
         denominator = excited_state + ground_state - 2*background_state
 
         if denominator != 0.0:
             excitation_fraction = numerator / denominator
-            if excitation_fraction < 0.0:
+            if excitation_fraction < 0.0 or excitation_fraction > 1.0:
                 excitation_fraction = 0.0
         else:
             excitation_fraction = 0.0
-        
+        print(f"Excitation Fraction: {excitation_fraction:.3f}, Cycle: {j}")
         return excitation_fraction
 
     @kernel
@@ -345,7 +348,7 @@ class clock_transition_lookup_v4(EnvExperiment):
         self.initialise()
 
         for j in range(self.cycles+1):
-            delay(500*ms)
+            delay(100*ms)
             self.blue_mot(coil_1_voltage=1.05, coil_2_voltage=0.45)
             self.transfer()
             self.broadband_red_mot()
@@ -355,7 +358,7 @@ class clock_transition_lookup_v4(EnvExperiment):
             self.clock_interrogation(j) 
             self.detection()
             
-            # Detection data
+            # Detection window
             for i in range(self.num_samples):
                 self.detection_data[i] = self.samples[i][0]
 
@@ -363,9 +366,9 @@ class clock_transition_lookup_v4(EnvExperiment):
             self.set_dataset("excitation.detection_x", self.detection_x, broadcast=True, archive=True)
 
             # Excitation fraction
-            self.excitation_fraction_list[j] = self.excitation_fraction(self.detection_data)
+            self.excitation_fraction_list[j] = self.excitation_fraction(self.detection_data, j)
             
-            self.set_dataset("excitation.fractions", self.excitation_fraction_list, broadcast=True, archive=True)
+            self.set_dataset("excitation.excitation_fractions", self.excitation_fraction_list, broadcast=True, archive=True)
             self.set_dataset("excitation.frequencies_MHz", self.frequencies_MHz, broadcast=True, archive=True)
             
             # Plot both
@@ -383,7 +386,7 @@ class clock_transition_lookup_v4(EnvExperiment):
                             "create_applet", 
                             "Excitation Fraction Plot", 
                             "${artiq_applet}plot_xy"
-                            " excitation.fractions"
+                            " excitation.excitation_fractions"
                             " --x excitation.frequencies_MHz"
                             " --title Excitation_Fraction", 
                             group = "excitation"
