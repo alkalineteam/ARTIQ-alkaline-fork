@@ -61,7 +61,7 @@ class clock_transition_lookup_v4(EnvExperiment):
         self.sampling_period = 1/self.sampling_rate
         self.num_samples = int32(sample_duration / self.sampling_period)
         
-        # Pre-allocate arrays
+        # Pre-allocate arrays during build phase
         self.samples = [[0.0 for i in range(8)] for i in range(self.num_samples)]
         self.detection_data = [0.0 for i in range(self.num_samples)]
         self.detection_x = [i for i in range(self.num_samples)]
@@ -309,7 +309,7 @@ class clock_transition_lookup_v4(EnvExperiment):
                 for j in range(self.num_samples):
                     self.sampler.sample(self.samples[j])
                     delay(self.sampling_period * s)
-                    
+
         self.Probe.set(frequency=65*MHz, amplitude=0.02)
 
     @rpc
@@ -348,7 +348,7 @@ class clock_transition_lookup_v4(EnvExperiment):
         self.initialise()
 
         for j in range(self.cycles+1):
-            delay(100*ms)
+            delay(50*ms)
             self.blue_mot(coil_1_voltage=1.05, coil_2_voltage=0.45)
             self.transfer()
             self.broadband_red_mot()
@@ -388,6 +388,7 @@ class clock_transition_lookup_v4(EnvExperiment):
                             "${artiq_applet}plot_xy"
                             " excitation.excitation_fractions"
                             " --x excitation.frequencies_MHz"
+                            " --fit excitation.excitation_fractions"
                             " --title Excitation_Fraction", 
                             group = "excitation"
                           )
