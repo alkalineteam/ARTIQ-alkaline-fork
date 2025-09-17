@@ -188,7 +188,7 @@ class clock_transition_lookup_v2(EnvExperiment):
             self.Single_Freq.sw.off()
 
             # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 7.0)# 5.62/2.24 = 1.80; 7.03/0.45 = 3.5; 4.903/3.1 = 1;
+            self.MOT_Coil_1.write_dac(0, 7.01)# 5.62/2.24 = 1.80; 7.03/0.45 = 3.5; 4.903/3.1 = 1;
             self.MOT_Coil_2.write_dac(1, 0.4)
             with parallel:
                 self.MOT_Coil_1.load()
@@ -257,6 +257,7 @@ class clock_transition_lookup_v2(EnvExperiment):
 
                 delay(5 *ms)
 
+                # **************************** Repumping **************************
                 with parallel:
                     self.Repump707.pulse(15*ms)
                     self.Repump679.pulse(15*ms)
@@ -265,7 +266,7 @@ class clock_transition_lookup_v2(EnvExperiment):
                 delay(10*ms)
                 self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
                 
-                # **************************** Slice 7: Excited State **************************
+                # **************************** Excited State **************************
                 self.Probe_TTL.on()
                 delay(2.8*ms)
 
@@ -285,7 +286,7 @@ class clock_transition_lookup_v2(EnvExperiment):
                 delay(10*ms)
                 self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
 
-                # **************************** Slice 7: Background State **************************
+                # **************************** Background State **************************
                 self.Probe_TTL.on()
                 delay(2.8 *ms)
 
