@@ -271,14 +271,11 @@ class redMOT_v3_1(EnvExperiment):
                     self.Ref.sw.off()
                     self.Probe_TTL.off()
                     self.Probe.set(frequency=65*MHz, amplitude=0.00)
-
-                if j==int64(self.Cycle)-1:
-                    print("RedMOT detected with Probe beam!!")
             
             # **************************** Slice 4 ****************************
-            # delay(100.0*ms)
             self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
             self.Probe.set(frequency= 65*MHz, amplitude=0.02)
             self.Broadband_On.pulse(10*ms)
-            # self.BMOT_TTL.on()
-            delay(1000*ms)
+            delay(100*ms)
+        
+        print("RedMOT detected!!")

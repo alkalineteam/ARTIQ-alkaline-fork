@@ -1,16 +1,27 @@
-from artiq.experiment import *
+from artiq.coredevice.core import Core
+from artiq.coredevice.ad9910 import AD9910
+from artiq.coredevice.ad9912 import AD9912
+from artiq.coredevice.urukul import CPLD
+from artiq.coredevice.zotino import Zotino
 from artiq.coredevice.ttl import TTLOut
-from artiq.language.core import delay
-# from artiq.test.lit.iodelay import sequential
 from artiq.coredevice.sampler import Sampler
-from artiq.language.units import *
+from artiq.experiment import EnvExperiment
+from artiq.experiment import kernel
+from artiq.experiment import NumberValue
+from artiq.experiment import parallel, sequential
+from artiq.experiment import rpc
+from artiq.language.core import delay
+from artiq.language.units import ms, MHz
+import numpy as np
 from numpy import int64, int32
 
 class clock_transition_lookup_v3(EnvExperiment):
     def build(self):
-        self.setattr_device("core")
+        self.core: Core = self.get_device("core")
         self.setattr_device("ccb")
+        self.cpld: CPLD = self.get_device("urukul0_cpld")
         self.Camera:TTLOut=self.get_device("ttl10")
+        self.Pixelfly:TTLOut=self.get_device("ttl15")
         self.BMOT_TTL:TTLOut=self.get_device("ttl6")
         self.Probe_TTL:TTLOut=self.get_device("ttl8")
         self.Broadband_On:TTLOut=self.get_device("ttl5")
@@ -18,15 +29,15 @@ class clock_transition_lookup_v3(EnvExperiment):
         self.Zeeman_Slower_TTL:TTLOut=self.get_device("ttl12")
         self.Repump707:TTLOut=self.get_device("ttl4")
         self.Repump679:TTLOut=self.get_device("ttl9")
-        self.BMOT_AOM = self.get_device("urukul1_ch0")
-        self.ZeemanSlower=self.get_device("urukul1_ch1")
-        self.Single_Freq=self.get_device("urukul1_ch2")
-        self.Probe=self.get_device("urukul1_ch3")
-        self.Clock=self.get_device("urukul0_ch0")
-        self.MOT_Coil_1=self.get_device("zotino0")
-        self.MOT_Coil_2=self.get_device("zotino0")
+        self.BMOT_AOM:AD9910 = self.get_device("urukul1_ch0")
+        self.ZeemanSlower:AD9910 = self.get_device("urukul1_ch1")
+        self.Single_Freq:AD9910 = self.get_device("urukul1_ch2")
+        self.Probe:AD9910 = self.get_device("urukul1_ch3")
+        self.Clock:AD9912 = self.get_device("urukul0_ch0")
+        self.MOT_Coil_1:Zotino = self.get_device("zotino0")
+        self.MOT_Coil_2:Zotino = self.get_device("zotino0")
         self.sampler:Sampler = self.get_device("sampler0")
-        self.Ref = self.get_device("urukul0_ch3")
+        self.Ref:AD9912 = self.get_device("urukul0_ch3")
 
         self.setattr_argument("Loading_Time", NumberValue(default=1500))
         self.setattr_argument("Transfer_Time", NumberValue(default=80))
@@ -244,16 +255,16 @@ class clock_transition_lookup_v3(EnvExperiment):
                         self.Camera.off()
                         self.Probe_TTL.off()
                         self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-                    delay(5 *ms)
+                    # delay(5 *ms)
 
                     # **************************** Repumping **************************
                     with parallel:
                         self.Repump707.pulse(15*ms)
                         self.Repump679.pulse(15*ms)
 
-                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-                    delay(10*ms)
-                    self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+                    # self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                    # delay(10*ms)
+                    # self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
                     
                     # **************************** Excited State **************************
                     self.Probe_TTL.on()
@@ -267,7 +278,7 @@ class clock_transition_lookup_v3(EnvExperiment):
                     delay(5*ms)
 
                     self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-                    delay(10*ms)
+                    delay(2*ms)
                     self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
 
                     # **************************** Background State **************************
@@ -308,8 +319,8 @@ class clock_transition_lookup_v3(EnvExperiment):
             ground = detection[0:100]
             # excited = detection[1150:1350]
             # background = detection[1800:2000]
-            excited = detection[700:800]
-            background = detection[1000:1200]
+            excited = detection[400:500]
+            background = detection[600:700]
 
             gs_counts = 0.0
             es_counts = 0.0
@@ -326,7 +337,7 @@ class clock_transition_lookup_v3(EnvExperiment):
             es_avg = es_counts / len(excited)
             bg_avg = bg_counts / len(background)
 
-            baseline = detection[100:700]
+            baseline = detection[100:400]
             # baseline = detection[200:1200]
             baseline_sum = 0.0
             baseline_mean = 0.0

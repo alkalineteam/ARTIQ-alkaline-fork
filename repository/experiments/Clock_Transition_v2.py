@@ -1,10 +1,23 @@
-from artiq.experiment import *
+from artiq.coredevice.core import Core
+from artiq.coredevice.ad9910 import AD9910
+from artiq.coredevice.ad9912 import AD9912
+from artiq.coredevice.urukul import CPLD
+from artiq.coredevice.zotino import Zotino
 from artiq.coredevice.ttl import TTLOut
-from numpy import int64
+from artiq.experiment import EnvExperiment
+from artiq.experiment import kernel
+from artiq.experiment import NumberValue
+from artiq.experiment import parallel, sequential
+from artiq.experiment import rpc
+from artiq.coredevice.sampler import Sampler
+from artiq.language.units import ms, MHz
+import numpy as np
+from numpy import int64, int32
 
 class clock_transition_lookup_v2(EnvExperiment):
     def build(self):
-        self.setattr_device("core")
+        self.core: Core = self.get_device("core")
+        self.cpld: CPLD = self.get_device("urukul0_cpld")
         self.Camera:TTLOut=self.get_device("ttl10")
         self.Pixelfly:TTLOut=self.get_device("ttl15")
         self.BMOT_TTL:TTLOut=self.get_device("ttl6")
@@ -14,16 +27,15 @@ class clock_transition_lookup_v2(EnvExperiment):
         self.Zeeman_Slower_TTL:TTLOut=self.get_device("ttl12")
         self.Repump707:TTLOut=self.get_device("ttl4")
         self.Repump679:TTLOut=self.get_device("ttl9")
-        self.BMOT_AOM = self.get_device("urukul1_ch0")
-        self.ZeemanSlower=self.get_device("urukul1_ch1")
-        self.Single_Freq=self.get_device("urukul1_ch2")
-        self.Probe=self.get_device("urukul1_ch3")
-        self.Clock=self.get_device("urukul0_ch0")
-        self.MOT_Coil_1=self.get_device("zotino0")
-        self.MOT_Coil_2=self.get_device("zotino0")
-        self.Ref = self.get_device("urukul0_ch3")
+        self.BMOT_AOM:AD9910 = self.get_device("urukul1_ch0")
+        self.ZeemanSlower:AD9910 = self.get_device("urukul1_ch1")
+        self.Single_Freq:AD9910 = self.get_device("urukul1_ch2")
+        self.Probe:AD9910 = self.get_device("urukul1_ch3")
+        self.Clock:AD9912 = self.get_device("urukul0_ch0")
+        self.MOT_Coil_1:Zotino = self.get_device("zotino0")
+        self.MOT_Coil_2:Zotino = self.get_device("zotino0")
+        self.Ref:AD9912 = self.get_device("urukul0_ch3")
 
-        self.setattr_argument("Probe_ON", NumberValue(default=1))
         self.setattr_argument("Loading_Time", NumberValue(default=1500))
         self.setattr_argument("Transfer_Time", NumberValue(default=80))
         self.setattr_argument("Holding_Time", NumberValue(default=80))
@@ -188,7 +200,7 @@ class clock_transition_lookup_v2(EnvExperiment):
             self.Single_Freq.sw.off()
 
             # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 7.01)# 5.62/2.24 = 1.80; 7.03/0.45 = 3.5; 4.903/3.1 = 1;
+            self.MOT_Coil_1.write_dac(0, 7.04)# 5.62/2.24 = 1.80; 7.03/0.4 = 3.5; 4.903/3.1 = 1;
             self.MOT_Coil_2.write_dac(1, 0.4)
             with parallel:
                 self.MOT_Coil_1.load()
@@ -206,109 +218,85 @@ class clock_transition_lookup_v2(EnvExperiment):
             delay(self.Clock_Interrogation_Time*ms)
             self.Clock.sw.off()
 
+            # **************************** Detection **************************
+            self.MOT_Coil_1.write_dac(0, 4.08)
+            self.MOT_Coil_2.write_dac(1, 4.11)
+            with parallel:
+                self.MOT_Coil_1.load()
+                self.MOT_Coil_2.load()
+            
+            with parallel:
+                with sequential:
+                    # **************************** Ground State **************************
+                    self.Probe_TTL.on()
+                    self.BMOT_AOM.set(frequency=10*MHz, amplitude=0.08)
+                    delay(2.8 *ms)
 
-            # **************************** Slice 5: Detection : MOT as Probe*****************************
-            if self.Probe_ON == 0:
-                with parallel:
-                    self.Probe_TTL.off()
-                    self.BMOT_TTL.on()
-                delay(3.8*ms)
+                    with parallel:
+                        self.Camera.on()
+                        self.Pixelfly.on()
+                        self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                        self.Ref.sw.on()
+                    
+                    delay(0.5 *ms)
+                    
+                    with parallel:
+                        self.Pixelfly.off()
+                        self.Camera.off()
+                        self.Ref.sw.off()
+                        self.Probe_TTL.off()
+                        self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
 
-                self.MOT_Coil_1.write_dac(0, 4.055)
-                self.MOT_Coil_2.write_dac(1, 4.083)
-                with parallel:
-                    self.MOT_Coil_1.load()
-                    self.MOT_Coil_2.load()
+                    delay(5 *ms)
 
-                with parallel:
-                    self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
-                    self.Pixelfly.pulse(3.0*ms)
-                    self.Camera.pulse(3.0*ms)
+                    # **************************** Repumping **************************
+                    with parallel:
+                        self.Repump707.pulse(15*ms)
+                        self.Repump679.pulse(15*ms)
 
-                if j==cycles-1:
-                    print("Clock transition detected with MOT beam as Probe!!")
-
-            # **************************** Slice 5: Detection - Seperate Probe**************************
-            if self.Probe_ON == 1:
-                self.MOT_Coil_1.write_dac(0, 4.08)
-                self.MOT_Coil_2.write_dac(1, 4.11)
-                with parallel:
-                    self.MOT_Coil_1.load()
-                    self.MOT_Coil_2.load()
-                
-                self.Probe_TTL.on()
-                self.BMOT_AOM.set(frequency=10*MHz, amplitude=0.08)
-                delay(2.8 *ms)
-
-                with parallel:
-                    self.Camera.on()
-                    self.Pixelfly.on()
                     self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-                    self.Ref.sw.on()
-                
-                delay(0.5 *ms)
-                
-                with parallel:
-                    self.Pixelfly.off()
-                    self.Camera.off()
-                    self.Ref.sw.off()
-                    self.Probe_TTL.off()
+                    delay(10*ms)
+                    self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+                    
+                    # **************************** Excited State **************************
+                    self.Probe_TTL.on()
+                    delay(2.8*ms)
+
+                    with parallel:
+                        self.Ref.sw.on()
+                        self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                    
+                    delay(0.5*ms)
+                    
+                    with parallel:
+                        self.Ref.sw.off()
+                        self.Probe_TTL.off()
+                        self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+                    delay(5*ms)
+
+                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                    delay(10*ms)
                     self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
 
-                delay(5 *ms)
+                    # **************************** Background State **************************
+                    self.Probe_TTL.on()
+                    delay(2.8 *ms)
 
-                # **************************** Repumping **************************
-                with parallel:
-                    self.Repump707.pulse(15*ms)
-                    self.Repump679.pulse(15*ms)
+                    with parallel:
+                        self.Ref.sw.on()
+                        self.Probe.set(frequency= 65*MHz, amplitude=0.02)
 
-                self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-                delay(10*ms)
-                self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-                
-                # **************************** Excited State **************************
-                self.Probe_TTL.on()
-                delay(2.8*ms)
-
-                with parallel:
-                    self.Ref.sw.on()
-                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-                
-                delay(0.5*ms)
-                
-                with parallel:
-                    self.Ref.sw.off()
-                    self.Probe_TTL.off()
-                    self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-                delay(5*ms)
-
-                self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-                delay(10*ms)
-                self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-
-                # **************************** Background State **************************
-                self.Probe_TTL.on()
-                delay(2.8 *ms)
-
-                with parallel:
-                    self.Ref.sw.on()
-                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-
-                delay(0.5 *ms)
-                
-                with parallel:
-                    self.Ref.sw.off()
-                    self.Probe_TTL.off()
-                    self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-                        
-
-                if j==cycles:
-                    print("clock transition scan completed!!")
+                    delay(0.5 *ms)
+                    
+                    with parallel:
+                        self.Ref.sw.off()
+                        self.Probe_TTL.off()
+                        self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
             
             # **************************** Slice 4 ****************************
-            # delay(4.0*ms)
             self.Probe.set(frequency= 65*MHz, amplitude=0.02)
             self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
             self.Broadband_On.pulse(10*ms)
-            # self.BMOT_TTL.on()
             delay(100*ms)
+
+        print("clock transition scan completed!!")

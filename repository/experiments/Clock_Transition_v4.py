@@ -34,10 +34,6 @@ class clock_transition_lookup_v4(EnvExperiment):
         self.Ref = self.get_device("urukul0_ch3")
         self.ttl:TTLOut=self.get_device("ttl15")
 
-        self.setattr_argument(
-            "sampler_channel", EnumerationValue(choices=[str(i) for i in range(8)], default="0", quickstyle=True)
-        )
-
         self.setattr_argument("Loading_Time", NumberValue(default=1500))
         self.setattr_argument("Transfer_Time", NumberValue(default=80))
         self.setattr_argument("Holding_Time", NumberValue(default=80))
@@ -52,6 +48,7 @@ class clock_transition_lookup_v4(EnvExperiment):
         
         self.setattr_argument("sampling_rate", NumberValue(unit="kHz", default=50000))
 
+    def prepare(self):
         # Initialize class variables that are to be used across methods
         self.voltage_1 = 0.0
         self.voltage_2 = 0.0
@@ -260,19 +257,25 @@ class clock_transition_lookup_v4(EnvExperiment):
             with sequential:
                 # **************************** Ground State ****************************
                 self.Probe_TTL.on()
-                delay(2.8*ms)
+                self.BMOT_AOM.set(frequency=10*MHz, amplitude=0.08)
+                delay(2.8 *ms)
 
                 with parallel:
                     self.Camera.on()
-                    self.Probe.set(frequency=65*MHz, amplitude=0.02)
-
-                delay(0.5*ms)
-
+                    self.Pixelfly.on()
+                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                    self.Ref.sw.on()
+                
+                delay(0.5 *ms)
+                
                 with parallel:
+                    self.Pixelfly.off()
                     self.Camera.off()
+                    self.Ref.sw.off()
                     self.Probe_TTL.off()
-                    self.Probe.set(frequency=65*MHz, amplitude=0.00)
-                delay(5*ms)
+                    self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+
+                delay(5 *ms)
 
                 # **************************** Repumping ****************************
                 with parallel:
@@ -308,16 +311,18 @@ class clock_transition_lookup_v4(EnvExperiment):
 
                 delay(0.5*ms)
 
-                with parallel:
-                    self.Probe_TTL.off()
-                    self.Probe.set(frequency=65*MHz, amplitude=0.00)
+                # with parallel:
+                #     self.Probe_TTL.off()
+                #     self.Probe.set(frequency=65*MHz, amplitude=0.00)
+
+                self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
 
             with sequential:
                 for j in range(self.num_samples):
                     self.sampler.sample(self.samples[j])
                     delay(self.sampling_period * s)
-
-        self.Probe.set(frequency=65*MHz, amplitude=0.02)
+                    
+        
 
     @rpc
     def excitation_fraction(self, detection_data, j) -> float:
@@ -348,13 +353,6 @@ class clock_transition_lookup_v4(EnvExperiment):
         print(f"Excitation Fraction: {excitation_fraction:.3f}, Cycle: {j}")
         return excitation_fraction
 
-    @rpc
-    def save_data(self,dataset, filepath):
-        with open(filepath, "w") as file:
-            for i in range(len(dataset)):
-                row_str = str(dataset[i])  # Convert each element to string and join with tab delimiter
-                file.write(row_str + "\n")
-
     @kernel
     def run(self):
         self.core.reset()
@@ -362,7 +360,7 @@ class clock_transition_lookup_v4(EnvExperiment):
         self.initialise()
 
         for j in range(self.cycles+1):
-            delay(50*ms)
+            delay(100*ms)
             self.blue_mot(coil_1_voltage=1.05, coil_2_voltage=0.45)
             self.transfer()
             self.broadband_red_mot()
@@ -402,7 +400,7 @@ class clock_transition_lookup_v4(EnvExperiment):
                             "${artiq_applet}plot_xy"
                             " excitation.excitation_fractions"
                             " --x excitation.frequencies_MHz"
-                            " --fit excitation.excitation_fractions"
+                            # " --fit excitation.excitation_fractions"
                             " --title Excitation_Fraction", 
                             group = "excitation"
                         )
