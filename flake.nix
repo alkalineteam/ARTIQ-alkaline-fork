@@ -270,7 +270,7 @@
     makeArtiqBoardPackage = {
       target,
       variant,
-      buildCommand ? "python -m artiq.gateware.targets.${target} -V ${variant}",
+      buildCommand ? "python -m artiq.gateware.targets.${target} ${variant}",
       experimentalFeatures ? [],
     }:
       naerskLib.buildPackage {
@@ -391,6 +391,10 @@
       artiq-board-efc-shuttler = makeArtiqBoardPackage {
         target = "efc";
         variant = "shuttler";
+      };
+      artiq-board-efc-songbird = makeArtiqBoardPackage {
+        target = "efc";
+        variant = "songbird";
       };
       inherit latex-artiq-manual;
       artiq-manual-html = pkgs.stdenvNoCC.mkDerivation rec {
@@ -528,7 +532,7 @@
     };
 
     hydraJobs = {
-      inherit (packages.x86_64-linux) artiq artiq-board-kc705-nist_clock artiq-board-efc-shuttler openocd-bscanspi;
+      inherit (packages.x86_64-linux) artiq artiq-board-kc705-nist_clock artiq-board-efc-shuttler artiq-board-efc-songbird openocd-bscanspi;
       gateware-sim = pkgs.stdenvNoCC.mkDerivation {
         name = "gateware-sim";
         buildInputs = [
@@ -593,7 +597,7 @@
 
             artiq_rtiomap --device-db $ARTIQ_ROOT/device_db.py device_map.bin
             artiq_mkfs -s ip `python -c "import artiq.examples.kc705_nist_clock.device_db as ddb; print(ddb.core_addr)"`/24 -f device_map device_map.bin kc705_nist_clock.config
-            artiq_flash -t kc705 -H rpi-1 storage -f kc705_nist_clock.config
+            artiq_flash write=storage -t kc705 -H rpi-1 -f kc705_nist_clock.config
             artiq_flash -t kc705 -H rpi-1 -d ${packages.x86_64-linux.artiq-board-kc705-nist_clock}
             sleep 30
 
