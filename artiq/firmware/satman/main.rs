@@ -26,7 +26,7 @@ use board_artiq::si549;
 use board_misoc::irq;
 use board_misoc::{boot, spiflash};
 use board_artiq::{spi, drtioaux, drtio_routing};
-#[cfg(soc_platform = "efc")]
+#[cfg(all(soc_platform = "efc", has_converter_spi))]
 use board_artiq::ad9117;
 use proto_artiq::drtioaux_proto::{SAT_PAYLOAD_MAX_SIZE, MASTER_PAYLOAD_MAX_SIZE, CXP_PAYLOAD_MAX_SIZE};
 #[cfg(has_drtio_eem)]
@@ -919,9 +919,9 @@ fn startup() {
 
     #[cfg(has_i2c)]
     i2c::init().expect("I2C initialization failed");
-    #[cfg(all(soc_platform = "kasli", hw_rev = "v2.0"))]
+    #[cfg(all(soc_platform = "kasli", any(hw_rev = "v2.0", hw_rev = "v2.1")))]
     let (mut io_expander0, mut io_expander1);
-    #[cfg(all(soc_platform = "kasli", hw_rev = "v2.0"))]
+    #[cfg(all(soc_platform = "kasli", any(hw_rev = "v2.0", hw_rev = "v2.1")))]
     {
         io_expander0 = board_misoc::io_expander::IoExpander::new(0).unwrap();
         io_expander1 = board_misoc::io_expander::IoExpander::new(1).unwrap();
@@ -1025,7 +1025,7 @@ fn startup() {
 
     let mut hardware_tick_ts = 0;
 
-    #[cfg(soc_platform = "efc")]
+    #[cfg(all(soc_platform = "efc", has_converter_spi))]
     ad9117::init().expect("AD9117 initialization failed");
     
     loop {
@@ -1036,7 +1036,7 @@ fn startup() {
             for rep in repeaters.iter_mut() {
                 rep.service(&routing_table, rank, destination, &mut router);
             }
-            #[cfg(all(soc_platform = "kasli", hw_rev = "v2.0"))]
+            #[cfg(all(soc_platform = "kasli", any(hw_rev = "v2.0", hw_rev = "v2.1")))]
             {
                 io_expander0.service().expect("I2C I/O expander #0 service failed");
                 io_expander1.service().expect("I2C I/O expander #1 service failed");
@@ -1077,7 +1077,7 @@ fn startup() {
             for rep in repeaters.iter_mut() {
                 rep.service(&routing_table, rank, destination, &mut router);
             }
-            #[cfg(all(soc_platform = "kasli", hw_rev = "v2.0"))]
+            #[cfg(all(soc_platform = "kasli", any(hw_rev = "v2.0", hw_rev = "v2.1")))]
             {
                 io_expander0.service().expect("I2C I/O expander #0 service failed");
                 io_expander1.service().expect("I2C I/O expander #1 service failed");

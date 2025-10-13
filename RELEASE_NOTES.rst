@@ -9,6 +9,7 @@ ARTIQ-9 (Unreleased)
 * Hardware support:
    - 12Gbps CoaXPress grabber support on Kasli-SoC with CoaXPress-SFP adapter
      (and ZC706 with Hello-FPGA CXP 4R FMC card).
+   - Songbird - a 4-tone, 16-bit DDS using a 2.5Gsps LTC2000 DAC.
    - Improved SDRAM memory controller and DMA cores puts Kasli DMA performance on par with
      other platforms.
    - Core device reflashing over the network through the new ``flash`` tool in ``artiq_coremgmt``.
@@ -21,6 +22,7 @@ ARTIQ-9 (Unreleased)
    - Fastino monitoring with Moninj.
    - Zotino monitoring now displays the values in volts.
    - artiq_flash can now flash Phaser through a Digilent HS2 Programming cable.
+   - artiq_flash can now erase specified flash region(s). 
    - Support for the ultra-low-cost EBAZ4205 Zynq-7000 control card, with core device driver
      for the AD9834 DDS, tested with the ZonRi Technology Co., Ltd. AD9834-Module.
    - Configurable number of Grabber ROI engines through the ``roi_engine_count``
@@ -65,6 +67,18 @@ Breaking changes:
       + Interactive arguments (artiq_run, artiq_client)
       + Waveform channel list file
       + devarg overrides
+
+Breaking changes:
+
+* The variant for EFC and KC705 gateware builds must always be specified.
+* ``artiq_flash``: the syntax is different when operating on partial regions of the flash. See the example below.
+  The new syntax also allows erasing partial regions. Backward compatibility is retained when erasing and 
+  flashing all regions.
+
+::
+
+  # Erase the storage flash region, flash the gateware and firmware but not bootloader and then restart the FPGA device
+  artiq_flash erase=storage write=gateware,firmware start -d ./artiq_kasli/master/ --srcbuild
 
 ARTIQ-8
 -------

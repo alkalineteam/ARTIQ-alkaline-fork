@@ -156,30 +156,6 @@
       '';
     };
 
-    llvmlite-new = pkgs.python3Packages.buildPythonPackage rec {
-      pname = "llvmlite";
-      version = "0.44.0";
-      src = pkgs.fetchFromGitHub {
-        owner = "numba";
-        repo = "llvmlite";
-        rev = "v${version}";
-        sha256 = "sha256-ZIA/JfK9ZP00Zn6SZuPus30Xw10hn3DArHCkzBZAUV0=";
-      };
-      pyproject = true;
-      build-system = [pkgs.python3Packages.setuptools];
-      nativeBuildInputs = [pkgs.llvm_15];
-      # Disable static linking
-      # https://github.com/numba/llvmlite/issues/93
-      postPatch = ''
-        substituteInPlace ffi/Makefile.linux --replace "-static-libstdc++" ""
-        substituteInPlace llvmlite/tests/test_binding.py --replace "test_linux" "nope"
-      '';
-      # Set directory containing llvm-config binary
-      preConfigure = ''
-        export LLVM_CONFIG=${pkgs.llvm_15.dev}/bin/llvm-config
-      '';
-    };
-
     artiq-upstream = pkgs.python3Packages.buildPythonPackage rec {
       pname = "artiq";
       version = artiqVersion;
@@ -193,10 +169,9 @@
       '';
 
       nativeBuildInputs = [pkgs.qt6.wrapQtAppsHook];
-      # keep llvm_x and lld_x in sync with llvmlite
       propagatedBuildInputs =
-        [pkgs.llvm_15 pkgs.lld_15 sipyco.packages.x86_64-linux.sipyco pythonparser llvmlite-new pkgs.qt6.qtsvg artiq-comtools.packages.x86_64-linux.artiq-comtools]
-        ++ (with pkgs.python3Packages; [pyqtgraph pygit2 numpy dateutil scipy prettytable pyserial levenshtein h5py pyqt6 qasync tqdm lmdb jsonschema platformdirs]);
+        [pkgs.llvm_20 pkgs.lld_20 sipyco.packages.x86_64-linux.sipyco pythonparser pkgs.qt6.qtsvg artiq-comtools.packages.x86_64-linux.artiq-comtools]
+        ++ (with pkgs.python3Packages; [llvmlite pyqtgraph pygit2 numpy dateutil scipy prettytable pyserial levenshtein h5py pyqt6 qasync tqdm lmdb jsonschema platformdirs]);
 
       dontWrapQtApps = true;
       postFixup = ''
@@ -217,10 +192,10 @@
         "--set FONTCONFIG_FILE ${pkgs.fontconfig.out}/etc/fonts/fonts.conf"
       ];
 
-      # FIXME: automatically propagate lld_15 llvm_15 dependencies
+      # FIXME: automatically propagate lld_20 llvm_20 dependencies
       # cacert is required in the check stage only, as certificates are to be
       # obtained from system elsewhere
-      nativeCheckInputs = with pkgs; [lld_15 llvm_15 lit outputcheck cacert] ++ [libartiq-support];
+      nativeCheckInputs = with pkgs; [lld_20 llvm_20 lit outputcheck cacert] ++ [libartiq-support];
       checkPhase = ''
         python -m unittest discover -v artiq.test
 
@@ -295,7 +270,7 @@
     makeArtiqBoardPackage = {
       target,
       variant,
-      buildCommand ? "python -m artiq.gateware.targets.${target} -V ${variant}",
+      buildCommand ? "python -m artiq.gateware.targets.${target} ${variant}",
       experimentalFeatures ? [],
     }:
       naerskLib.buildPackage {
@@ -306,9 +281,9 @@
         nativeBuildInputs = [
           (pkgs.python3.withPackages (ps: [migen misoc (artiq.withExperimentalFeatures experimentalFeatures) ps.packaging]))
           rust
-          pkgs.llvmPackages_15.clang-unwrapped
-          pkgs.llvm_15
-          pkgs.lld_15
+          pkgs.llvm_20
+          pkgs.lld_20
+          pkgs.llvmPackages_20.clang-unwrapped
           vivado
         ];
         overrideMain = _: {
@@ -417,6 +392,10 @@
         target = "efc";
         variant = "shuttler";
       };
+      artiq-board-efc-songbird = makeArtiqBoardPackage {
+        target = "efc";
+        variant = "songbird";
+      };
       inherit latex-artiq-manual;
       artiq-manual-html = pkgs.stdenvNoCC.mkDerivation rec {
         name = "artiq-manual-html-${version}";
@@ -496,9 +475,9 @@
           [
             git
             lit
-            lld_15
-            llvm_15
-            llvmPackages_15.clang-unwrapped
+            lld_20
+            llvm_20
+            llvmPackages_20.clang-unwrapped
             outputcheck
             pdf2svg
 
@@ -511,8 +490,8 @@
             (python3.withPackages (ps: [migen misoc microscope ps.packaging ps.paramiko] ++ artiq.propagatedBuildInputs))
           ]
           ++ [
-            latex-artiq-manual
             rust
+            latex-artiq-manual
             artiq-frontend-dev-wrappers
 
             # To manually run compiler tests:
@@ -536,9 +515,9 @@
         packages = [
           rust
 
-          pkgs.llvmPackages_15.clang-unwrapped
-          pkgs.llvm_15
-          pkgs.lld_15
+          pkgs.llvm_20
+          pkgs.lld_20
+          pkgs.llvmPackages_20.clang-unwrapped
 
           packages.x86_64-linux.vivado
           packages.x86_64-linux.openocd-bscanspi
@@ -553,7 +532,7 @@
     };
 
     hydraJobs = {
-      inherit (packages.x86_64-linux) artiq artiq-board-kc705-nist_clock artiq-board-efc-shuttler openocd-bscanspi;
+      inherit (packages.x86_64-linux) artiq artiq-board-kc705-nist_clock artiq-board-efc-shuttler artiq-board-efc-songbird openocd-bscanspi;
       gateware-sim = pkgs.stdenvNoCC.mkDerivation {
         name = "gateware-sim";
         buildInputs = [
@@ -582,8 +561,8 @@
                 ]
                 ++ ps.paramiko.optional-dependencies.ed25519
           ))
-          pkgs.llvm_15
-          pkgs.lld_15
+          pkgs.llvm_20
+          pkgs.lld_20
           pkgs.openssh
           packages.x86_64-linux.openocd-bscanspi # for the bscanspi bitstreams
         ];
@@ -618,7 +597,7 @@
 
             artiq_rtiomap --device-db $ARTIQ_ROOT/device_db.py device_map.bin
             artiq_mkfs -s ip `python -c "import artiq.examples.kc705_nist_clock.device_db as ddb; print(ddb.core_addr)"`/24 -f device_map device_map.bin kc705_nist_clock.config
-            artiq_flash -t kc705 -H rpi-1 storage -f kc705_nist_clock.config
+            artiq_flash write=storage -t kc705 -H rpi-1 -f kc705_nist_clock.config
             artiq_flash -t kc705 -H rpi-1 -d ${packages.x86_64-linux.artiq-board-kc705-nist_clock}
             sleep 30
 

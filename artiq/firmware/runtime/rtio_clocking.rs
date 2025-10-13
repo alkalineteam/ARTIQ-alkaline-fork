@@ -12,6 +12,7 @@ pub enum RtioClock {
     Int_125,
     Int_100,
     Ext0_Bypass,
+    Ext0_Synth0_10to100,
     Ext0_Synth0_10to125,
     Ext0_Synth0_80to125,
     Ext0_Synth0_100to125,
@@ -27,6 +28,7 @@ fn get_rtio_clock_cfg() -> RtioClock {
             Ok("ext0_bypass") => RtioClock::Ext0_Bypass,
             Ok("ext0_bypass_125") => RtioClock::Ext0_Bypass,
             Ok("ext0_bypass_100") => RtioClock::Ext0_Bypass,
+            Ok("ext0_synth0_10to100") => RtioClock::Ext0_Synth0_10to100,
             Ok("ext0_synth0_10to125") => RtioClock::Ext0_Synth0_10to125,
             Ok("ext0_synth0_80to125") => RtioClock::Ext0_Synth0_80to125,
             Ok("ext0_synth0_100to125") => RtioClock::Ext0_Synth0_100to125,
@@ -92,9 +94,9 @@ pub mod crg {
 
 // Si5324 input to select for locking to an external clock (as opposed to
 // a recovered link clock in DRTIO satellites, which is handled elsewhere).
-#[cfg(all(has_si5324, soc_platform = "kasli", hw_rev = "v2.0"))]
+#[cfg(all(has_si5324, soc_platform = "kasli", any(hw_rev = "v2.0", hw_rev = "v2.1")))]
 const SI5324_EXT_INPUT: si5324::Input = si5324::Input::Ckin1;
-#[cfg(all(has_si5324, soc_platform = "kasli", not(hw_rev = "v2.0")))]
+#[cfg(all(has_si5324, soc_platform = "kasli", not(any(hw_rev = "v2.0", hw_rev = "v2.1"))))]
 const SI5324_EXT_INPUT: si5324::Input = si5324::Input::Ckin2;
 #[cfg(all(has_si5324, soc_platform = "kc705"))]
 const SI5324_EXT_INPUT: si5324::Input = si5324::Input::Ckin2;
@@ -112,6 +114,22 @@ fn setup_si5324_pll(cfg: RtioClock) {
                     n2_ls  : 300,
                     n31    : 6,
                     n32    : 6,
+                    bwsel  : 4,
+                    crystal_as_ckin2: false
+                },
+                SI5324_EXT_INPUT
+            )
+        },
+        RtioClock::Ext0_Synth0_10to100 => { // 100 MHz output from 10 MHz CLKINx reference, 504 Hz BW
+            info!("using 10MHz reference to make 100MHz RTIO clock with PLL");
+            (
+                si5324::FrequencySettings {
+                    n1_hs  : 10,
+                    nc1_ls : 6,
+                    n2_hs  : 10,
+                    n2_ls  : 300,
+                    n31    : 5,
+                    n32    : 5,
                     bwsel  : 4,
                     crystal_as_ckin2: false
                 },
