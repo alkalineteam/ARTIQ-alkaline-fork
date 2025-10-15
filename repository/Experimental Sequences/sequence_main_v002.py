@@ -2,7 +2,6 @@
 from artiq.experiment import *
 from artiq.coredevice.ttl import TTLOut
 from artiq.test.lit.iodelay import sequential
-from numpy import int64, int32
 from artiq.coredevice import ad9910
 from artiq.coredevice.sampler import Sampler
 import numpy as np
@@ -176,7 +175,7 @@ class sequence_main(EnvExperiment):
         volt_2_steps = (compress_bmot_volt_2 - bmot_voltage_2 )/steps_com
         amp_steps = (bmot_amp-compress_bmot_amp)/steps_com
     
-        for i in range(int64(steps_com)):
+        for i in range(int(steps_com)):
 
             voltage_1 = bmot_voltage_1 + ((i+1) * volt_1_steps)
             voltage_2 = bmot_voltage_2 + ((i+1) * volt_2_steps)
@@ -234,7 +233,7 @@ class sequence_main(EnvExperiment):
         amp_steps = (bb_rmot_amp-compress_rmot_amp)/steps_com
         
 
-        for i in range(int64(steps_com)):
+        for i in range(int(steps_com)):
             voltage_1 = bb_rmot_volt_1 + ((i+1) * volt_1_steps)
             voltage_2 = bb_rmot_volt_2 + ((i+1) * volt_2_steps)
             amp = bb_rmot_amp - ((i+1) * amp_steps)
@@ -338,7 +337,7 @@ class sequence_main(EnvExperiment):
     def pmt_capture(self,sampling_duration,sampling_rate,tof):        #This function should be sampling from the PMT at the same time as the camera being triggered for seperate probe
         # self.core.break_realtime()
         sample_period = 1 / sampling_rate
-        num_samples = int32(sampling_duration/sample_period)
+        num_samples = int(sampling_duration/sample_period)
         print(num_samples)
         samples = [[0.0 for i in range(8)] for i in range(num_samples)]
     
@@ -391,7 +390,7 @@ class sequence_main(EnvExperiment):
         sample_period = 1 / 40000      #10kHz sampling rate should give us enough data points
         sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
 
-        num_samples = int32(sampling_duration/sample_period)
+        num_samples = int(sampling_duration/sample_period)
         samples = [[0.0 for i in range(8)] for i in range(num_samples)]
     
         with parallel:

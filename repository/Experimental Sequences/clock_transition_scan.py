@@ -1,7 +1,6 @@
 from artiq.experiment import *
 from artiq.coredevice.ttl import TTLOut
 from artiq.language.core import delay
-from numpy import int64, int32, max, float64, float32
 import numpy as numpy
 import numpy as np
 from scipy.optimize import curve_fit
@@ -175,7 +174,7 @@ class Atom_Servo(EnvExperiment):
         volt_2_steps = (compress_bmot_volt_2 - bmot_voltage_2 )/steps_com
         amp_steps = (bmot_amp-compress_bmot_amp)/steps_com
     
-        for i in range(int64(steps_com)):
+        for i in range(int(steps_com)):
 
             voltage_1 = bmot_voltage_1 + ((i+1) * volt_1_steps)
             voltage_2 = bmot_voltage_2 + ((i+1) * volt_2_steps)
@@ -231,7 +230,7 @@ class Atom_Servo(EnvExperiment):
         amp_steps = (bb_rmot_amp-compress_rmot_amp)/steps_com
         
 
-        for i in range(int64(steps_com)):
+        for i in range(int(steps_com)):
             voltage_1 = bb_rmot_volt_1 + ((i+1) * volt_1_steps)
             voltage_2 = bb_rmot_volt_2 + ((i+1) * volt_2_steps)
             amp = bb_rmot_amp - ((i+1) * amp_steps)
@@ -373,7 +372,7 @@ class Atom_Servo(EnvExperiment):
         sample_period = 1 / 25000   #10kHz sampling rate should give us enough data points
         sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
 
-        num_samples = int32(sampling_duration/sample_period)
+        num_samples = int(sampling_duration/sample_period)
         samples = [[0.0 for i in range(8)] for i in range(num_samples)]
     
         with parallel:
@@ -614,9 +613,9 @@ class Atom_Servo(EnvExperiment):
         rmot_A_start = 0.05,
         rmot_A_end = 0.003
 
-        scan_start = int32(self.scan_center_frequency_Hz - (int32(self.scan_range_Hz )/ 2))
-        scan_end =int32(self.scan_center_frequency_Hz + (int32(self.scan_range_Hz ) / 2))
-        scan_frequency_values = [float(x) for x in range(scan_start, scan_end, int32(self.scan_step_size_Hz))]
+        scan_start = int(self.scan_center_frequency_Hz - (int(self.scan_range_Hz )/ 2))
+        scan_end =int(self.scan_center_frequency_Hz + (int(self.scan_range_Hz ) / 2))
+        scan_frequency_values = [float(x) for x in range(scan_start, scan_end, int(self.scan_step_size_Hz))]
         cycles = len(scan_frequency_values)
 
         gs_list = [0.0] * cycles
@@ -626,7 +625,7 @@ class Atom_Servo(EnvExperiment):
 
 
         
-        for j in range(int32(cycles)):      
+        for j in range(int(cycles)):      
             self.core.break_realtime()  
             t1 = self.core.get_rtio_counter_mu()
             ####################################################### Blue MOT loading #############################################################
@@ -765,7 +764,7 @@ class Atom_Servo(EnvExperiment):
 
             delay(100*ms)
             
-            for i in range(int32(n)):
+            for i in range(int(n)):
                 count = i
                 self.core.break_realtime()
                 delay(10*ms)
