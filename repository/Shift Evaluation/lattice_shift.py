@@ -70,7 +70,7 @@ class lattice_shift_disc(EnvExperiment):
         
         self.setattr_argument("lattice_att_high", NumberValue(default=18*dB),group="Shift Parameters")
         self.setattr_argument("lattice_att_low", NumberValue(default=13*dB),group="Shift Parameters")
-        self.setattr_argument("lattice_aom_frequency_MHz", NumberValue(default=110*MHz),group="Shift Parameters")
+        self.setattr_argument("lattice_aom_frequency_MHz", NumberValue(default=110 * MHz),group="Shift Parameters")
 
         self.feedback_list = []
         self.atom_lock_list = []
@@ -122,8 +122,8 @@ class lattice_shift_disc(EnvExperiment):
         self.atom_lock_aom.set(frequency = 125 * MHz)
         self.atom_lock_aom.set_att(14*dB)
 
-        self.lattice_aom.set(frequency = self.lattice_aom_frequency_MHz)
-        self.lattice_aom.set_att(self.lattice_att_low)
+        self.lattice_aom.set(frequency = self.lattice_aom_frequency_MHz * MHz)
+        self.lattice_aom.set_att(self.lattice_att_low * dB)
         self.lattice_aom.sw.on()
 
         # Set the RF channels ON
@@ -455,8 +455,12 @@ class lattice_shift_disc(EnvExperiment):
 
         if which_param == 1:
             is_param_1 = True
+            self.lattice_aom.set_att(param*dB)
         elif which_param == 2:
             is_param_1 = False
+            self.lattice_aom.set_att(param*dB)
+
+        
 
         ################################# Blue MOT #########################################
 
@@ -573,7 +577,7 @@ class lattice_shift_disc(EnvExperiment):
         self.clock_spectroscopy(
             aom_frequency = stepping_aom_freq,
             pulse_time = rabi_pulse_duration,
-            bias_field = param
+            bias_field = self.bias_field_mT
         )
 
         excitation = self.normalised_detection(j,is_param_1,excitation_fraction_list_param_1,excitation_fraction_list_param_2)           

@@ -60,7 +60,7 @@ class Atom_Servo(EnvExperiment):
         self.setattr_argument("Enable_Lock", BooleanValue(default=False), group="Locking")
         self.setattr_argument("servo_gain", NumberValue(default=0.3), group="Locking")
         self.setattr_argument("linewidth", NumberValue(default=100 * Hz), group="Locking")  # This is the linewidth of the clock transition, adjust as necessary
-      
+        self.setattr_argument("lattice_aom_att", NumberValue(default=13 * dB), group="Sequence Parameters")
 
         
         self.feedback_list = []
@@ -119,7 +119,7 @@ class Atom_Servo(EnvExperiment):
 
         #Lattice AOM - for magic wavelength lattice measurements
         self.lattice_aom.set(frequency = 80 *MHz)
-        self.lattice_aom.set_att(13*dB)
+        self.lattice_aom.set_att(self.lattice_aom_att * dB)
 
       
         # Set initial states of AOMs
@@ -282,7 +282,7 @@ class Atom_Servo(EnvExperiment):
             delay(10*ms)
     
     @kernel
-    def clock_spectroscopy(self,aom_frequency,pulse_time):                     #Switch to Helmholtz field, wait, then generate Rabi Pulse
+    def rabi_clock_spectroscopy(self,aom_frequency,pulse_time):                     #Switch to Helmholtz field, wait, then generate Rabi Pulse
        
         self.red_mot_shutter.off()
         self.red_mot_aom.sw.off()
@@ -319,6 +319,53 @@ class Atom_Servo(EnvExperiment):
         self.stepping_aom.set(frequency = 0 * Hz)
         self.stepping_aom.sw.off()
         self.clock_shutter.off()
+
+    @kernel
+    def ramsey_clock_spectroscopy(self,aom_frequency,pulse_time):                     #Switch to Helmholtz field, wait, then generate Rabi Pulse
+       
+        self.red_mot_shutter.off()
+        self.red_mot_aom.sw.off()
+        self.stepping_aom.sw.off()
+
+        comp_field = 1.35 * 0.14    # comp current * scaling factor from measurement
+        bias_at_coil = (self.bias_field_mT - comp_field)/ 0.914   #bias field dips in center of coils due to geometry, scaling factor provided by modelling field
+        current_per_coil = ((bias_at_coil) / 2.0086) / 2   
+        coil_1_voltage = (current_per_coil + 4.7225) / 0.9487
+        coil_2_voltage = (-current_per_coil + 5.0154) / 1.0147        #scaled with coil calibration
+        
+         #Switch to Helmholtz
+        self.mot_coil_1.write_dac(1, coil_1_voltage)  
+        self.mot_coil_2.write_dac(0, coil_2_voltage)
+        
+        with parallel:
+            self.mot_coil_1.load()
+            self.mot_coil_2.load()
+
+        # self.pmt_shutter.on()
+        # self.camera_shutter.on()
+          
+
+        delay(70*ms)  #wait for coils to switch
+
+        self.clock_shutter.on()  
+        delay(4*ms)
+        #rabi spectroscopy pulse
+        self.stepping_aom.set(frequency = aom_frequency )
+        self.stepping_aom.set_att(16*dB)
+        self.stepping_aom.sw.on()
+        delay(pulse_time*ms)
+        self.stepping_aom.sw.off()
+        delay(1*ms)
+        self.stepping_aom.sw.on()
+        delay(pulse_time*ms)
+        self.stepping_aom.sw.off()
+        self.stepping_aom.set(frequency = 0 * Hz)
+        self.stepping_aom.sw.off()
+        self.clock_shutter.off()
+
+
+
+
         
     @kernel
     def normalised_detection(self,j,gs_list,es_list,excitation_fraction_list,atom_count_list):        #This function should be sampling from the PMT at the same time as the camera being triggered for seperate probe
@@ -464,8 +511,8 @@ class Atom_Servo(EnvExperiment):
 
             if denominator != 0.0:
                 excitation_fraction = ((numerator / denominator ) )
-                if excitation_fraction < 0.0:
-                    excitation_fraction = 0.0
+                # if excitation_fraction < 0.0:
+                #     excitation_fraction = 0.0
             else:
                 excitation_fraction = float(0) # or 0.5 or some fallback value depending on experiment
             gs_list[j] = float(gs_measurement)
@@ -662,7 +709,7 @@ class Atom_Servo(EnvExperiment):
             #################################################################### Clock Spectroscopy ##################################################################################
 
        
-            self.clock_spectroscopy(
+            self.rabi_clock_spectroscopy(
                 aom_frequency = scan_frequency_values[j],
                 pulse_time = self.rabi_pulse_duration_ms,
             )
@@ -789,7 +836,7 @@ class Atom_Servo(EnvExperiment):
                 #################################################################### Clock Spectroscopy ##################################################################################
                 if thue_morse[count] == 0:
                     self.core.break_realtime()
-                    self.clock_spectroscopy(
+                    self.rabi_clock_spectroscopy(
                         aom_frequency = (center_frequency - (self.linewidth/2))*Hz,
                         pulse_time = self.rabi_pulse_duration_ms,
                     )
@@ -805,7 +852,7 @@ class Atom_Servo(EnvExperiment):
                             
                 elif thue_morse[count] == 1:
                     self.core.break_realtime()
-                    self.clock_spectroscopy(
+                    self.rabi_clock_spectroscopy(
                         aom_frequency = center_frequency + self.linewidth/2,
                         pulse_time = self.rabi_pulse_duration_ms,
                     )

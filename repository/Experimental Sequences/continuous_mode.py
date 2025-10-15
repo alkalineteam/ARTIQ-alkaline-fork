@@ -56,7 +56,7 @@ class continuous_mode(EnvExperiment):
         self.setattr_argument("probe_amplitude", NumberValue(default = 0.018)) 
         # self.setattr_argument("Probe_Attenuation", NumberValue(default = 0.0))
 
-        self.setattr_argument("lattice_frequency", NumberValue(default = 100.0))
+        self.setattr_argument("lattice_frequency", NumberValue(default = 80.0))
         self.setattr_argument("lattice_attenuation_dB", NumberValue(default = 0.00))
 
         self.setattr_argument("clock_frequency", NumberValue(default = 85.0))

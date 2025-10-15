@@ -107,7 +107,7 @@ class sequence_main(EnvExperiment):
         
         #Stepping AOM - closest to the atoms
         self.stepping_aom.set(frequency = 80* MHz)
-        self.stepping_aom.set_att(25*dB)
+        self.stepping_aom.set_att(16*dB)
 
         #Atom Lock AOM - for feeding back to 1397 clock laser 
         self.atom_lock_aom.set(frequency = 125 * MHz)
@@ -115,7 +115,7 @@ class sequence_main(EnvExperiment):
 
         #Lattice AOM - for magic wavelength lattice measurements
         self.lattice_aom.set(frequency = 80 *MHz)
-        self.lattice_aom.set_att(13*dB)
+        self.lattice_aom.set_att(12*dB)
 
         #Dedrift AOM - counteracting drift of 1397 clock laser
         # self.dedrift_aom.set(frequency = self.output_frequency)
@@ -271,7 +271,7 @@ class sequence_main(EnvExperiment):
 
             with parallel:
                     self.camera_trigger.pulse(2*ms)
-                    self.probe_aom.set(frequency=probe_frequency, amplitude=0.45)
+                    self.probe_aom.set(frequency=probe_frequency, amplitude=0.4)
                     self.probe_aom.sw.on()
                     
             delay(probe_duration)
@@ -546,6 +546,9 @@ class sequence_main(EnvExperiment):
 
             delay(self.blue_mot_cooling_time*ms)   #Allowing further cooling of the cloud by just holding the atoms here
 
+
+
+
             self.broadband_red_mot(                                  #Switch to low field gradient for Red MOT, switches off the blue beams
                 rmot_voltage_1= self.bb_rmot_coil_1_voltage,
                 rmot_voltage_2 = self.bb_rmot_coil_2_voltage
@@ -579,16 +582,13 @@ class sequence_main(EnvExperiment):
 
             delay(self.single_frequency_time*ms)
 
-
-
-
             self.seperate_probe(
                 tof = self.time_of_flight,
-                probe_duration =1 * ms ,
+                probe_duration = 1 * ms ,
                 probe_frequency= 205 * MHz
             )
 
-            
+
 
             self.red_mot_aom.sw.off()
             
