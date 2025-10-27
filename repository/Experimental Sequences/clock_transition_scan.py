@@ -53,10 +53,11 @@ class Atom_Servo(EnvExperiment):
         self.setattr_argument("scan_range_Hz", NumberValue(default=500000 * Hz), group="Scan Parameters")
         self.setattr_argument("scan_step_size_Hz", NumberValue(default=1000 * Hz), group="Scan Parameters")
         self.setattr_argument("rabi_pulse_duration_ms", NumberValue(default= 60 * ms), group="Scan Parameters")
-        self.setattr_argument("clock_intensity", NumberValue(default=0.05), group="Locking")
+        self.setattr_argument("clock_intensity", NumberValue(default=16*dB), group="Locking")
         self.setattr_argument("bias_field_mT", NumberValue(default=3.0),group="Locking")
         self.setattr_argument("blue_mot_loading_time", NumberValue(default=2000 * ms), group="Sequence Parameters")
         self.setattr_argument("Enable_Lock", BooleanValue(default=False), group="Locking")
+        self.setattr_argument("change_bias_direction", BooleanValue(default=False), group="Sequence Parameters")
         self.setattr_argument("servo_gain", NumberValue(default=0.3), group="Locking")
         self.setattr_argument("linewidth", NumberValue(default=100 * Hz), group="Locking")  # This is the linewidth of the clock transition, adjust as necessary
         self.setattr_argument("lattice_aom_att", NumberValue(default=13 * dB), group="Sequence Parameters")
@@ -290,9 +291,13 @@ class Atom_Servo(EnvExperiment):
         comp_field = 1.35 * 0.14    # comp current * scaling factor from measurement
         bias_at_coil = (self.bias_field_mT - comp_field)/ 0.914   #bias field dips in center of coils due to geometry, scaling factor provided by modelling field
         current_per_coil = ((bias_at_coil) / 2.0086) / 2   
-        coil_1_voltage = (current_per_coil + 4.7225) / 0.9487
-        coil_2_voltage = (-current_per_coil + 5.0154) / 1.0147        #scaled with coil calibration
         
+        if self.change_bias_direction == True:
+            coil_1_voltage = (current_per_coil + 4.7225) / 0.9487
+            coil_2_voltage = (-current_per_coil + 5.0154) / 1.0147        #scaled with coil calibration
+        else:
+            coil_1_voltage = (+current_per_coil + 4.7225) / 0.9487
+            coil_2_voltage = (-current_per_coil + 5.0154) / 1.0147        #scaled with coil calibration
          #Switch to Helmholtz
         self.mot_coil_1.write_dac(1, coil_1_voltage)  
         self.mot_coil_2.write_dac(0, coil_2_voltage)
@@ -311,7 +316,7 @@ class Atom_Servo(EnvExperiment):
         delay(4*ms)
         #rabi spectroscopy pulse
         self.stepping_aom.set(frequency = aom_frequency )
-        self.stepping_aom.set_att(16*dB)
+        self.stepping_aom.set_att(self.clock_intensity*dB)
         self.stepping_aom.sw.on()
         delay(pulse_time*ms)
         self.stepping_aom.sw.off()
@@ -350,7 +355,7 @@ class Atom_Servo(EnvExperiment):
         delay(4*ms)
         #rabi spectroscopy pulse
         self.stepping_aom.set(frequency = aom_frequency )
-        self.stepping_aom.set_att(16*dB)
+        self.stepping_aom.set_att(self.clock_intensity*dB)
         self.stepping_aom.sw.on()
         delay(pulse_time*ms)
         self.stepping_aom.sw.off()
@@ -462,7 +467,9 @@ class Atom_Servo(EnvExperiment):
         gs = samples_ch0[90:110]
         es = samples_ch0[1205:1225]
         bg = samples_ch0[1334:1354]
-       
+
+
+    
 
         baseline = samples_ch0[0:40]
         baseline_sum = 0.0
@@ -495,9 +502,9 @@ class Atom_Servo(EnvExperiment):
         # will need expected collection efficiency of the telescope,Quantum efficiency etc, maybe use the camera atom no calculation to get this
         
         with parallel:
-            gs_measurement = ((gs_mean-baseline_mean)) * measurement_time         #integrates over the slice time to get the total photon counts
-            es_measurement = ((es_mean-baseline_mean))  * measurement_time
-            bg_measurement = ((bg_mean-baseline_mean)) * measurement_time
+            gs_measurement = ((gs_counts-baseline_mean)) * measurement_time         #integrates over the slice time to get the total photon counts
+            es_measurement = ((es_counts-baseline_mean))  * measurement_time
+            bg_measurement = ((bg_counts-baseline_mean)) * measurement_time
 
     
                     

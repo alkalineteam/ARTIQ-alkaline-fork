@@ -105,8 +105,8 @@ class sequence_main(EnvExperiment):
         # Set AD9912 AOM frequencies and attenuations 
         
         #Stepping AOM - closest to the atoms
-        self.stepping_aom.set(frequency = 80* MHz)
-        self.stepping_aom.set_att(16*dB)
+        self.stepping_aom.set(frequency = 80.3* MHz)
+        self.stepping_aom.set_att(24*dB)
 
         #Atom Lock AOM - for feeding back to 1397 clock laser 
         self.atom_lock_aom.set(frequency = 125 * MHz)
