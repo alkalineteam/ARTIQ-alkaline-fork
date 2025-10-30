@@ -51,8 +51,8 @@ class clock_transition_lookup_v2(EnvExperiment):
         # self.setattr_argument("sampling_rate", NumberValue(default=50000))
     
     # @rpc
-    # def trim(self, detection_trimmed) -> list:
-    #     filtered = [x for x in detection_trimmed if x >= 2.5]
+    # def trim(self, ground_state) -> list:
+    #     filtered = [x for x in ground_state if x >= 2.5]
     #     return filtered
 
     @kernel
@@ -105,8 +105,8 @@ class clock_transition_lookup_v2(EnvExperiment):
         start = self.Center_Frequency - (cycles/2)*(self.Step_Size/1e6)
 
         # Sampler params
-        sample_duration = 60  # 60 ms detection window
-        sampling_period = 0.04 #25 kHz
+        sample_duration = 50  #50 ms detection window
+        sampling_period = 0.04 #in ms = 25 kHz
         num_samples = int(sample_duration / sampling_period)
 
         # Pre-allocate arrays
@@ -116,8 +116,7 @@ class clock_transition_lookup_v2(EnvExperiment):
 
         for j in range(cycles + 1):
             # **************************** Slice 1: Loading ****************************
-            delay(500*ms)
-            # blue_amp = 0.08
+            delay(3*ms)
             self.BMOT_AOM.set(frequency=90 * MHz, amplitude=0.08)
             self.ZeemanSlower.set(frequency=180 * MHz, amplitude=0.35)
             self.Probe.set(frequency= 65 * MHz, amplitude=0.02)
@@ -251,14 +250,12 @@ class clock_transition_lookup_v2(EnvExperiment):
 
                     with parallel:
                         self.Camera.on()
-                        # self.Pixelfly.on()
                         self.Probe.set(frequency= 65*MHz, amplitude=0.02)
                         self.Ref.sw.on()
                     
                     delay(0.5 *ms)
                     
                     with parallel:
-                        # self.Pixelfly.off()
                         self.Camera.off()
                         self.Ref.sw.off()
                         self.Probe_TTL.off()
@@ -270,43 +267,33 @@ class clock_transition_lookup_v2(EnvExperiment):
                     self.Repump679.pulse(15*ms)
 
                     self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-                    delay(10*ms)
+                    delay(5*ms)
                     self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
                     
                     # **************************** Excited State **************************
                     self.Probe_TTL.on()
                     delay(3*ms)
 
-                    with parallel:
-                        # self.Ref.sw.on()
-                        self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-                    
+                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
                     delay(0.5*ms)
-                    
                     with parallel:
-                        # self.Ref.sw.off()
                         self.Probe_TTL.off()
                         self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
                     delay(5*ms)
 
                     self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-                    delay(10*ms)
+                    delay(5*ms)
                     self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
 
                     # **************************** Background State **************************
                     self.Probe_TTL.on()
                     delay(3.0 *ms)
 
-                    # with parallel:
-                        # self.Ref.sw.on()
                     self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-
-                    delay(0.5 *ms)
-                    
-                    # with parallel:
-                        # self.Ref.sw.off()
-                        # self.Probe_TTL.off()
-                    self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+                    delay(0.5 *ms)                    
+                    with parallel:
+                        self.Probe_TTL.off()
+                        self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
 
                 with sequential:
                     for k in range(num_samples):
@@ -314,25 +301,35 @@ class clock_transition_lookup_v2(EnvExperiment):
                         delay(sampling_period * ms)
                 
             # **************************** Slice 4 ****************************
-            self.Probe.set(frequency=65*MHz, amplitude =0.02)
+            self.Probe.set(frequency=65*MHz, amplitude=0.02)
             self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
             self.Broadband_On.pulse(10*ms)
             delay(100*ms)
 
             detection = [i[0] for i in samples]
-            detection_trimmed = detection[50:75]
-            # self.trim(detection_trimmed)
-            detection_sum = 0.0
-            for _ in detection_trimmed:
-                detection_sum+=_
+            ground_state = detection[50:75]
+            # excited_state = detection[]
+            # background = detection[]
+            # self.trim(ground_state)
+            gs_sum = 0.0
+            for _ in ground_state:
+                gs_sum+=_
+            
+            # es_sum = 0.0
+            # for _ in excited_state:
+            #     es_sum+=_
 
-            detection_list[j] = detection_sum/len(detection_trimmed)
+            # bg_sum = 0.0
+            # for _ in background:
+            #     bg_sum+=_
+
+            detection_list[j] = gs_sum/len(ground_state)
 
             self.set_dataset("excitation.detection_list", detection_list, broadcast=True, archive=True)
             self.set_dataset("excitation.frequencies_MHz", frequencies_MHz, broadcast=True, archive=True)
 
             self.ccb.issue("create_applet", 
-                        "Detection Plot", 
+                        "Transition Plot", 
                         "${artiq_applet}plot_xy"
                         " excitation.detection_list"
                         " --x excitation.frequencies_MHz"
@@ -341,10 +338,10 @@ class clock_transition_lookup_v2(EnvExperiment):
                     )
             self.set_dataset("excitation.detection", detection, broadcast=True, archive=True)
             self.ccb.issue("create_applet", 
-                        "PMT", 
+                        "PMT Detection", 
                         "${artiq_applet}plot_xy"
                         " excitation.detection"
-                        " --title PMT", 
+                        " --title PMT_detection", 
                         group = "excitation"
                     )
 
