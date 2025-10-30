@@ -116,7 +116,7 @@ class clock_transition_lookup_v2(EnvExperiment):
 
         for j in range(cycles + 1):
             # **************************** Slice 1: Loading ****************************
-            delay(3*ms)
+            delay(5*ms)
             self.BMOT_AOM.set(frequency=90 * MHz, amplitude=0.08)
             self.ZeemanSlower.set(frequency=180 * MHz, amplitude=0.35)
             self.Probe.set(frequency= 65 * MHz, amplitude=0.02)
@@ -307,16 +307,6 @@ class clock_transition_lookup_v2(EnvExperiment):
             delay(100*ms)
 
             detection = [i[0] for i in samples]
-
-            self.set_dataset("excitation.detection", detection, broadcast=True, archive=True)
-            self.ccb.issue("create_applet", 
-                        "PMT Detection", 
-                        "${artiq_applet}plot_xy"
-                        " excitation.detection"
-                        " --title PMT_detection", 
-                        group = "excitation"
-                    )
-            
             ground_state = detection[50:75]
             # excited_state = detection[]
             # background = detection[]
@@ -344,6 +334,14 @@ class clock_transition_lookup_v2(EnvExperiment):
                         " excitation.detection_list"
                         " --x excitation.frequencies_MHz"
                         " --title Ground_State", 
+                        group = "excitation"
+                    )
+            self.set_dataset("excitation.detection", detection, broadcast=True, archive=True)
+            self.ccb.issue("create_applet", 
+                        "PMT Detection", 
+                        "${artiq_applet}plot_xy"
+                        " excitation.detection"
+                        " --title PMT_detection", 
                         group = "excitation"
                     )
 
