@@ -16,8 +16,9 @@ class Everything_ON(EnvExperiment):
         self.RMOT=self.get_device("urukul1_ch2")
         self.Probe=self.get_device("urukul1_ch3")
         self.Clock=self.get_device("urukul0_ch0")
+        self.Ref = self.get_device("urukul0_ch3")
 
-        self.Repump707:TTLOut=self.get_device("ttl4")
+        self.clock_shutter:TTLOut=self.get_device("ttl4")
         self.Repump679:TTLOut=self.get_device("ttl9")
         self.BMOT_TTL:TTLOut=self.get_device("ttl6")
         self.Zeeman_Slower_TTL:TTLOut=self.get_device("ttl12")
@@ -90,7 +91,7 @@ class Everything_ON(EnvExperiment):
         with parallel:
             self.MOT_Coil_1.load()
             self.MOT_Coil_2.load()
-            self.Repump707.on()
+            self.clock_shutter.on()
             self.Repump679.on()
             self.BMOT_TTL.on()
             self.Zeeman_Slower_TTL.on()
@@ -106,32 +107,36 @@ class Everything_ON(EnvExperiment):
 
         self.Clock.set(frequency=self.Clock_Frequency * MHz)
 
+        self.Ref.set(frequency=10 * MHz)
+
         delay(1000*ms)
 
         if self.High_Low == True:
             for i in range(int64(self.Cycle)):
-                self.MOT_Coil_1.write_dac(0, 1.03)
-                self.MOT_Coil_2.write_dac(1, 0.45)
+                self.MOT_Coil_1.write_dac(0, 1.014)
+                self.MOT_Coil_2.write_dac(1, 0.517)
 
                 with parallel:
                     self.MOT_Coil_1.load()
                     self.MOT_Coil_2.load()
                     self.ZeemanSlower.set(frequency=self.Zeeman_Frequency * MHz, amplitude=self.Zeeman_Amplitude)
                 self.Clock.sw.on()
+                self.Ref.sw.on()
                 delay(1500*ms)
 
-                self.MOT_Coil_1.write_dac(0, 2.535)
-                self.MOT_Coil_2.write_dac(1, 2.26)
+                self.MOT_Coil_1.write_dac(0, 2.525)
+                self.MOT_Coil_2.write_dac(1, 2.286)
                 self.ZeemanSlower.set(frequency=self.Zeeman_Frequency * MHz, amplitude=0.0)
 
                 with parallel:
                     self.MOT_Coil_1.load()
                     self.MOT_Coil_2.load()
                 self.Clock.sw.off()
+                self.Ref.sw.off()
                 delay(1500*ms)
 
         if self.Idle_State == True:
-            self.Repump707.off()
+            self.clock_shutter.on()
             self.Repump679.off()
             self.MOT_Coil_1.write_dac(0, 4.055)
             self.MOT_Coil_2.write_dac(1, 4.083)
