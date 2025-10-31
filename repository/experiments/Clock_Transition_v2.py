@@ -105,7 +105,7 @@ class clock_transition_lookup_v2(EnvExperiment):
         start = self.Center_Frequency - (cycles/2)*(self.Step_Size/1e6)
 
         # Sampler params
-        sample_duration = 50  #50 ms detection window
+        sample_duration = 40  #50 ms detection window
         sampling_period = 0.04 #in ms = 25 kHz
         num_samples = int(sample_duration / sampling_period)
 
@@ -122,7 +122,7 @@ class clock_transition_lookup_v2(EnvExperiment):
             self.Probe.set(frequency= 65 * MHz, amplitude=0.02)
             self.Single_Freq.set(frequency= 80 * MHz, amplitude=0.35)
             
-            voltage_1 = 1.014
+            voltage_1 = 1.05
             voltage_2 = 0.517
             self.MOT_Coil_1.write_dac(0, voltage_1)
             self.MOT_Coil_2.write_dac(1, voltage_2)
@@ -178,7 +178,7 @@ class clock_transition_lookup_v2(EnvExperiment):
                 self.Broadband_Off.pulse(10*ms)
                 self.Single_Freq.sw.on()
 
-            voltage_1_com = 2.525
+            voltage_1_com = 2.54
             voltage_2_com = 2.286
             red_amp = 0.35
             amp_com = 0.03
@@ -214,7 +214,7 @@ class clock_transition_lookup_v2(EnvExperiment):
             self.Single_Freq.sw.off()
 
             # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 7.119)# 4.7/3.32 = 0.8; 4.9/3.135 = 1; 5.03/2.9 = 1.2; 5.623/2.256 = 1.85; 7.11/0.483 = 3.5;
+            self.MOT_Coil_1.write_dac(0, 7.134)# 4.7/3.32 = 0.8; 4.9/3.135 = 1; 5.03/2.9 = 1.2; 5.623/2.256 = 1.85; 7.134/0.483 = 3.5;
             self.MOT_Coil_2.write_dac(1, 0.477)
             with parallel:
                 self.MOT_Coil_1.load()
@@ -259,46 +259,46 @@ class clock_transition_lookup_v2(EnvExperiment):
                         self.Camera.off()
                         self.Ref.sw.off()
                         self.Probe_TTL.off()
-                        self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+                        self.Probe.set(frequency= 65*MHz, amplitude=0.00)
 
                     delay(5 *ms)
 
                     # **************************** Repumping **************************
-                    self.Repump679.pulse(15*ms)
+                #     self.Repump679.pulse(15*ms)
 
-                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-                    delay(5*ms)
-                    self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+                #     self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                #     delay(5*ms)
+                #     self.Probe.set(frequency= 65*MHz, amplitude=0.00)
                     
-                    # **************************** Excited State **************************
-                    self.Probe_TTL.on()
-                    delay(3*ms)
+                #     # **************************** Excited State **************************
+                #     self.Probe_TTL.on()
+                #     delay(3*ms)
 
-                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-                    delay(0.5*ms)
-                    with parallel:
-                        self.Probe_TTL.off()
-                        self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
-                    delay(5*ms)
+                #     self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                #     delay(0.5*ms)
+                #     with parallel:
+                #         self.Probe_TTL.off()
+                #         self.Probe.set(frequency= 65*MHz, amplitude=0.00)
+                #     delay(5*ms)
 
-                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-                    delay(5*ms)
-                    self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+                #     self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                #     delay(5*ms)
+                #     self.Probe.set(frequency= 65*MHz, amplitude=0.00)
 
-                    # **************************** Background State **************************
-                    self.Probe_TTL.on()
-                    delay(3.0 *ms)
+                #     # **************************** Background State **************************
+                #     self.Probe_TTL.on()
+                #     delay(3.0 *ms)
 
-                    self.Probe.set(frequency= 65*MHz, amplitude=0.02)
-                    delay(0.5 *ms)               
-                    with parallel:
-                        self.Probe_TTL.off()
-                        self.Probe.set(frequency= 65 * MHz, amplitude=0.00)
+                #     self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+                #     delay(0.5 *ms)               
+                #     with parallel:
+                #         self.Probe_TTL.off()
+                #         self.Probe.set(frequency= 65*MHz, amplitude=0.00)
 
-                with sequential:
-                    for k in range(num_samples):
-                        self.sampler.sample(samples[k])
-                        delay(sampling_period * ms)
+                # with sequential:
+                #     for k in range(num_samples):
+                #         self.sampler.sample(samples[k])
+                #         delay(sampling_period * ms)
                 
             # **************************** Slice 4 ****************************
             self.Probe.set(frequency=65*MHz, amplitude=0.02)
@@ -306,45 +306,45 @@ class clock_transition_lookup_v2(EnvExperiment):
             self.Broadband_On.pulse(10*ms)
             delay(100*ms)
 
-            detection = [i[0] for i in samples]
+            # detection = [i[0] for i in samples]
 
-            self.set_dataset("excitation.detection", detection, broadcast=True, archive=True)
-            self.ccb.issue("create_applet", 
-                        "PMT Detection", 
-                        "${artiq_applet}plot_xy"
-                        " excitation.detection"
-                        " --title PMT_detection", 
-                        group = "excitation"
-                    )
+            # self.set_dataset("excitation.detection", detection, broadcast=True, archive=True)
+            # self.ccb.issue("create_applet", 
+            #             "PMT Detection", 
+            #             "${artiq_applet}plot_xy"
+            #             " excitation.detection"
+            #             " --title PMT_detection", 
+            #             group = "excitation"
+            #         )
             
-            ground_state = detection[50:75]
-            # excited_state = detection[]
-            # background = detection[]
-            # self.trim(ground_state)
-            gs_sum = 0.0
-            for _ in ground_state:
-                gs_sum+=_
+            # ground_state = detection[50:75]
+            # # excited_state = detection[]
+            # # background = detection[]
+            # # self.trim(ground_state)
+            # gs_sum = 0.0
+            # for _ in ground_state:
+            #     gs_sum+=_
             
-            # es_sum = 0.0
-            # for _ in excited_state:
-            #     es_sum+=_
+            # # es_sum = 0.0
+            # # for _ in excited_state:
+            # #     es_sum+=_
 
-            # bg_sum = 0.0
-            # for _ in background:
-            #     bg_sum+=_
+            # # bg_sum = 0.0
+            # # for _ in background:
+            # #     bg_sum+=_
 
-            detection_list[j] = gs_sum/len(ground_state)
+            # detection_list[j] = gs_sum/len(ground_state)
 
-            self.set_dataset("excitation.detection_list", detection_list, broadcast=True, archive=True)
-            self.set_dataset("excitation.frequencies_MHz", frequencies_MHz, broadcast=True, archive=True)
+            # self.set_dataset("excitation.detection_list", detection_list, broadcast=True, archive=True)
+            # self.set_dataset("excitation.frequencies_MHz", frequencies_MHz, broadcast=True, archive=True)
 
-            self.ccb.issue("create_applet", 
-                        "Transition Plot", 
-                        "${artiq_applet}plot_xy"
-                        " excitation.detection_list"
-                        " --x excitation.frequencies_MHz"
-                        " --title Ground_State", 
-                        group = "excitation"
-                    )
+            # self.ccb.issue("create_applet", 
+            #             "Transition Plot", 
+            #             "${artiq_applet}plot_xy"
+            #             " excitation.detection_list"
+            #             " --x excitation.frequencies_MHz"
+            #             " --title Ground_State", 
+            #             group = "excitation"
+            #         )
 
         print("clock transition scan completed!!")
