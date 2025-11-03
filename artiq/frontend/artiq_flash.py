@@ -2,19 +2,16 @@
 
 import argparse
 import os
-import subprocess
-import tempfile
 import shutil
 import re
-import atexit
 from functools import partial
 from collections import defaultdict
 
 from sipyco import common_args
 
 from artiq import __version__ as artiq_version
+from artiq.flashing import artifact_path, discover_bins
 from artiq.remoting import SSHClient, LocalClient
-from artiq.frontend.flash_tools import artifact_path, bit2bin, fetch_bin
 
 
 def get_argparser():
@@ -351,13 +348,16 @@ def main():
 
     for cmd, regions in cmds:
         if cmd == "write":
+            found_bins = (discover_bins(binary_dir, args.srcbuild)
+                          if binary_dir is not None else {})
             for region in regions:
-                if region == "firmware":
-                    path = fetch_bin(binary_dir, ["satman", "runtime"], args.srcbuild)
-                elif region == "storage":
+                if region == "storage":
                     path = args.storage
                 else:
-                    path = fetch_bin(binary_dir, [region], args.srcbuild)
+                    try:
+                        path = found_bins[region]
+                    except KeyError:
+                        raise FileNotFoundError(f"no binary found for {region}")
                 programmer.write_binary(*config[region], path)
         elif cmd == "load":
             gateware_bit = artifact_path(binary_dir, "gateware", "top.bit")
