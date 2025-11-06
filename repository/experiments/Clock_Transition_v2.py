@@ -215,8 +215,8 @@ class clock_transition_lookup_v2(EnvExperiment):
             self.Single_Freq.sw.off()
 
             # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 7.105)# 4.7/3.32 = 0.8; 4.9/3.135 = 1; 5.03/2.9 = 1.2; 5.623/2.256 = 1.85; 7.134/0.483 = 3.5;
-            self.MOT_Coil_2.write_dac(1, 0.477)
+            self.MOT_Coil_1.write_dac(0, 4.905)# 4.7/3.32 = 0.8; 4.905/3.14 = 1; 5.08/2.93 = 1.2; 5.64/2.27 = 1.85; 7.115/0.51 = 3.5;
+            self.MOT_Coil_2.write_dac(1, 3.14)
             with parallel:
                 self.MOT_Coil_1.load()
                 self.MOT_Coil_2.load()
@@ -304,6 +304,7 @@ class clock_transition_lookup_v2(EnvExperiment):
             # **************************** Slice 4 ****************************
             self.Probe.set(frequency=65*MHz, amplitude=0.02)
             self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
+            self.Single_Freq.set(frequency=80*MHz, amplitude=0.35)
             self.Broadband_On.pulse(10*ms)
             delay(100*ms)
 
@@ -318,7 +319,7 @@ class clock_transition_lookup_v2(EnvExperiment):
                         group = "excitation"
                     )
             
-            ground_state = detection[60:71]
+            ground_state = detection[60:72]
             excited_state = detection[643:655]
             background = detection[919:931]
 
@@ -336,34 +337,12 @@ class clock_transition_lookup_v2(EnvExperiment):
 
             gs_avg = gs_sum/len(ground_state)
             es_avg = es_sum/len(excited_state)
-            bg_avg = bg_sum/len(background) 
-          
-            # detection_list[j] = gs_sum/len(ground_state)
-
-            # self.set_dataset("excitation.detection_list", detection_list, broadcast=True, archive=True)
-            # self.set_dataset("excitation.frequencies_MHz", frequencies_MHz, broadcast=True, archive=True)
-
-            # self.ccb.issue("create_applet", 
-            #             "Transition Plot", 
-            #             "${artiq_applet}plot_xy"
-            #             " excitation.detection_list"
-            #             " --x excitation.frequencies_MHz"
-            #             " --title Ground_State", 
-            #             group = "excitation"
-            #         )
+            bg_avg = bg_sum/len(background)
 
             numerator = es_avg - bg_avg
             denominator = es_avg + gs_avg - 2*bg_avg
 
-            print(es_avg, gs_avg, bg_avg)
-
-            excitation_fraction = 0.0
-            if denominator != 0.0:
-                excitation_fraction = numerator / denominator
-            elif excitation_fraction < 0.0 or excitation_fraction > 1.0:
-                excitation_fraction = 0.0
-            else:
-                excitation_fraction = 0.0
+            excitation_fraction = min(max(numerator / denominator if denominator != 0.0 else 0.0, 0.0), 1.0)
             print("Excitation Fraction:", excitation_fraction, ", Cycle:", j)
 
             excitation_fraction_list[j] = excitation_fraction

@@ -77,13 +77,13 @@ class redMOT_v3_1(EnvExperiment):
             # **************************** Slice 1: Loading ****************************
             delay(0.5*ms)
             # blue_amp = 0.08
-            self.BMOT_AOM.set(frequency=90 * MHz, amplitude=0.08)
-            self.ZeemanSlower.set(frequency=180 * MHz, amplitude=0.35)
-            self.Probe.set(frequency=65 * MHz, amplitude=0.00)
-            self.Single_Freq.set(frequency=80 * MHz, amplitude=0.35)
+            self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
+            self.ZeemanSlower.set(frequency=180*MHz, amplitude=0.35)
+            self.Probe.set(frequency=65*MHz, amplitude=0.00)
+            self.Single_Freq.set(frequency=80*MHz, amplitude=0.35)
             
-            voltage_1 = 1.014
-            voltage_2 = 0.517
+            voltage_1 = 1.06
+            voltage_2 = 0.535
             self.MOT_Coil_1.write_dac(0, voltage_1)
             self.MOT_Coil_2.write_dac(1, voltage_2)
 
@@ -104,40 +104,7 @@ class redMOT_v3_1(EnvExperiment):
             # **************************** Slice 2: Transfer ****************************
             self.ZeemanSlower.set(frequency=180 * MHz, amplitude=0.00)
             self.Zeeman_Slower_TTL.off()
-            # self.Flush.on()
             delay(4.0*ms)
-
-            # voltage_1_Tr = 3.77
-            # voltage_2_Tr = 2.0
-            # self.MOT_Coil_1.write_dac(0, voltage_1_Tr)
-            # self.MOT_Coil_2.write_dac(1, voltage_2_Tr)
-
-            # steps_tr = self.Transfer_Time
-            # t_tr = self.Transfer_Time/steps_tr
-            # volt_1_steps = (voltage_1_Tr - voltage_1)/steps_tr
-            # volt_2_steps = (voltage_2_Tr - voltage_2)/steps_tr
-
-            # with parallel:
-            #     for i in range(int(steps_tr)):
-            #         voltage_1 = voltage_1 + volt_1_steps
-            #         voltage_2 = voltage_2 + volt_2_steps
-            #         self.MOT_Coil_1.write_dac(0, voltage_1)
-            #         self.MOT_Coil_2.write_dac(1, voltage_2)
-            #         with parallel:
-            #             self.MOT_Coil_1.load()
-            #             self.MOT_Coil_2.load()
-            #         delay(t_tr*ms)
-            
-            #     for i in range(int(steps_tr)):
-            #         amp_steps = 0.08/steps_tr
-            #         amp = 0.08 - ((i+1) * amp_steps)
-            #         self.BMOT_AOM.set(frequency=90*MHz, amplitude=amp)
-            #         delay(t_tr*ms)
-            #         if i == int(steps_tr) - 4:
-            #             with parallel:
-            #                 self.BMOT_TTL.off()
-            #                 self.Repump707.off()
-            #                 self.Repump679.off()
 
             steps_tr = self.Transfer_Time
             t_tr = self.Transfer_Time/steps_tr
@@ -151,13 +118,6 @@ class redMOT_v3_1(EnvExperiment):
                 amp = 0.08 - ((i+1) * amp_steps)
                 self.BMOT_AOM.set(frequency=90*MHz, amplitude=amp)
                 delay(t_tr*ms)
-
-            # Ramping the frequency and amplitude of the blue MOT beam
-            # for i in range(int(steps_tr)):
-            #     amp = 0.08 - ((i+1) * amp_steps)
-            #     freq = blue_freq + ((i+1) * freq_steps)
-            #     self.BMOT_AOM.set(frequency=freq*MHz, amplitude=amp)
-            #     delay(t_tr*ms)
             
             delay(200*ms)
 
@@ -184,7 +144,7 @@ class redMOT_v3_1(EnvExperiment):
                 self.Broadband_Off.pulse(10*ms)
                 self.Single_Freq.sw.on()
 
-            voltage_1_com = 2.525
+            voltage_1_com = 2.54
             voltage_2_com = 2.286
             red_amp = 0.35
             amp_com = 0.03
@@ -274,6 +234,7 @@ class redMOT_v3_1(EnvExperiment):
             # **************************** Slice 4 ****************************
             self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
             self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+            self.Single_Freq.set(frequency=80*MHz, amplitude=0.35)
             self.Broadband_On.pulse(10*ms)
             delay(1500*ms)
         
