@@ -162,7 +162,7 @@
       '';
     };
 
-    artiq-upstream = pkgs.python3Packages.buildPythonPackage rec {
+    artiq = pkgs.python3Packages.buildPythonPackage rec {
       pname = "artiq";
       version = artiqVersion;
       src = self;
@@ -211,11 +211,15 @@
       '';
     };
 
-    artiq =
-      artiq-upstream
-      // {
-        withExperimentalFeatures = features: artiq-upstream.overrideAttrs (oa: {patches = map (f: ./experimental-features/${f}.diff) features;});
-      };
+    # Stripped down version of ARTIQ for gateware/firmware builds
+    artiq-build = artiq.overridePythonAttrs (oa: {
+      nativeBuildInputs = [];
+      propagatedBuildInputs = [sipyco.packages.x86_64-linux.sipyco pkgs.python3Packages.jsonschema];
+      dontFixup = true;
+      dontCheckRuntimeDeps = true;
+      doInstallCheck = false;
+      doCheck = false;
+    });
 
     migen = pkgs.python3Packages.buildPythonPackage rec {
       name = "migen";
@@ -277,7 +281,6 @@
       target,
       variant,
       buildCommand ? "python -m artiq.gateware.targets.${target} ${variant}",
-      experimentalFeatures ? [],
     }:
       naerskLib.buildPackage {
         name = "artiq-board-${target}-${variant}";
@@ -285,7 +288,7 @@
         additionalCargoLock = "${rust}/lib/rustlib/src/rust/Cargo.lock";
         singleStep = true;
         nativeBuildInputs = [
-          (pkgs.python3.withPackages (ps: [migen misoc (artiq.withExperimentalFeatures experimentalFeatures) ps.packaging]))
+          (pkgs.python3.withPackages (ps: [migen misoc artiq-build ps.packaging]))
           rust
           pkgs.llvm_20
           pkgs.lld_20
@@ -387,7 +390,7 @@
       '';
   in rec {
     packages.x86_64-linux = {
-      inherit pythonparser qasync artiq;
+      inherit pythonparser qasync artiq artiq-build;
       inherit migen misoc asyncserial microscope vivadoEnv vivado;
       openocd-bscanspi = openocd-bscanspi-f pkgs;
       artiq-board-kc705-nist_clock = makeArtiqBoardPackage {
