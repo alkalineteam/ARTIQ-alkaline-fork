@@ -270,7 +270,7 @@ class sequence_main(EnvExperiment):
 
             with parallel:
                     self.camera_trigger.pulse(2*ms)
-                    self.probe_aom.set(frequency=probe_frequency, amplitude=0.4)
+                    self.probe_aom.set(frequency=probe_frequency, amplitude=0.5)
                     self.probe_aom.sw.on()
                     
             delay(probe_duration)

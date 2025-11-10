@@ -562,9 +562,11 @@ class Atom_Servo(EnvExperiment):
 
         fit_curve = np.array(fit_curve, dtype=np.float64)
         fit_params = np.array([amplitude, center, width], dtype=np.float64)
+        center_uncertainty = np.sqrt(pcov[1,1])
 
         self.set_dataset("fit_result", fit_curve, broadcast=True, archive=True)
         self.set_dataset("fit_params", fit_params, broadcast=True, archive=True)
+        self.set_dataset("center_uncertainty", center_uncertainty, broadcast=True, archive=True)
     @rpc
     def correction_log(self,value):
         self.feedback_list.append(125000000 - value)
@@ -582,14 +584,17 @@ class Atom_Servo(EnvExperiment):
         self.atom_lock_list.append(value)
         self.set_dataset("atom_servo.atom_lock_list", self.atom_lock_list, broadcast=True, archive=True)
       
-
-    
     @rpc
     def atom_no_log(self,value):
         """This function is used to log the atom number"""
         self.atom_no_list.append(value)
         self.set_dataset("atom_servo.atom_number_list", self.atom_no_list, broadcast=True, archive=True)
-    
+
+    @rpc
+    def clock_freq_radar(self,value):
+        Sr_Hz = 429228066418007.01 
+        freq_after_harpo = ((Sr_Hz - 2*value +2*80000000 +(2*174700000))/2)+100000000
+        self.set_dataset("atom_servo.clock_freq_radar", freq_after_harpo, broadcast=True, archive=True)
    
     @kernel
     def run(self):
@@ -746,7 +751,7 @@ class Atom_Servo(EnvExperiment):
         contrast = 0.6
         center_frequency = scan_frequency_values[max_idx]
         
-       
+        self.clock_freq_radar(center_frequency)
         # print(contrast)
         # print(center_frequency)
         
@@ -766,6 +771,8 @@ class Atom_Servo(EnvExperiment):
                 thue_morse = thue_morse + [1 - bit for bit in thue_morse] 
             feedback_aom_frequency = (125.000 * MHz)
             print(feedback_aom_frequency)
+
+
         
 
 
@@ -901,6 +908,7 @@ class Atom_Servo(EnvExperiment):
 
                         self.core.break_realtime()
                         delay(500*us)
+
                         
                         feedback_aom_frequency = feedback_aom_frequency + frequency_correction
                     #    print(feedback_aom_frequency)

@@ -198,7 +198,7 @@ class quad_zeeman_shift_disc(EnvExperiment):
         sample_period = 1 / 25000   #10kHz sampling rate should give us enough data points
         sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
 
-        num_samples = int32(sampling_duration/sample_period)
+        num_samples = int(sampling_duration/sample_period)
         samples = [[0.0 for i in range(8)] for i in range(num_samples)]
     
         with parallel:
@@ -500,7 +500,7 @@ class quad_zeeman_shift_disc(EnvExperiment):
         volt_2_steps = (compressed_blue_mot_coil_2_voltage - bmot_voltage_2 )/steps_com
         amp_steps = (bmot_amp-compress_bmot_amp)/steps_com
     
-        for i in range(int64(steps_com)):
+        for i in range(int(steps_com)):
 
             voltage_1 = bmot_voltage_1 + ((i+1) * volt_1_steps)
             voltage_2 = bmot_voltage_2 + ((i+1) * volt_2_steps)
@@ -553,7 +553,7 @@ class quad_zeeman_shift_disc(EnvExperiment):
         amp_steps = (rmot_A_start - rmot_A_end)/steps_com
         
 
-        for i in range(int64(steps_com)):
+        for i in range(int(steps_com)):
             voltage_1 = bb_rmot_coil_1_voltage + ((i+1) * volt_1_steps)
             voltage_2 = bb_rmot_coil_2_voltage + ((i+1) * volt_2_steps)
             amp = rmot_A_start - ((i+1) * amp_steps)
@@ -595,9 +595,9 @@ class quad_zeeman_shift_disc(EnvExperiment):
 
         self.initialise_modules()
 
-        scan_start = int32(self.scan_center_frequency_Hz - (int32(self.scan_range_Hz )/ 2))
-        scan_end = int32(self.scan_center_frequency_Hz + (int32(self.scan_range_Hz ) / 2))
-        scan_frequency_values = [float(x) for x in range(scan_start, scan_end, int32(self.scan_step_size_Hz))]
+        scan_start = int(self.scan_center_frequency_Hz - (int(self.scan_range_Hz )/ 2))
+        scan_end = int(self.scan_center_frequency_Hz + (int(self.scan_range_Hz ) / 2))
+        scan_frequency_values = [float(x) for x in range(scan_start, scan_end, int(self.scan_step_size_Hz))]
         cycles = len(scan_frequency_values)
 
         excitation_fraction_list_param_1 = [0.0] * cycles
@@ -605,7 +605,7 @@ class quad_zeeman_shift_disc(EnvExperiment):
         
 
         ############################### Scan Parameter 1: Low Bias Field ##############################
-        for j in range(int32(cycles)):        
+        for j in range(int(cycles)):        
             self.run_sequence(j,
                 self.bias_field_mT_low,    #Here the parameter we are changing is the bias field
                 scan_frequency_values[j],
@@ -616,13 +616,13 @@ class quad_zeeman_shift_disc(EnvExperiment):
             )  
   
         self.analyse_fit(1,scan_frequency_values,excitation_fraction_list_param_1)
-        # ############################### Scan Parameter 2: High Bias Field ###############################
-        # for j in range(int32(cycles)):        
+        ############################### Second run ###############################
+        # for j in range(int(cycles)):        
         #     self.run_sequence(j,
-        #         self.bias_field_mT_high,                    #parameter 2
+        #         self.bias_field_mT_low,                    #parameter 2
         #         scan_frequency_values[j],  #stepping aom values
-        #         self.rabi_pulse_duration_ms_param_2,
-        #         2,                         #parameter marker
+        #         self.rabi_pulse_duration_ms_param_1,
+        #         1,                         #parameter marker
         #         excitation_fraction_list_param_1,
         #         excitation_fraction_list_param_2    
         #     )  
@@ -650,7 +650,7 @@ class quad_zeeman_shift_disc(EnvExperiment):
 
         # Assign contrast and center frequency
         contrast_1 = 0.5
-        center_frequency_1 = scan_frequency_values[max_idx_1]
+        center_frequency_1 = scan_frequency_values[max_idx_1] 
 
         contrast_2 = 0.5
         # center_frequency_2 = scan_frequency_values[max_idx_2]
@@ -706,7 +706,7 @@ class quad_zeeman_shift_disc(EnvExperiment):
                 ) 
                 p_2_high = self.run_sequence(0,
                     self.bias_field_mT_high,                    #parameter 2
-                    center_frequency_1 - self.linewidth_2/2,  #stepping aom values
+                    center_frequency_1 + self.linewidth_2/2,  #stepping aom values
                     self.rabi_pulse_duration_ms_param_2,
                     2,             
                     excitation_fraction_list_param_1,
