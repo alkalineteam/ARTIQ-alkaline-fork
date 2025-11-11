@@ -30,7 +30,7 @@ import os
 import csv
 from datetime import datetime
 
-class quad_zeeman_shift_disc(EnvExperiment):
+class quad_zeeman_shift_trad(EnvExperiment):
 
     def build(self):
         self.setattr_device("core")
@@ -689,10 +689,14 @@ class quad_zeeman_shift_disc(EnvExperiment):
                 ### Insert entire sequence again
                 t1 = self.core.get_rtio_counter_mu()
 
-                #In the DISC method, we interleave between Parameter 1 and Parameter 2 in a P1 P2 P2 P1 order rather than P1 P2 P1 P2, therefore the correction is generated every 4 clock cycles. 
-                if ((count//6)%2 == 0):        # param 1
+                #Using the traditional method, we are switching between parameter 1 and 2 every 8 cycles, and generating a correction every 2 cycles for each parameter.
+                #The parameter shift is calculated every 16 cycles.
+
+                if ((count//8) % 2 == 0):        # every 8 cycles we switch the parameter
                     # check bit in thue morse sequence
-                    if thue_morse[count] == 0:
+                    self.atom_lock_aom.set(frequency = feedback_aom_frequency_1) # Sets the feedback AOM frequency for parameter 1
+                    
+                    if thue_morse[count] == 0:                         #Check if low side or high side         
                         p_1_low = self.run_sequence(0,
                             self.bias_field_mT_low,                    #parameter 1
                             center_frequency_1 - self.linewidth_1/2,  #stepping aom values
@@ -711,24 +715,37 @@ class quad_zeeman_shift_disc(EnvExperiment):
                             excitation_fraction_list_param_2    
                         )
 
-                    if count % 2 == 0:
-                         if p_1_high > 1.0 or p_1_low > 1.0:        #prevents bad excitation fraction from destabilising the lock
+                    if count % 2 == 0:                             # Generates correction every 2 cycles
+                        if p_1_high > 1.0 or p_1_low > 1.0:        #prevents bad excitation fraction from destabilising the lock
                             p_1_error = 0.0
                         else:
                             p_1_error = p_1_high - p_1_low
 
-                        if p_1_error == 0.0:
-                            frequency_correction = 0.0
+                        if p_1_error == 0.0:                     #Calculate correction
+                            p1_correction = 0.0
                             # print("No correction made")
                         elif p_1_high+p_1_low <= 0.05:
-                            frequency_correction = 0.0
+                            p1_correction = 0.0
                             # print("No correction made - too low")
-                        elif p_1_high+p_1_low >= 1.0:
-                            frequency_correction = 0.0
+                        elif p_1_high+p_1_low >= 1.3:
+                            p1_correction = 0.0
                             # print("No correction made - too high")
-    p_correction =  -(self.servo_gain * p_1_error * self.linewidth) / (2* (2 * contrast))
+                        else:
+                            p1_correction =  -(self.servo_gain * p_1_error * self.linewidth) / (2* (2 * 0.7))
+
+
+                        self.core.break_realtime()
+                        delay(500*us)
+                    
+                        feedback_aom_frequency_1 = feedback_aom_frequency_1 + p1_correction
+                        self.feedback_log(1,feedback_aom_frequency_1)
+                        self.error_log(1,p1_correction)
+                        self.atom_lock_ex_log(1,p_1_low)
+                        
+
 
                 else:
+                    self.atom_lock_aom.set(frequency = feedback_aom_frequency_2)
                     if thue_morse[count] == 0:
                         p_2_low = self.run_sequence(0,
                             self.bias_field_mT_high,                    #parameter 2
@@ -749,58 +766,40 @@ class quad_zeeman_shift_disc(EnvExperiment):
                         )
 
 
-                if count % 2 == 0:
+                    if count % 2 == 0:
+                        if count % 2 == 0:                              # Generates correction every 2 cycles
+                         if p_2_high > 1.0 or p_2_low > 1.0:        #prevents bad excitation fraction from destabilising the lock
+                            p_2_error = 0.0
+                        else:
+                            p_2_error = p_2_high - p_2_low
 
-    
-
-              
-                
-                error_1 = (p_1_high - p_1_low)
-                error_2 = (p_2_high - p_2_low)
-
-                if error_1 == 0.0:
-                    delta_f1 = 0.0
-                    # print("No correction made")
-                elif p_1_high+p_1_low <= 0.05:
-                    delta_f1 = 0.0
-                    # print("No correction made - too low")
-                elif p_1_high+p_1_low >= 1.0:
-                    delta_f1 = 0.0
-                    # print("No correction made - too high")
-                else:
-                    delta_f1 = -(self.servo_gain_1 * error_1 * self.linewidth_1 ) / 4 * contrast_1        #Scaling into Hz
+                        if p_2_error == 0.0:                     #Calculate correction
+                            p2_correction = 0.0
+                            # print("No correction made")
+                        elif p_2_high+p_2_low <= 0.05:
+                            p2_correction = 0.0
+                            # print("No correction made - too low")
+                        elif p_2_high+p_2_low >= 1.3:
+                            p2_correction = 0.0
+                            # print("No correction made - too high")
+                        else:
+                            p2_correction =  -(self.servo_gain * p_2_error * self.linewidth) / (2* (2 * 0.7))
 
 
-                if error_2 == 0.0:
-                    delta_f2 = 0.0
-                    # print("No correction made")
-                elif p_2_high+p_2_low <= 0.05:
-                    delta_f2 = 0.0
-                    # print("No correction made - too low")
-                elif p_2_high+p_2_low >= 1.0:
-                    delta_f2 = 0.0
-                    # print("No correction made - too high")
-                else:
-                    delta_f2 = -(self.servo_gain_2 * error_2 * self.linewidth_2) / 4 * contrast_2        #Scaling into Hz
-     
-
-                feedback_aom_frequency_1 = feedback_aom_frequency_1 + delta_f1
-                feedback_aom_frequency_2 = feedback_aom_frequency_2 + delta_f2
-                param_shift = feedback_aom_frequency_2 - feedback_aom_frequency_1
-                self.feedback_log(1,feedback_aom_frequency_1)
-                self.feedback_log(2,feedback_aom_frequency_2)
-                self.error_log(1,delta_f1)
-                self.error_log(2,delta_f2)
-                self.param_shift_log(param_shift)
-                self.atom_lock_ex_log(1,p_1_low)
-                self.atom_lock_ex_log(1,p_1_high)
-
-                self.atom_lock_ex_log(2,p_2_low) 
-                self.atom_lock_ex_log(2,p_2_high)               
-                self.correction_log(1,delta_f1)
-                self.correction_log(2,delta_f2)
+                        self.core.break_realtime()
+                        delay(500*us)
                     
+                        feedback_aom_frequency_2 = feedback_aom_frequency_2 + p2_correction
+                        self.feedback_log(2,feedback_aom_frequency_2)
+                        self.error_log(2,p2_correction)
+                        self.atom_lock_ex_log(2,p_2_low)
+                        
+     
                 delay(5*ms)
+
+                if count % 16 == 0:
+                    param_shift = feedback_aom_frequency_1 - feedback_aom_frequency_2
+                    self.param_shift_log(param_shift)
 
                 
                 count = count + 1
