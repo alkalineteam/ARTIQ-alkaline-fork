@@ -71,14 +71,17 @@ def peripheral_sampler(module, peripheral, **kwargs):
 def peripheral_suservo(module, peripheral, **kwargs):
     if len(peripheral["sampler_ports"]) != 2:
         raise ValueError("wrong number of Sampler ports")
-    urukul_ports = []
-    if len(peripheral["urukul0_ports"]) != 2:
-        raise ValueError("wrong number of Urukul #0 ports")
-    urukul_ports.append(peripheral["urukul0_ports"])
-    if "urukul1_ports" in peripheral:
-        if len(peripheral["urukul1_ports"]) != 2:
-            raise ValueError("wrong number of Urukul #1 ports")
-        urukul_ports.append(peripheral["urukul1_ports"])
+    if "urukul_ports" in peripheral:
+        urukul_ports = peripheral["urukul_ports"]
+    else:
+        urukul_ports = []
+        if len(peripheral["urukul0_ports"]) != 2:
+            raise ValueError("wrong number of Urukul #0 ports")
+        urukul_ports.append(peripheral["urukul0_ports"])
+        if "urukul1_ports" in peripheral:
+            if len(peripheral["urukul1_ports"]) != 2:
+                raise ValueError("wrong number of Urukul #1 ports")
+            urukul_ports.append(peripheral["urukul1_ports"])
     eem.SUServo.add_std(module,
         peripheral["sampler_ports"],
         urukul_ports, **kwargs)
@@ -142,7 +145,7 @@ def peripheral_hvamp(module, peripheral, **kwargs):
     eem.HVAmp.add_std(module, peripheral["ports"][0],
         ttl_simple.Output, **kwargs)
 
-def peripheral_shuttler(module, peripheral, **kwargs):
+def peripheral_drtio_over_eem(module, peripheral, **kwargs):
     if len(peripheral["ports"]) == 1:
         port = peripheral["ports"][0]
         port_aux = None
@@ -150,7 +153,7 @@ def peripheral_shuttler(module, peripheral, **kwargs):
         port, port_aux = peripheral["ports"]
     else:
         raise ValueError("wrong number of ports")
-    eem.Shuttler.add_std(module, port, port_aux, **kwargs)
+    eem.DrtioOverEEM.add_std(module, port, port_aux, **kwargs)
 
 peripheral_processors = {
     "dio": peripheral_dio,
@@ -165,7 +168,8 @@ peripheral_processors = {
     "fastino": peripheral_fastino,
     "phaser": peripheral_phaser,
     "hvamp": peripheral_hvamp,
-    "shuttler": peripheral_shuttler,
+    "shuttler": peripheral_drtio_over_eem,
+    "songbird": peripheral_drtio_over_eem,
 }
 
 

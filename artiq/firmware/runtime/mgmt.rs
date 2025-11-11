@@ -145,6 +145,7 @@ mod local_coremgmt {
         stream.flush()?;
 
         warn!("restarting");
+        board_misoc::uart::flush();
         unsafe { spiflash::reload(); }
     }
 
@@ -169,7 +170,7 @@ mod local_coremgmt {
             ];
 
             for (name, origin) in bin_origins {
-                info!("Flashing {} binary...", name);
+                info!("flashing {} binary...", name);
                 let size = NativeEndian::read_u32(&image[..4]) as usize;
                 image = &image[4..];
 
@@ -662,7 +663,7 @@ pub fn thread(io: Io, restart_idle: &Urc<Cell<bool>>, aux_mutex: &Mutex, ddma_mu
         let subkernel_mutex = subkernel_mutex.clone();
         let routing_table = routing_table.clone();
         let stream = listener.accept().expect("mgmt: cannot accept").into_handle();
-        io.spawn(16384, move |io| {
+        io.spawn(32768, move |io| {
             let routing_table = routing_table.borrow();
             let mut stream = TcpStream::from_handle(&io, stream);
             match worker(&io, &mut stream, &restart_idle, &aux_mutex, &ddma_mutex, &subkernel_mutex, &routing_table) {

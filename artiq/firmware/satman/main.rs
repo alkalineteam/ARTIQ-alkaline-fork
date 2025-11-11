@@ -26,9 +26,9 @@ use board_artiq::si549;
 use board_misoc::irq;
 use board_misoc::{boot, spiflash};
 use board_artiq::{spi, drtioaux, drtio_routing};
-#[cfg(soc_platform = "efc")]
+#[cfg(all(soc_platform = "efc", has_converter_spi))]
 use board_artiq::ad9117;
-use proto_artiq::drtioaux_proto::{SAT_PAYLOAD_MAX_SIZE, MASTER_PAYLOAD_MAX_SIZE};
+use proto_artiq::drtioaux_proto::{SAT_PAYLOAD_MAX_SIZE, MASTER_PAYLOAD_MAX_SIZE, CXP_PAYLOAD_MAX_SIZE};
 #[cfg(has_drtio_eem)]
 use board_artiq::drtio_eem;
 use riscv::register::{mcause, mepc, mtval};
@@ -628,6 +628,7 @@ fn process_aux_packet(dmamgr: &mut DmaManager, analyzer: &mut Analyzer, kernelmg
 
             drtioaux::send(0, &drtioaux::Packet::CoreMgmtReply { succeeded: true })?;
             warn!("restarting");
+            board_misoc::uart::flush();
             unsafe { spiflash::reload(); }
         }
         drtioaux::Packet::CoreMgmtFlashRequest { destination: _destination, payload_length } => {
@@ -661,7 +662,35 @@ fn process_aux_packet(dmamgr: &mut DmaManager, analyzer: &mut Analyzer, kernelmg
 
             coremgr.flash_image();
             warn!("restarting");
+            board_misoc::uart::flush();
             unsafe { spiflash::reload(); }
+        }
+        drtioaux::Packet::CXPReadRequest { destination: _destination, .. }
+        | drtioaux::Packet::CXPWrite32Request { destination: _destination, .. }
+        | drtioaux::Packet::CXPROIViewerSetupRequest { destination: _destination, .. }
+        | drtioaux::Packet::CXPROIViewerDataRequest { destination: _destination } => {
+            forward!(
+                router,
+                _routing_table,
+                _destination,
+                *rank,
+                *self_destination,
+                _repeaters,
+                &packet
+            );
+
+            let err_msg = "Kasli doesn't support CoaXPress-SFP";
+            error!("{}", err_msg);
+            let length = err_msg.as_bytes().len();
+            let mut message: [u8; CXP_PAYLOAD_MAX_SIZE] = [0; CXP_PAYLOAD_MAX_SIZE];
+            message[..length].copy_from_slice(&err_msg.as_bytes());
+            drtioaux::send(
+                0,
+                &drtioaux::Packet::CXPError {
+                    length: length as u16,
+                    message,
+                },
+            )
         }
 
         _ => {
@@ -814,7 +843,7 @@ fn sysclk_setup() {
         csr::crg::switch_done_read()
     };
     if switched == 1 {
-        info!("Clocking has already been set up.");
+        info!("clocking has already been set up");
         return;
     }
     else {
@@ -823,7 +852,7 @@ fn sysclk_setup() {
         #[cfg(has_si549)]
         si549::main_setup(&SI549_SETTINGS).expect("cannot initialize main Si549");
 
-        info!("Switching sys clock, rebooting...");
+        info!("switching sys clock, rebooting...");
         // delay for clean UART log, wait until UART FIFO is empty
         clock::spin_us(3000);
         unsafe {
@@ -890,9 +919,9 @@ fn startup() {
 
     #[cfg(has_i2c)]
     i2c::init().expect("I2C initialization failed");
-    #[cfg(all(soc_platform = "kasli", hw_rev = "v2.0"))]
+    #[cfg(all(soc_platform = "kasli", any(hw_rev = "v2.0", hw_rev = "v2.1")))]
     let (mut io_expander0, mut io_expander1);
-    #[cfg(all(soc_platform = "kasli", hw_rev = "v2.0"))]
+    #[cfg(all(soc_platform = "kasli", any(hw_rev = "v2.0", hw_rev = "v2.1")))]
     {
         io_expander0 = board_misoc::io_expander::IoExpander::new(0).unwrap();
         io_expander1 = board_misoc::io_expander::IoExpander::new(1).unwrap();
@@ -996,7 +1025,7 @@ fn startup() {
 
     let mut hardware_tick_ts = 0;
 
-    #[cfg(soc_platform = "efc")]
+    #[cfg(all(soc_platform = "efc", has_converter_spi))]
     ad9117::init().expect("AD9117 initialization failed");
     
     loop {
@@ -1007,7 +1036,7 @@ fn startup() {
             for rep in repeaters.iter_mut() {
                 rep.service(&routing_table, rank, destination, &mut router);
             }
-            #[cfg(all(soc_platform = "kasli", hw_rev = "v2.0"))]
+            #[cfg(all(soc_platform = "kasli", any(hw_rev = "v2.0", hw_rev = "v2.1")))]
             {
                 io_expander0.service().expect("I2C I/O expander #0 service failed");
                 io_expander1.service().expect("I2C I/O expander #1 service failed");
@@ -1048,7 +1077,7 @@ fn startup() {
             for rep in repeaters.iter_mut() {
                 rep.service(&routing_table, rank, destination, &mut router);
             }
-            #[cfg(all(soc_platform = "kasli", hw_rev = "v2.0"))]
+            #[cfg(all(soc_platform = "kasli", any(hw_rev = "v2.0", hw_rev = "v2.1")))]
             {
                 io_expander0.service().expect("I2C I/O expander #0 service failed");
                 io_expander1.service().expect("I2C I/O expander #1 service failed");

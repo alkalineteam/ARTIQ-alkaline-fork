@@ -54,9 +54,15 @@
     src-migen,
     src-misoc,
   }: let
+    pkgs' = import nixpkgs { system = "x86_64-linux"; };
+    rust-overlay-patched = pkgs'.applyPatches {
+      name = "rust-overlay-patched";
+      src = rust-overlay;
+      patches = [ ./fix-rust-overlay-unpack.diff ];
+    };
     pkgs = import nixpkgs {
       system = "x86_64-linux";
-      overlays = [(import rust-overlay)];
+      overlays = [(import rust-overlay-patched)];
     };
     pkgs-aarch64 = import nixpkgs {system = "aarch64-linux";};
 
@@ -111,6 +117,8 @@
       pname = "pythonparser";
       version = "1.4";
       src = src-pythonparser;
+      pyproject = true;
+      build-system = [pkgs.python3Packages.setuptools];
       doCheck = false;
       propagatedBuildInputs = with pkgs.python3Packages; [regex];
     };
@@ -118,13 +126,14 @@
     qasync = pkgs.python3Packages.buildPythonPackage rec {
       pname = "qasync";
       version = "0.27.1";
-      format = "pyproject";
       src = pkgs.fetchFromGitHub {
         owner = "CabbageDevelopment";
         repo = "qasync";
         rev = "refs/tags/v${version}";
         sha256 = "sha256-oXzwilhJ1PhodQpOZjnV9gFuoDy/zXWva9LhhK3T00g=";
       };
+      pyproject = true;
+      build-system = [pkgs.python3Packages.setuptools];
       postPatch = ''
         rm qasync/_windows.py # Ignoring it is not taking effect and it will not be used on Linux
       '';
@@ -153,32 +162,12 @@
       '';
     };
 
-    llvmlite-new = pkgs.python3Packages.buildPythonPackage rec {
-      pname = "llvmlite";
-      version = "0.44.0";
-      src = pkgs.fetchFromGitHub {
-        owner = "numba";
-        repo = "llvmlite";
-        rev = "v${version}";
-        sha256 = "sha256-ZIA/JfK9ZP00Zn6SZuPus30Xw10hn3DArHCkzBZAUV0=";
-      };
-      nativeBuildInputs = [pkgs.llvm_15];
-      # Disable static linking
-      # https://github.com/numba/llvmlite/issues/93
-      postPatch = ''
-        substituteInPlace ffi/Makefile.linux --replace "-static-libstdc++" ""
-        substituteInPlace llvmlite/tests/test_binding.py --replace "test_linux" "nope"
-      '';
-      # Set directory containing llvm-config binary
-      preConfigure = ''
-        export LLVM_CONFIG=${pkgs.llvm_15.dev}/bin/llvm-config
-      '';
-    };
-
-    artiq-upstream = pkgs.python3Packages.buildPythonPackage rec {
+    artiq = pkgs.python3Packages.buildPythonPackage rec {
       pname = "artiq";
       version = artiqVersion;
       src = self;
+      pyproject = true;
+      build-system = [pkgs.python3Packages.setuptools];
 
       preBuild = ''
         export VERSIONEER_OVERRIDE=${version}
@@ -186,10 +175,9 @@
       '';
 
       nativeBuildInputs = [pkgs.qt6.wrapQtAppsHook];
-      # keep llvm_x and lld_x in sync with llvmlite
       propagatedBuildInputs =
-        [pkgs.llvm_15 pkgs.lld_15 sipyco.packages.x86_64-linux.sipyco pythonparser llvmlite-new pkgs.qt6.qtsvg artiq-comtools.packages.x86_64-linux.artiq-comtools]
-        ++ (with pkgs.python3Packages; [pyqtgraph pygit2 numpy dateutil scipy prettytable pyserial levenshtein h5py pyqt6 qasync tqdm lmdb jsonschema platformdirs]);
+        [pkgs.llvm_20 pkgs.lld_20 sipyco.packages.x86_64-linux.sipyco pythonparser pkgs.qt6.qtsvg artiq-comtools.packages.x86_64-linux.artiq-comtools]
+        ++ (with pkgs.python3Packages; [llvmlite pyqtgraph pygit2 numpy python-dateutil scipy prettytable pyserial levenshtein h5py pyqt6 qasync tqdm lmdb jsonschema platformdirs]);
 
       dontWrapQtApps = true;
       postFixup = ''
@@ -210,10 +198,10 @@
         "--set FONTCONFIG_FILE ${pkgs.fontconfig.out}/etc/fonts/fonts.conf"
       ];
 
-      # FIXME: automatically propagate lld_15 llvm_15 dependencies
+      # FIXME: automatically propagate lld_20 llvm_20 dependencies
       # cacert is required in the check stage only, as certificates are to be
       # obtained from system elsewhere
-      nativeCheckInputs = with pkgs; [lld_15 llvm_15 lit outputcheck cacert] ++ [libartiq-support];
+      nativeCheckInputs = with pkgs; [lld_20 llvm_20 lit outputcheck cacert] ++ [libartiq-support];
       checkPhase = ''
         python -m unittest discover -v artiq.test
 
@@ -223,17 +211,21 @@
       '';
     };
 
-    artiq =
-      artiq-upstream
-      // {
-        withExperimentalFeatures = features: artiq-upstream.overrideAttrs (oa: {patches = map (f: ./experimental-features/${f}.diff) features;});
-      };
+    # Stripped down version of ARTIQ for gateware/firmware builds
+    artiq-build = artiq.overridePythonAttrs (oa: {
+      nativeBuildInputs = [];
+      propagatedBuildInputs = [sipyco.packages.x86_64-linux.sipyco pkgs.python3Packages.jsonschema];
+      dontFixup = true;
+      dontCheckRuntimeDeps = true;
+      doInstallCheck = false;
+      doCheck = false;
+    });
 
     migen = pkgs.python3Packages.buildPythonPackage rec {
       name = "migen";
       src = src-migen;
-      format = "pyproject";
-      nativeBuildInputs = [pkgs.python3Packages.setuptools];
+      pyproject = true;
+      build-system = [pkgs.python3Packages.setuptools];
       propagatedBuildInputs = [pkgs.python3Packages.colorama];
     };
 
@@ -246,12 +238,16 @@
         rev = version;
         sha256 = "sha256-ZHzgJnbsDVxVcp09LXq9JZp46+dorgdP8bAiTB59K28=";
       };
+      pyproject = true;
+      build-system = [pkgs.python3Packages.setuptools];
       propagatedBuildInputs = [pkgs.python3Packages.pyserial];
     };
 
     misoc = pkgs.python3Packages.buildPythonPackage {
       name = "misoc";
       src = src-misoc;
+      pyproject = true;
+      build-system = [pkgs.python3Packages.setuptools];
       propagatedBuildInputs = with pkgs.python3Packages; [jinja2 numpy migen pyserial asyncserial];
     };
 
@@ -264,6 +260,8 @@
         rev = "c21afe7a53258f05bde57e5ebf2e2761f3d495e4";
         sha256 = "sha256-jzyiLRuEf7p8LdhmZvOQj/dyQx8eUE8p6uRlwoiT8vg=";
       };
+      pyproject = true;
+      build-system = [pkgs.python3Packages.setuptools];
       propagatedBuildInputs = with pkgs.python3Packages; [pyserial prettytable msgpack migen];
     };
 
@@ -282,8 +280,7 @@
     makeArtiqBoardPackage = {
       target,
       variant,
-      buildCommand ? "python -m artiq.gateware.targets.${target} -V ${variant}",
-      experimentalFeatures ? [],
+      buildCommand ? "python -m artiq.gateware.targets.${target} ${variant}",
     }:
       naerskLib.buildPackage {
         name = "artiq-board-${target}-${variant}";
@@ -291,11 +288,11 @@
         additionalCargoLock = "${rust}/lib/rustlib/src/rust/Cargo.lock";
         singleStep = true;
         nativeBuildInputs = [
-          (pkgs.python3.withPackages (ps: [migen misoc (artiq.withExperimentalFeatures experimentalFeatures) ps.packaging]))
+          (pkgs.python3.withPackages (ps: [migen misoc artiq-build ps.packaging]))
           rust
-          pkgs.llvmPackages_15.clang-unwrapped
-          pkgs.llvm_15
-          pkgs.lld_15
+          pkgs.llvm_20
+          pkgs.lld_20
+          pkgs.llvmPackages_20.clang-unwrapped
           vivado
         ];
         overrideMain = _: {
@@ -378,7 +375,7 @@
     };
 
     artiq-frontend-dev-wrappers =
-      pkgs.runCommandNoCC "artiq-frontend-dev-wrappers" {}
+      pkgs.runCommand "artiq-frontend-dev-wrappers" {}
       ''
         mkdir -p $out/bin
         for program in ${self}/artiq/frontend/*.py; do
@@ -393,7 +390,7 @@
       '';
   in rec {
     packages.x86_64-linux = {
-      inherit pythonparser qasync artiq;
+      inherit pythonparser qasync artiq artiq-build;
       inherit migen misoc asyncserial microscope vivadoEnv vivado;
       openocd-bscanspi = openocd-bscanspi-f pkgs;
       artiq-board-kc705-nist_clock = makeArtiqBoardPackage {
@@ -404,6 +401,10 @@
         target = "efc";
         variant = "shuttler";
       };
+      artiq-board-efc-songbird = makeArtiqBoardPackage {
+        target = "efc";
+        variant = "songbird";
+      };
       inherit latex-artiq-manual;
       artiq-manual-html = pkgs.stdenvNoCC.mkDerivation rec {
         name = "artiq-manual-html-${version}";
@@ -412,7 +413,7 @@
         buildInputs = with pkgs.python3Packages;
           [
             sphinx
-            sphinx_rtd_theme
+            sphinx-rtd-theme
             sphinxcontrib-tikz
             sphinx-argparse
             sphinxcontrib-wavedrom
@@ -441,7 +442,7 @@
         buildInputs = with pkgs.python3Packages;
           [
             sphinx
-            sphinx_rtd_theme
+            sphinx-rtd-theme
             sphinxcontrib-tikz
             sphinx-argparse
             sphinxcontrib-wavedrom
@@ -483,9 +484,9 @@
           [
             git
             lit
-            lld_15
-            llvm_15
-            llvmPackages_15.clang-unwrapped
+            lld_20
+            llvm_20
+            llvmPackages_20.clang-unwrapped
             outputcheck
             pdf2svg
 
@@ -493,13 +494,13 @@
             python3Packages.sphinx-argparse
             python3Packages.sphinxcontrib-tikz
             python3Packages.sphinxcontrib-wavedrom
-            python3Packages.sphinx_rtd_theme
+            python3Packages.sphinx-rtd-theme
 
             (python3.withPackages (ps: [migen misoc microscope ps.packaging ps.paramiko] ++ artiq.propagatedBuildInputs))
           ]
           ++ [
-            latex-artiq-manual
             rust
+            latex-artiq-manual
             artiq-frontend-dev-wrappers
 
             # To manually run compiler tests:
@@ -523,9 +524,9 @@
         packages = [
           rust
 
-          pkgs.llvmPackages_15.clang-unwrapped
-          pkgs.llvm_15
-          pkgs.lld_15
+          pkgs.llvm_20
+          pkgs.lld_20
+          pkgs.llvmPackages_20.clang-unwrapped
 
           packages.x86_64-linux.vivado
           packages.x86_64-linux.openocd-bscanspi
@@ -540,7 +541,7 @@
     };
 
     hydraJobs = {
-      inherit (packages.x86_64-linux) artiq artiq-board-kc705-nist_clock artiq-board-efc-shuttler openocd-bscanspi;
+      inherit (packages.x86_64-linux) artiq artiq-board-kc705-nist_clock artiq-board-efc-shuttler artiq-board-efc-songbird openocd-bscanspi;
       gateware-sim = pkgs.stdenvNoCC.mkDerivation {
         name = "gateware-sim";
         buildInputs = [
@@ -569,8 +570,8 @@
                 ]
                 ++ ps.paramiko.optional-dependencies.ed25519
           ))
-          pkgs.llvm_15
-          pkgs.lld_15
+          pkgs.llvm_20
+          pkgs.lld_20
           pkgs.openssh
           packages.x86_64-linux.openocd-bscanspi # for the bscanspi bitstreams
         ];
@@ -580,7 +581,7 @@
           mkdir $HOME/.ssh
           cp /opt/hydra_id_ed25519 $HOME/.ssh/id_ed25519
           cp /opt/hydra_id_ed25519.pub $HOME/.ssh/id_ed25519.pub
-          echo "rpi-1 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIACtBFDVBYoAE4fpJCTANZSE0bcVpTR3uvfNvb80C4i5" > $HOME/.ssh/known_hosts
+          echo "rpi-1 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILd51cZEV8N2V+2+GQms6ombHqmsReBWrQfQFnOyLKrO" > $HOME/.ssh/known_hosts
           chmod 600 $HOME/.ssh/id_ed25519
           LOCKCTL=$(mktemp -d)
           mkfifo $LOCKCTL/lockctl
@@ -605,7 +606,7 @@
 
             artiq_rtiomap --device-db $ARTIQ_ROOT/device_db.py device_map.bin
             artiq_mkfs -s ip `python -c "import artiq.examples.kc705_nist_clock.device_db as ddb; print(ddb.core_addr)"`/24 -f device_map device_map.bin kc705_nist_clock.config
-            artiq_flash -t kc705 -H rpi-1 storage -f kc705_nist_clock.config
+            artiq_flash write=storage -t kc705 -H rpi-1 -f kc705_nist_clock.config
             artiq_flash -t kc705 -H rpi-1 -d ${packages.x86_64-linux.artiq-board-kc705-nist_clock}
             sleep 30
 

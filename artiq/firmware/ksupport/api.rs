@@ -17,12 +17,13 @@ macro_rules! api {
 pub fn resolve(required: &[u8]) -> Option<u32> {
     unsafe {
         API.iter()
-           .find(|&&(exported, _)| exported.as_bytes() == required)
-           .map(|&(_, ptr)| ptr as u32)
+            .find(|&&(exported, _)| exported.as_bytes() == required)
+            .map(|&(_, ptr)| ptr as u32)
     }
 }
 
 #[allow(unused_unsafe)]
+#[rustfmt::skip]
 static mut API: &'static [(&'static str, *const ())] = &[
     api!(__divsi3),
     api!(__modsi3),
@@ -63,10 +64,15 @@ static mut API: &'static [(&'static str, *const ())] = &[
     api!(__powidf2),
 
     /* libc */
+    // These functions are automatically available through compiler_builtins.
     api!(memcpy, extern { fn memcpy(dest: *mut u8, src: *const u8, n: usize) -> *mut u8; }),
     api!(memmove, extern { fn memmove(dest: *mut u8, src: *const u8, n: usize) -> *mut u8; }),
     api!(memset, extern { fn memset(s: *mut u8, c: i32, n: usize) -> *mut u8; }),
     api!(memcmp, extern { fn memcmp(s1: *const u8, s2: *const u8, n: usize) -> i32; }),
+    api!(bcmp, extern { fn bcmp(s1: *const u8, s2: *const u8, n: usize) -> i32; }),
+    // This is available in compiler_builtins v0.1.71, but that is incompatible with
+    // the current rustc; change this to an extern declaration when we upgrade to a newer rustc.
+    api!(strlen = ::libc::strlen),
 
     /* libm */
     // commented out functions are not available with the libm used here, but are available in NAR3.
@@ -88,6 +94,7 @@ static mut API: &'static [(&'static str, *const ())] = &[
     //api!(exp2),
     //api!(exp10),
     api!(expm1),
+    api!(ldexp),
     api!(fabs),
     api!(floor),
     // api!(fmax),
@@ -173,6 +180,12 @@ static mut API: &'static [(&'static str, *const ())] = &[
     api!(spi_set_config = ::nrt_bus::spi::set_config),
     api!(spi_write = ::nrt_bus::spi::write),
     api!(spi_read = ::nrt_bus::spi::read),
+
+    api!(cxp_download_xml_file = ::cxp::download_xml_file),
+    api!(cxp_read32 = ::cxp::read32),
+    api!(cxp_write32 = ::cxp::write32),
+    api!(cxp_start_roi_viewer = ::cxp::start_roi_viewer),
+    api!(cxp_download_roi_viewer_frame = ::cxp::download_roi_viewer_frame),
 
     /*
      * syscall for unit tests

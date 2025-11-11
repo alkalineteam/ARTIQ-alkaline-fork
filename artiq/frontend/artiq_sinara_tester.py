@@ -64,6 +64,7 @@ class SinaraTester(EnvExperiment):
         self.legacy_almaznys = dict()
         self.almaznys = dict()
         self.shuttler = dict()
+        self.songbirds = dict()
         self.coaxpress_sfps = dict()
 
         ddb = self.get_device_db()
@@ -117,6 +118,13 @@ class SinaraTester(EnvExperiment):
                         "relay": self.get_device("{}_relay".format(shuttler_name)),
                         "adc": self.get_device("{}_adc".format(shuttler_name)),
                     })
+                elif (module, cls) == ("artiq.coredevice.songbird", "Songbird"):
+                    songbird_name = name.replace("_config", "")
+                    self.songbirds[songbird_name] = ({
+                        "config": self.get_device(name),
+                        "leds": [self.get_device(f"{songbird_name}_led{i}") for i in range(2)],
+                        "dds": [self.get_device(f"{songbird_name}_dds{i}") for i in range(4)],
+                    })
                 elif (module, cls) == ("artiq.coredevice.cxp_grabber", "CXPGrabber"):
                     self.coaxpress_sfps[name] = self.get_device(name)
 
@@ -168,6 +176,7 @@ class SinaraTester(EnvExperiment):
         self.suservos = sorted(self.suservos.items(), key=lambda x: x[1].channel)
         self.suschannels = sorted(self.suschannels.items(), key=lambda x: x[1].channel)
         self.shuttler = sorted(self.shuttler.items(), key=lambda x: x[1]["leds"][0].channel)
+        self.songbirds = sorted(self.songbirds.items(), key=lambda x: x[1]["leds"][0].channel)
         self.coaxpress_sfps = sorted(self.coaxpress_sfps.items(), key=lambda x: x[1].channel)
 
     @kernel
@@ -262,17 +271,17 @@ class SinaraTester(EnvExperiment):
             readback_word = cpld.get_att_mu()
             if readback_word != test_word:
                 print(readback_word, test_word)
-                raise ValueError
+                raise ValueError("Test and readback attenuator word mismatch")
 
     @kernel
     def calibrate_urukul(self, channel):
         self.core.break_realtime()
         channel.init()
         self.core.break_realtime()
-        sync_delay_seed, _ = channel.tune_sync_delay()
+        sync_delay, _ = channel.tune_sync_delay()
         self.core.break_realtime()
         io_update_delay = channel.tune_io_update_delay()
-        return sync_delay_seed, io_update_delay
+        return sync_delay, io_update_delay
 
     @kernel
     def setup_urukul(self, channel, frequency):
@@ -318,9 +327,9 @@ class SinaraTester(EnvExperiment):
             else:
                 eeprom = channel_dev.sync_data.eeprom_device
                 offset = channel_dev.sync_data.eeprom_offset
-                sync_delay_seed, io_update_delay = self.calibrate_urukul(channel_dev)
-                print("{}\t{} {}".format(channel_name, sync_delay_seed, io_update_delay))
-                eeprom_word = (sync_delay_seed << 24) | (io_update_delay << 16)
+                sync_delay, io_update_delay = self.calibrate_urukul(channel_dev)
+                print("{}\tSYNC_IN delay = {}, IO_UPDATE delay = {}".format(channel_name, sync_delay, io_update_delay))
+                eeprom_word = (sync_delay << 24) | (io_update_delay << 16)
                 eeprom.write_i32(offset, eeprom_word)
         print("...done")
 
@@ -597,11 +606,12 @@ class SinaraTester(EnvExperiment):
         self.core.break_realtime()
         fastino.init()
         delay(200*us)
-        i = 0
-        for voltage in voltages:
-            fastino.set_dac(i, voltage)
+        for i in range(0, 32, fastino.width):
+            if fastino.width == 1:
+                fastino.set_dac(i, voltages[i])
+            else:
+                fastino.set_group(i, voltages[i:i+fastino.width])
             delay(100*us)
-            i += 1
 
     @kernel
     def fastinos_led_wave(self, fastinos):
@@ -794,9 +804,10 @@ class SinaraTester(EnvExperiment):
             self.setup_suservo(card_dev)
         print("...done")
         print("Setting up SUServo channels...")
+        print("ADC to DDS mapping:")
         for channels in chunker(self.suschannels, 8):
             for i, (channel_name, channel_dev) in enumerate(channels):
-                print(channel_name)
+                print("ADC{i} -> {name}".format(i=i, name=channel_name))
                 self.setup_suservo_loop(channel_dev, i)
         print("...done")
         print("Enabling...")
@@ -805,8 +816,7 @@ class SinaraTester(EnvExperiment):
             self.setup_start_suservo(card_dev)
         print("...done")
         print("Each Sampler channel applies proportional amplitude control")
-        print("on the respective Urukul0 (ADC 0-3) and Urukul1 (ADC 4-7, if")
-        print("present) channels.")
+        print("on the respective Urukul channels. See the mapping.")
         print("Frequency: 10 MHz, output power: about -9 dBm at 0 V and about -15 dBm at 1.5 V")
         print("Verify frequency and power behavior.")
         print("Press ENTER when done.")
@@ -930,6 +940,53 @@ class SinaraTester(EnvExperiment):
                 print("FAILED")
                 print("Shuttler Remote AFE Board ADC has abnormal readings.")
                 print(f"ADC Readings:", " ".join(["{:.2f}".format(x) for x in adc_readings]))
+
+    @kernel
+    def setup_songbird_init(self, config):
+        self.core.break_realtime()
+        config.init()
+
+    @kernel
+    def setup_songbird_waveforms(self, card_n, config, ddss):
+        self.core.break_realtime()
+        config.clear(0b1111)
+        delay(1*ms)
+        # Set some waveforms
+        i = 1
+        for channel in ddss:
+            freq = (10.0*float(i) + float(card_n)) * MHz
+            freq_mu = config.frequency_to_mu(freq)
+            channel.set_waveform(ampl_offset=0x2000, 
+                                 damp=0, 
+                                 ddamp=0, 
+                                 dddamp=0, 
+                                 phase_offset=0, 
+                                 ftw=freq_mu,
+                                 chirp=0,
+                                 shift=0)
+            i += 1
+        delay(1*ms)
+        config.trigger(0b1111)
+        delay(1*ms)
+        config.clear(0)
+
+    def test_songbirds(self):
+        print("*** Testing Songbird.")
+        print("Note: Songbird requires an appropriate sample clock. Connect it before testing.")
+
+        for card_n, (card_name, card_dev) in enumerate(self.songbirds):
+            print("Initializing {}...".format(card_name))
+            self.setup_songbird_init(card_dev["config"])
+            print("...done")
+            print("Setting up DDS waveforms...")
+            self.setup_songbird_waveforms(card_n, card_dev["config"], card_dev["dds"])
+            print("...done")
+            print("{} output active. Frequencies: {} MHz.".format(
+                card_name,
+                ", ".join([str(10*i + card_n) for i in range(1, 5)]))
+                )
+        print("Check the outputs on an oscilloscope, using the FFT function. Press ENTER to continue.")
+        input()
 
     @kernel
     def boA2448_250cm_setup(self, dev):

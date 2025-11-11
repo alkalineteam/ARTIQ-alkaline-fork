@@ -9,10 +9,10 @@ import atexit
 from sipyco import common_args
 
 from artiq import __version__ as artiq_version
+from artiq.flashing import bit2bin, discover_bins
 from artiq.master.databases import DeviceDB
 from artiq.coredevice.comm_kernel import CommKernel
 from artiq.coredevice.comm_mgmt import CommMgmt
-from artiq.frontend.flash_tools import bit2bin, fetch_bin
 
 
 def get_argparser():
@@ -61,8 +61,12 @@ def get_argparser():
 
     p_read = subparsers.add_parser("read",
                                    help="read key from core device config")
-    p_read.add_argument("key", metavar="KEY", type=str,
-                        help="key to be read from core device config")
+    p_read.add_argument("-f", "--file", nargs=2, action="append",
+                        default=[], metavar=("KEY", "FILENAME"), type=str,
+                        help="write contents of read from key to file")
+    p_read.add_argument("-s", "--string", action="append",
+                        default=[], metavar="KEY", type=str,
+                        help="print contents of read from key to stdout")
 
     p_write = subparsers.add_parser("write",
                                     help="write key-value records to core "
@@ -91,12 +95,12 @@ def get_argparser():
 
     # flashing
     t_flash = tools.add_parser("flash",
-                               help="flash the running system")
+                               help="flash the core device and reboot into the new system")
 
-    p_directory = t_flash.add_argument("directory",
-                                       metavar="DIRECTORY", type=str,
-                                       help="directory that contains the "
-                                            "binaries")
+    p_path = t_flash.add_argument("path",
+                                  metavar="PATH", type=str,
+                                  help="binary file or directory that "
+                                       "contains the binaries")
 
     p_srcbuild = t_flash.add_argument("--srcbuild",
                                       help="board binaries directory is laid "
@@ -145,11 +149,13 @@ def main():
 
     if args.tool == "config":
         if args.action == "read":
-            value = mgmt.config_read(args.key)
-            if not value:
-                print("Key {} does not exist".format(args.key))
-            else:
-                print(value)
+            for key in args.string:
+                value = mgmt.config_read(key)
+                print(value.decode("utf-8"))
+            for key, filename in args.file:
+                value = mgmt.config_read(key)
+                with open(filename, "wb") as fi:
+                    fi.write(value)
         if args.action == "write":
             for key, value in args.string:
                 mgmt.config_write(key, value.encode("utf-8"))
@@ -163,36 +169,16 @@ def main():
             mgmt.config_erase()
 
     if args.tool == "flash":
-        retrieved_bins = []
-        bin_dict = {
-            "zynq":[
-                ["boot"]
-            ],
-            "riscv": [
-                ["gateware"],
-                ["bootloader"],
-                ["runtime", "satman"],
-            ],
-        }
+        retrieved_bins = discover_bins(args.path, args.srcbuild)
 
-        for bin_list in bin_dict.values():
-            try:
-                bins = []
-                for bin_name in bin_list:
-                    bins.append(fetch_bin(
-                        args.directory, bin_name, args.srcbuild))
-                retrieved_bins.append(bins)
-            except FileNotFoundError:
-                pass
-
-        if retrieved_bins is None:
+        if len(retrieved_bins) == 0:
             raise FileNotFoundError("neither risc-v nor zynq binaries were found")
 
-        if len(retrieved_bins) > 1:
+        if "boot" in retrieved_bins.keys() and len(retrieved_bins) > 1:
             raise ValueError("both risc-v and zynq binaries were found, "
                              "please clean up your build directory. ")
 
-        bins = retrieved_bins[0]
+        bins = retrieved_bins.values()
         mgmt.flash(bins)
 
     if args.tool == "reboot":

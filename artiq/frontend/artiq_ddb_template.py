@@ -12,7 +12,7 @@ from artiq.coredevice.phaser import PHASER_GW_MIQRO, PHASER_GW_BASE
 
 
 def get_cpu_target(description):
-    if description.get("type", None) == "shuttler":
+    if description.get("type", None) in ["shuttler", "songbird"]:
         return "rv32g"
     if description["target"] == "kasli":
         if description["hw_rev"] in ("v1.0", "v1.1"):
@@ -32,7 +32,8 @@ def get_num_leds(description):
     kasli_board_leds = {
         "v1.0": 4,
         "v1.1": 6,
-        "v2.0": 3
+        "v2.0": 3,
+        "v2.1": 3,
     }
     if target == "kasli":
         if hw_rev in ("v1.0", "v1.1") and drtio_role != "standalone":
@@ -496,9 +497,16 @@ class PeripheralManager:
     def process_suservo(self, rtio_offset, peripheral):
         suservo_name = self.get_name("suservo")
         sampler_name = self.get_name("sampler")
-        urukul_names = [self.get_name("urukul") for _ in range(2)]
+        if peripheral.get("urukul1_ports") is not None:
+            num_of_urukuls = 2
+        elif peripheral.get("urukul0_ports") is not None:
+            num_of_urukuls = 1
+        else:
+            num_of_urukuls = len(peripheral["urukul_ports"])
+        urukul_names = [self.get_name("urukul") for _ in range(num_of_urukuls)]
         channel = count(0)
-        for i in range(8):
+        num_of_channels = num_of_urukuls * 4
+        for i in range(num_of_channels):
             self.gen("""
                 device_db["{suservo_name}_ch{suservo_chn}"] = {{
                     "type": "local",
@@ -749,6 +757,53 @@ class PeripheralManager:
                 spi=spi_name)
         return 0
 
+
+    def process_songbird(self, songbird_peripheral):
+        songbird_name = self.get_name("songbird")
+        rtio_offset = songbird_peripheral["drtio_destination"] << 16
+        rtio_offset += self.add_board_leds(rtio_offset, board_name=songbird_name)
+        
+        channel = count(0)
+        self.gen("""
+            device_db["{name}_spi"] = {{
+                "type": "local",
+                "module": "artiq.coredevice.spi2",
+                "class": "SPIMaster",
+                "arguments": {{"channel": 0x{channel:06x}}},
+            }}""",
+            name=songbird_name,
+            channel=rtio_offset + next(channel))
+
+        self.gen("""
+            device_db["{name}_config"] = {{
+                "type": "local",
+                "module": "artiq.coredevice.songbird",
+                "class": "Songbird",
+                "arguments": {{"spi_device": "{spi_name}", "channel": 0x{channel:06x}}}
+            }}""",
+            name=songbird_name,
+            spi_name=songbird_name+"_spi",
+            channel=rtio_offset + next(channel)) # base channel: reset
+
+        config_offset = 2  # then clear, trigger
+
+        for i in range(4):
+            self.gen("""
+                device_db["{name}_dds{ch}"] = {{
+                    "type": "local",
+                    "module": "artiq.coredevice.songbird",
+                    "class": "DDS",
+                    "arguments": {{"config_device": "{config_name}", "channel": 0x{base_channel:06x}, "dds_no": {ch}}}
+                }}""",
+                name=songbird_name,
+                ch=i,
+                config_name=songbird_name + "_config",
+                base_channel=rtio_offset + config_offset + next(channel))
+            next(channel) # c coefficients channel
+
+        return 0    
+
+
     def process_coaxpress_sfp(self, rtio_offset, peripheral):
         self.gen("""
             device_db["{name}"] = {{
@@ -785,7 +840,7 @@ class PeripheralManager:
 
 def split_drtio_eem(peripherals):
     # Shuttler is the only peripheral that uses DRTIO-over-EEM at this moment
-    drtio_eem_filter = lambda peripheral: peripheral["type"] == "shuttler"
+    drtio_eem_filter = lambda peripheral: peripheral["type"] in ["shuttler", "songbird"]
     return filterfalse(drtio_eem_filter, peripherals), \
         list(filter(drtio_eem_filter, peripherals))
 

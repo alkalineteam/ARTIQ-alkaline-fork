@@ -113,9 +113,9 @@ fn startup() {
     setup_log_levels();
     #[cfg(has_i2c)]
     board_misoc::i2c::init().expect("I2C initialization failed");
-    #[cfg(all(soc_platform = "kasli", hw_rev = "v2.0"))]
+    #[cfg(all(soc_platform = "kasli", any(hw_rev = "v2.0", hw_rev = "v2.1")))]
     let (mut io_expander0, mut io_expander1);
-    #[cfg(all(soc_platform = "kasli", hw_rev = "v2.0"))]
+    #[cfg(all(soc_platform = "kasli", any(hw_rev = "v2.0", hw_rev = "v2.1")))]
     {
         io_expander0 = board_misoc::io_expander::IoExpander::new(0).unwrap();
         io_expander1 = board_misoc::io_expander::IoExpander::new(1).unwrap();
@@ -162,7 +162,7 @@ fn startup() {
     let net_addresses = net_settings::get_adresses();
     info!("network addresses: {}", net_addresses);
     let use_dhcp = if matches!(net_addresses.ipv4_addr, Ipv4AddrConfig::UseDhcp) {
-        info!("Will try to acquire an IPv4 address with DHCP");
+        info!("will try to acquire an IPv4 address with DHCP");
         true
     } else {
         false
@@ -255,7 +255,7 @@ fn startup() {
             debug!("ethernet mac:{}", ethmac::EthernetStatistics::new());
         }
 
-        #[cfg(all(soc_platform = "kasli", hw_rev = "v2.0"))]
+        #[cfg(all(soc_platform = "kasli", any(hw_rev = "v2.0", hw_rev = "v2.1")))]
         {
             io_expander0.service().expect("I2C I/O expander #0 service failed");
             io_expander1.service().expect("I2C I/O expander #1 service failed");
@@ -402,6 +402,7 @@ pub fn panic_impl(info: &core::panic::PanicInfo) -> ! {
         println!("restarting...");
         unsafe {
             kernel::stop();
+            board_misoc::uart::flush();
             spiflash::reload();
         }
     } else {
