@@ -123,7 +123,7 @@ class clock_transition_lookup_v2(EnvExperiment):
             self.Probe.set(frequency= 65 * MHz, amplitude=0.02)
             self.Single_Freq.set(frequency= 80 * MHz, amplitude=0.35)
             
-            voltage_1 = 1.06
+            voltage_1 = 1.05
             voltage_2 = 0.535
             self.MOT_Coil_1.write_dac(0, voltage_1)
             self.MOT_Coil_2.write_dac(1, voltage_2)
@@ -179,7 +179,7 @@ class clock_transition_lookup_v2(EnvExperiment):
                 self.Broadband_Off.pulse(10*ms)
                 self.Single_Freq.sw.on()
 
-            voltage_1_com = 2.54
+            voltage_1_com = 2.53
             voltage_2_com = 2.286
             red_amp = 0.35
             amp_com = 0.03
@@ -215,8 +215,8 @@ class clock_transition_lookup_v2(EnvExperiment):
             self.Single_Freq.sw.off()
 
             # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 4.905)# 4.7/3.32 = 0.8; 4.905/3.14 = 1; 5.08/2.93 = 1.2; 5.64/2.27 = 1.85; 7.115/0.51 = 3.5;
-            self.MOT_Coil_2.write_dac(1, 3.14)
+            self.MOT_Coil_1.write_dac(0, 7.135)# 4.7/3.32 = 0.8; 4.905/3.14 = 1; 5.08/2.93 = 1.2; 5.64/2.27 = 1.85; 7.105/0.47 = 3.5;
+            self.MOT_Coil_2.write_dac(1, 0.505)
             with parallel:
                 self.MOT_Coil_1.load()
                 self.MOT_Coil_2.load()
@@ -341,6 +341,8 @@ class clock_transition_lookup_v2(EnvExperiment):
 
             numerator = es_avg - bg_avg
             denominator = es_avg + gs_avg - 2*bg_avg
+            # numerator = es_sum - bg_sum
+            # denominator = es_sum + gs_sum - 2*bg_sum
 
             excitation_fraction = min(max(numerator / denominator if denominator != 0.0 else 0.0, 0.0), 1.0)
             print("Excitation Fraction:", excitation_fraction, ", Cycle:", j)
