@@ -30,7 +30,7 @@ import os
 import csv
 from datetime import datetime
 
-class quad_zeeman_shift_trad(EnvExperiment):
+class quad_zeeman_shift_disc(EnvExperiment):
 
     def build(self):
         self.setattr_device("core")
@@ -159,8 +159,8 @@ class quad_zeeman_shift_trad(EnvExperiment):
         comp_field = 1.35 * 0.14    # comp current * scaling factor from measurement
         bias_at_coil = (bias_field - comp_field)/ 0.914   #bias field dips in center of coils due to geometry, scaling factor provided by modelling field
         current_per_coil = ((bias_at_coil) / 2.0086) / 2   
-        coil_1_voltage = current_per_coil + 5.0
-        coil_2_voltage = 5.0 - (current_per_coil / 0.94 )           #Scaled against coil 1
+        coil_2_voltage = current_per_coil + 5.0
+        coil_1_voltage = 5.0 - (current_per_coil / 0.94 )           #Scaled against coil 1
 
        
        
@@ -198,7 +198,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
         sample_period = 1 / 25000   #10kHz sampling rate should give us enough data points
         sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
 
-        num_samples = int32(sampling_duration/sample_period)
+        num_samples = int(sampling_duration/sample_period)
         samples = [[0.0 for i in range(8)] for i in range(num_samples)]
     
         with parallel:
@@ -500,7 +500,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
         volt_2_steps = (compressed_blue_mot_coil_2_voltage - bmot_voltage_2 )/steps_com
         amp_steps = (bmot_amp-compress_bmot_amp)/steps_com
     
-        for i in range(int64(steps_com)):
+        for i in range(int(steps_com)):
 
             voltage_1 = bmot_voltage_1 + ((i+1) * volt_1_steps)
             voltage_2 = bmot_voltage_2 + ((i+1) * volt_2_steps)
@@ -553,7 +553,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
         amp_steps = (rmot_A_start - rmot_A_end)/steps_com
         
 
-        for i in range(int64(steps_com)):
+        for i in range(int(steps_com)):
             voltage_1 = bb_rmot_coil_1_voltage + ((i+1) * volt_1_steps)
             voltage_2 = bb_rmot_coil_2_voltage + ((i+1) * volt_2_steps)
             amp = rmot_A_start - ((i+1) * amp_steps)
@@ -595,9 +595,9 @@ class quad_zeeman_shift_trad(EnvExperiment):
 
         self.initialise_modules()
 
-        scan_start = int32(self.scan_center_frequency_Hz - (int32(self.scan_range_Hz )/ 2))
-        scan_end = int32(self.scan_center_frequency_Hz + (int32(self.scan_range_Hz ) / 2))
-        scan_frequency_values = [float(x) for x in range(scan_start, scan_end, int32(self.scan_step_size_Hz))]
+        scan_start = int(self.scan_center_frequency_Hz - (int(self.scan_range_Hz )/ 2))
+        scan_end = int(self.scan_center_frequency_Hz + (int(self.scan_range_Hz ) / 2))
+        scan_frequency_values = [float(x) for x in range(scan_start, scan_end, int(self.scan_step_size_Hz))]
         cycles = len(scan_frequency_values)
 
         excitation_fraction_list_param_1 = [0.0] * cycles
@@ -605,7 +605,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
         
 
         ############################### Scan Parameter 1: Low Bias Field ##############################
-        for j in range(int32(cycles)):        
+        for j in range(int(cycles)):        
             self.run_sequence(j,
                 self.bias_field_mT_low,    #Here the parameter we are changing is the bias field
                 scan_frequency_values[j],
@@ -616,47 +616,47 @@ class quad_zeeman_shift_trad(EnvExperiment):
             )  
   
         self.analyse_fit(1,scan_frequency_values,excitation_fraction_list_param_1)
-        ############################### Scan Parameter 2: High Bias Field ###############################
-        for j in range(int32(cycles)):        
-            self.run_sequence(j,
-                self.bias_field_mT_high,                    #parameter 2
-                scan_frequency_values[j],  #stepping aom values
-                self.rabi_pulse_duration_ms_param_2,
-                2,                         #parameter marker
-                excitation_fraction_list_param_1,
-                excitation_fraction_list_param_2    
-            )  
+        ############################### Second run ###############################
+        # for j in range(int(cycles)):        
+        #     self.run_sequence(j,
+        #         self.bias_field_mT_low,                    #parameter 2
+        #         scan_frequency_values[j],  #stepping aom values
+        #         self.rabi_pulse_duration_ms_param_1,
+        #         1,                         #parameter marker
+        #         excitation_fraction_list_param_1,
+        #         excitation_fraction_list_param_2    
+        #     )  
 
-        #process data and do fit from the scan
+        # #process data and do fit from the scan
 
         
-        self.analyse_fit(2,scan_frequency_values,excitation_fraction_list_param_2)
+        # self.analyse_fit(2,scan_frequency_values,excitation_fraction_list_param_2)
 
         # from the excitation fraction list we need to manually extract the peak height and center_frequency. 
 
         max_val_1 = excitation_fraction_list_param_1[0]
         max_idx_1 = 0
-        max_val_2 = excitation_fraction_list_param_2[0]
-        max_idx_2 = 0
+        # max_val_2 = excitation_fraction_list_param_2[0]
+        # max_idx_2 = 0
 
         # Loop through the lists
         for i in range(1, len(excitation_fraction_list_param_1)):
             if excitation_fraction_list_param_1[i] > max_val_1:
                 max_val_1 = excitation_fraction_list_param_1[i]
                 max_idx_1 = i
-            if excitation_fraction_list_param_2[i] > max_val_2:
-                max_val_2 = excitation_fraction_list_param_2[i]
-                max_idx_2 = i
+            # if excitation_fraction_list_param_2[i] > max_val_2:
+            #     max_val_2 = excitation_fraction_list_param_2[i]
+            #     max_idx_2 = i
 
         # Assign contrast and center frequency
         contrast_1 = 0.5
-        center_frequency_1 = scan_frequency_values[max_idx_1]
+        center_frequency_1 = scan_frequency_values[max_idx_1] 
 
         contrast_2 = 0.5
-        center_frequency_2 = scan_frequency_values[max_idx_2]
+        # center_frequency_2 = scan_frequency_values[max_idx_2]
 
-        param_shift = center_frequency_2 - center_frequency_1
-
+        # param_shift = center_frequency_2 - center_frequency_1
+        param_shift = self.param_shift_guess
         # param_shift = center_frequency_2 - center_frequency_1 + total_drift
     
         print(param_shift)
@@ -670,9 +670,15 @@ class quad_zeeman_shift_trad(EnvExperiment):
         if self.Enable_Lock == True:
 
             self.core.break_realtime()                                       # How many seconds there are in a month
+
+            n = 2628288 
+            thue_morse = [0]
+            while len(thue_morse) <= n:
+                thue_morse = thue_morse + [1 - bit for bit in thue_morse]  
+
             count = 0
             feedback_aom_frequency_1 = 125.0 * MHz 
-            feedback_aom_frequency_2 = feedback_aom_frequency_1 + param_shift 
+            feedback_aom_frequency_2 = feedback_aom_frequency_1 + (param_shift / 2)
             print("Feedback AOM Frequency 1: ", feedback_aom_frequency_1)
             print("Feedback AOM Frequency 2: ", feedback_aom_frequency_2)
             
@@ -684,43 +690,70 @@ class quad_zeeman_shift_trad(EnvExperiment):
                 t1 = self.core.get_rtio_counter_mu()
 
                 #In the DISC method, we interleave between Parameter 1 and Parameter 2 in a P1 P2 P2 P1 order rather than P1 P2 P1 P2, therefore the correction is generated every 4 clock cycles. 
-                
+                if ((count//6)%2 == 0):        # param 1
+                    # check bit in thue morse sequence
+                    if thue_morse[count] == 0:
+                        p_1_low = self.run_sequence(0,
+                            self.bias_field_mT_low,                    #parameter 1
+                            center_frequency_1 - self.linewidth_1/2,  #stepping aom values
+                            self.rabi_pulse_duration_ms_param_1,
+                            1,
+                            excitation_fraction_list_param_1,
+                            excitation_fraction_list_param_2    
+                        )
+                    else:
+                        p_1_high = self.run_sequence(0,
+                            self.bias_field_mT_low,                    #parameter 1
+                            center_frequency_1 + self.linewidth_1/2,  #stepping aom values
+                            self.rabi_pulse_duration_ms_param_1,
+                            1,
+                            excitation_fraction_list_param_1,
+                            excitation_fraction_list_param_2    
+                        )
 
-                self.atom_lock_aom.set(frequency = feedback_aom_frequency_1)
-                p_1_low = self.run_sequence(0,
-                    self.bias_field_mT_low,                    #parameter 1
-                    center_frequency_1 - self.linewidth_1/2,  #stepping aom values
-                    self.rabi_pulse_duration_ms_param_1,
-                    1,
-                    excitation_fraction_list_param_1,
-                    excitation_fraction_list_param_2    
-                ) 
-                self.atom_lock_aom.set(frequency = feedback_aom_frequency_2)
-                p_2_low = self.run_sequence(0,
-                    self.bias_field_mT_high,                    #parameter 2
-                    center_frequency_1- self.linewidth_2/2,  #stepping aom values
-                    self.rabi_pulse_duration_ms_param_2,
-                    2,
-                    excitation_fraction_list_param_1,
-                    excitation_fraction_list_param_2    
-                ) 
-                p_2_high = self.run_sequence(0,
-                    self.bias_field_mT_high,                    #parameter 2
-                    center_frequency_1 - self.linewidth_2/2,  #stepping aom values
-                    self.rabi_pulse_duration_ms_param_2,
-                    2,             
-                    excitation_fraction_list_param_1,
-                    excitation_fraction_list_param_2    
-                )
-                self.atom_lock_aom.set(frequency = feedback_aom_frequency_1)
-                p_1_high = self.run_sequence(0,
-                    self.bias_field_mT_low,                    #parameter 2
-                    center_frequency_1 + self.linewidth_1/2,  #stepping aom values
-                    self.rabi_pulse_duration_ms_param_1,
-                    1,
-                    excitation_fraction_list_param_1,
-                    excitation_fraction_list_param_2    
-                )
+                    if count % 2 == 0:
+                         if p_1_high > 1.0 or p_1_low > 1.0:        #prevents bad excitation fraction from destabilising the lock
+                            p_1_error = 0.0
+                        else:
+                            p_1_error = p_1_high - p_1_low
+
+                        if p_1_error == 0.0:
+                            frequency_correction = 0.0
+                            # print("No correction made")
+                        elif p_1_high+p_1_low <= 0.05:
+                            frequency_correction = 0.0
+                            # print("No correction made - too low")
+                        elif p_1_high+p_1_low >= 1.0:
+                            frequency_correction = 0.0
+                            # print("No correction made - too high")
+    p_correction =  -(self.servo_gain * p_1_error * self.linewidth) / (2* (2 * contrast))
+
+                else:
+                    if thue_morse[count] == 0:
+                        p_2_low = self.run_sequence(0,
+                            self.bias_field_mT_high,                    #parameter 2
+                            center_frequency_1- self.linewidth_2/2,  #stepping aom values
+                            self.rabi_pulse_duration_ms_param_2,
+                            2,
+                            excitation_fraction_list_param_1,
+                            excitation_fraction_list_param_2    
+                        )
+                    else:
+                        p_2_high = self.run_sequence(0,
+                            self.bias_field_mT_high,                    #parameter 2
+                            center_frequency_1 + self.linewidth_2/2,  #stepping aom values
+                            self.rabi_pulse_duration_ms_param_2,
+                            2,             
+                            excitation_fraction_list_param_1,
+                            excitation_fraction_list_param_2    
+                        )
+
+
+                if count % 2 == 0:
+
+    
+
+              
                 
                 error_1 = (p_1_high - p_1_low)
                 error_2 = (p_2_high - p_2_low)

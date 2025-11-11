@@ -751,7 +751,9 @@ class Atom_Servo(EnvExperiment):
         contrast = 0.6
         center_frequency = scan_frequency_values[max_idx]
         
-        self.clock_freq_radar(center_frequency)
+
+        offset_frequency = (center_frequency - 80000000) / 2
+        # self.clock_freq_radar(center_frequency)
         # print(contrast)
         # print(center_frequency)
         
@@ -769,7 +771,7 @@ class Atom_Servo(EnvExperiment):
             thue_morse = [0]
             while len(thue_morse) <= n:
                 thue_morse = thue_morse + [1 - bit for bit in thue_morse] 
-            feedback_aom_frequency = (125.000 * MHz)
+            feedback_aom_frequency = (125.000 * MHz) + offset_frequency
             print(feedback_aom_frequency)
 
 
@@ -850,7 +852,7 @@ class Atom_Servo(EnvExperiment):
                 if thue_morse[count] == 0:
                     self.core.break_realtime()
                     self.rabi_clock_spectroscopy(
-                        aom_frequency = (center_frequency - (self.linewidth/2))*Hz,
+                        aom_frequency = (80000000 - (self.linewidth/2))*Hz,
                         pulse_time = self.rabi_pulse_duration_ms,
                     )
                 
@@ -866,7 +868,7 @@ class Atom_Servo(EnvExperiment):
                 elif thue_morse[count] == 1:
                     self.core.break_realtime()
                     self.rabi_clock_spectroscopy(
-                        aom_frequency = center_frequency + self.linewidth/2,
+                        aom_frequency = 80000000 + self.linewidth/2,
                         pulse_time = self.rabi_pulse_duration_ms,
                     )
                     high_side = self.normalised_detection(0,[0.0],[0.0],[0.0],[0.0])
