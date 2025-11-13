@@ -12,7 +12,7 @@ from artiq.experiment import parallel, sequential
 from artiq.experiment import rpc
 from artiq.language.core import delay
 from artiq.language.units import ms, MHz
-class clock_transition_lookup_v2(EnvExperiment):
+class clock_transition_lookup_v3(EnvExperiment):
     def build(self):
         self.core: Core = self.get_device("core")
         self.setattr_device("ccb")
