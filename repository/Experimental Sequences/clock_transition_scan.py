@@ -771,7 +771,7 @@ class Atom_Servo(EnvExperiment):
             thue_morse = [0]
             while len(thue_morse) <= n:
                 thue_morse = thue_morse + [1 - bit for bit in thue_morse] 
-            feedback_aom_frequency = (125.000 * MHz) + offset_frequency
+            feedback_aom_frequency = (125.000 * MHz) - offset_frequency
             print(feedback_aom_frequency)
 
 
