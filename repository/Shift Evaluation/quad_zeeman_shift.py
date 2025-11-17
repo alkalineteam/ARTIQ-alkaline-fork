@@ -82,6 +82,8 @@ class quad_zeeman_shift_disc(EnvExperiment):
         self.setattr_argument("linewidth_2", NumberValue(default=100 * Hz), group="Locking")  # Added new linewidth parameter
         self.setattr_argument("param_shift_guess",NumberValue(default=43*Hz),group="Locking")
 
+
+        #we have to pre-define our lists 
         self.feedback_list = []
         self.atom_lock_list = []
         self.error_log_list_1 = []
@@ -148,7 +150,6 @@ class quad_zeeman_shift_disc(EnvExperiment):
 
         delay(100*ms)
 
- 
     @kernel
     def clock_spectroscopy(self,aom_frequency,pulse_time,bias_field):                     #Switch to Helmholtz field, wait, then generate Rabi Pulse
        
@@ -191,7 +192,6 @@ class quad_zeeman_shift_disc(EnvExperiment):
         self.stepping_aom.sw.off()
         self.clock_shutter.off()
         
-   
     @kernel
     def normalised_detection(self,j,is_param_1,excitation_fraction_list_param_1,excitation_fraction_list_param_2):        #This function should be sampling from the PMT at the same time as the camera being triggered for seperate probe
         self.core.break_realtime()
@@ -219,9 +219,6 @@ class quad_zeeman_shift_disc(EnvExperiment):
 
                 delay(3.9*ms)     #wait for shutter to open
 
-
-
-
                 with parallel:
                     self.camera_trigger.pulse(1*ms)
                     self.probe_aom.set(frequency=205 * MHz, amplitude=0.5)
@@ -230,7 +227,6 @@ class quad_zeeman_shift_disc(EnvExperiment):
                 delay(1* ms)      #Ground state probe duration                          
                 self.probe_aom.sw.off()
                 self.probe_shutter.off()
-
 
                 delay(5*ms)                         #repumping
 
@@ -297,8 +293,8 @@ class quad_zeeman_shift_disc(EnvExperiment):
         es_counts = 0.0
         bg_counts = 0.0
 
-        measurement_time = 60 * sample_period     #set to 600 as each slice size is 600 samples at the moment,
-                                                        # we should trim this tighter to the peaks to avoid added noise
+        measurement_time = 60 * sample_period     ,
+                                                       
 
         for val in gs[1:]:
             gs_counts += val
@@ -343,7 +339,8 @@ class quad_zeeman_shift_disc(EnvExperiment):
         return excitation_fraction
         
         # ef.append(self.excitation_fraction_list)
- 
+    
+    @rpc
     def fit_lorentzian(self, xdata, ydata):
         """Fit a Lorentzian function to the data and return the fit curve and parameters."""
         def lorentzian(x, a, x0, gamma):
@@ -379,6 +376,7 @@ class quad_zeeman_shift_disc(EnvExperiment):
             fit_params = np.array([amplitude, center, width], dtype=np.float64)
             self.set_dataset("fit_result_2", fit_curve, broadcast=True, archive=True)
             self.set_dataset("fit_params_2", fit_params, broadcast=True, archive=True)
+   
     @rpc
     def correction_log(self,which_param,value):
         if which_param == 1:
@@ -398,9 +396,6 @@ class quad_zeeman_shift_disc(EnvExperiment):
         if which_param == 2:
             self.feedback_log_list_2.append(125000000-value)
             self.set_dataset("feedback_list_2", self.feedback_log_list_2, broadcast=True, archive=True)
-
-
-
 
     @rpc 
     def error_log(self,which_param,value):
@@ -429,7 +424,6 @@ class quad_zeeman_shift_disc(EnvExperiment):
             self.set_dataset("lock_excitation_fraction_param_2", self.lock_ex_list_2, broadcast=True, archive=True)
         self.lock_ex_list_main.append(value)
         self.set_dataset("lock_excitation_fraction_both", self.lock_ex_list_main, broadcast=True, archive=True)
-
 
     @kernel
     def run_sequence(self,j,param,stepping_aom_freq,rabi_pulse_duration,which_param,excitation_fraction_list_param_1,excitation_fraction_list_param_2 ):
@@ -616,6 +610,12 @@ class quad_zeeman_shift_disc(EnvExperiment):
             )  
   
         self.analyse_fit(1,scan_frequency_values,excitation_fraction_list_param_1)
+
+        #Originally had this set up so we could scan over both parameters to evaluate the shift roughly
+        #and then try to lock to it, this didnt work great and was time consuming.
+
+        #Now we just scan over Parameter 1, and then make a guess, based off a previous measurement
+
         ############################### Second run ###############################
         # for j in range(int(cycles)):        
         #     self.run_sequence(j,
@@ -686,7 +686,8 @@ class quad_zeeman_shift_disc(EnvExperiment):
                 #In the DISC method, we interleave between Parameter 1 and Parameter 2 in a P1 P2 P2 P1 order rather than P1 P2 P1 P2, therefore the correction is generated every 4 clock cycles. 
                 
 
-                self.atom_lock_aom.set(frequency = feedback_aom_frequency_1)
+                self.atom_lock_aom.set(frequency = feedback_aom_frequency_1) #make sure we are running with P1
+
                 p_1_low = self.run_sequence(0,
                     self.bias_field_mT_low,                    #parameter 1
                     center_frequency_1 - self.linewidth_1/2,  #stepping aom values
@@ -722,21 +723,22 @@ class quad_zeeman_shift_disc(EnvExperiment):
                     excitation_fraction_list_param_2    
                 )
                 
-                error_1 = (p_1_high - p_1_low)
+                #generates each error signal
+                error_1 = (p_1_high - p_1_low)  
                 error_2 = (p_2_high - p_2_low)
 
+                # filters out bad cycles
                 if error_1 == 0.0:
                     delta_f1 = 0.0
                     # print("No correction made")
                 elif p_1_high+p_1_low <= 0.05:
                     delta_f1 = 0.0
                     # print("No correction made - too low")
-                elif p_1_high+p_1_low >= 1.0:
+                elif p_1_high+p_1_low >= 1.5:
                     delta_f1 = 0.0
                     # print("No correction made - too high")
                 else:
                     delta_f1 = -(self.servo_gain_1 * error_1 * self.linewidth_1 ) / 4 * contrast_1        #Scaling into Hz
-
 
                 if error_2 == 0.0:
                     delta_f2 = 0.0
@@ -744,16 +746,21 @@ class quad_zeeman_shift_disc(EnvExperiment):
                 elif p_2_high+p_2_low <= 0.05:
                     delta_f2 = 0.0
                     # print("No correction made - too low")
-                elif p_2_high+p_2_low >= 1.0:
+                elif p_2_high+p_2_low >= 1.5:
                     delta_f2 = 0.0
                     # print("No correction made - too high")
                 else:
                     delta_f2 = -(self.servo_gain_2 * error_2 * self.linewidth_2) / 4 * contrast_2        #Scaling into Hz
      
-
+                #sends the corrections to the feedback AOM for the respective parameter
                 feedback_aom_frequency_1 = feedback_aom_frequency_1 + delta_f1
                 feedback_aom_frequency_2 = feedback_aom_frequency_2 + delta_f2
+
+                #evaluates the parameter shift between the two values
                 param_shift = feedback_aom_frequency_2 - feedback_aom_frequency_1
+
+
+                #Transmits all the values to the host for monitoring 
                 self.feedback_log(1,feedback_aom_frequency_1)
                 self.feedback_log(2,feedback_aom_frequency_2)
                 self.error_log(1,delta_f1)
@@ -761,7 +768,6 @@ class quad_zeeman_shift_disc(EnvExperiment):
                 self.param_shift_log(param_shift)
                 self.atom_lock_ex_log(1,p_1_low)
                 self.atom_lock_ex_log(1,p_1_high)
-
                 self.atom_lock_ex_log(2,p_2_low) 
                 self.atom_lock_ex_log(2,p_2_high)               
                 self.correction_log(1,delta_f1)
@@ -771,6 +777,8 @@ class quad_zeeman_shift_disc(EnvExperiment):
 
                 
                 count = count + 1
+
+                #timing function, used in the post-processing script
                 t2 = self.core.get_rtio_counter_mu()
                 self.set_dataset("cycle_times",(t2-t1)*1e-6, broadcast=True,unit = ms, archive=True)
 
