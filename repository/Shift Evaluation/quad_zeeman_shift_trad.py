@@ -677,6 +677,14 @@ class quad_zeeman_shift_trad(EnvExperiment):
                 thue_morse = thue_morse + [1 - bit for bit in thue_morse]  
 
             count = 0
+            p_1_high = 0.0
+            p_1_low = 0.0
+            p_2_high = 0.0
+            p_2_low = 0.0
+            p1_correction = 0.0
+            p2_correction = 0.0 
+            p_1_error = 0.0
+            p_2_error = 0.0
             feedback_aom_frequency_1 = 125.0 * MHz 
             feedback_aom_frequency_2 = feedback_aom_frequency_1 + (param_shift / 2)
             print("Feedback AOM Frequency 1: ", feedback_aom_frequency_1)
@@ -695,7 +703,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                 if ((count//8) % 2 == 0):        # every 8 cycles we switch the parameter
                     # check bit in thue morse sequence
                     self.atom_lock_aom.set(frequency = feedback_aom_frequency_1) # Sets the feedback AOM frequency for parameter 1
-                    
+                    delay(1*ms)
                     if thue_morse[count] == 0:                         #Check if low side or high side         
                         p_1_low = self.run_sequence(0,
                             self.bias_field_mT_low,                    #parameter 1
@@ -731,7 +739,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                             p1_correction = 0.0
                             # print("No correction made - too high")
                         else:
-                            p1_correction =  -(self.servo_gain * p_1_error * self.linewidth) / (2* (2 * 0.7))
+                            p1_correction =  -(self.servo_gain_1 * p_1_error * self.linewidth_1) / (2* (2 * 0.7))
 
 
                         self.core.break_realtime()
@@ -746,6 +754,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
 
                 else:
                     self.atom_lock_aom.set(frequency = feedback_aom_frequency_2)
+                    delay(1*ms)
                     if thue_morse[count] == 0:
                         p_2_low = self.run_sequence(0,
                             self.bias_field_mT_high,                    #parameter 2
@@ -783,7 +792,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                             p2_correction = 0.0
                             # print("No correction made - too high")
                         else:
-                            p2_correction =  -(self.servo_gain * p_2_error * self.linewidth) / (2* (2 * 0.7))
+                            p2_correction =  -(self.servo_gain_2 * p_2_error * self.linewidth_2) / (2* (2 * 0.7))
 
 
                         self.core.break_realtime()
