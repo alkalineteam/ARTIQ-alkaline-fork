@@ -194,8 +194,8 @@ class probe_light_shift_disc(EnvExperiment):
     @kernel
     def normalised_detection(self,j,is_param_1,excitation_fraction_list_param_1,excitation_fraction_list_param_2):        #This function should be sampling from the PMT at the same time as the camera being triggered for seperate probe
         self.core.break_realtime()
-        sample_period = 1 / 25000   #10kHz sampling rate should give us enough data points
-        sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
+        sample_period = 1 / 25000   #25 kHz is near the max sampling rate without getting underflow errors
+        sampling_duration = 0.06      #60ms sampling time to allow for all the imaging slices to take place
 
         num_samples = int32(sampling_duration/sample_period)
         samples = [[0.0 for i in range(8)] for i in range(num_samples)]
@@ -372,6 +372,7 @@ class probe_light_shift_disc(EnvExperiment):
             fit_params = np.array([amplitude, center, width], dtype=np.float64)
             self.set_dataset("fit_result_2", fit_curve, broadcast=True, archive=True)
             self.set_dataset("fit_params_2", fit_params, broadcast=True, archive=True)
+
     @rpc
     def correction_log(self,which_param,value):
         if which_param == 1:
@@ -381,9 +382,7 @@ class probe_light_shift_disc(EnvExperiment):
             self.correction_log_list_1.append(value)
             self.set_dataset("correction_list_2", self.correction_log_list_2, broadcast=True, archive=True)
         self.correction_log_list_main.append(value)
-        self.set_dataset("correction_log_list_both",self.correction_log_list_main, broadcast=True, archive=True)
-       
-        
+        self.set_dataset("correction_log_list_both",self.correction_log_list_main, broadcast=True, archive=True)     
 
     @rpc 
     def error_log(self,which_param,value):
@@ -598,46 +597,45 @@ class probe_light_shift_disc(EnvExperiment):
             )  
         self.analyse_fit(1,scan_frequency_values,excitation_fraction_list_param_1)
         ############################### Scan Parameter 2: High Probe Power ###############################
-        for j in range(int32(cycles)):        
-            self.run_sequence(j,
-                self.high_probe_power_att,                    #parameter 2
-                scan_frequency_values[j],  #stepping aom values
-                self.rabi_pulse_duration_ms_param_2,
-                2,                         #parameter marker
-                excitation_fraction_list_param_1,
-                excitation_fraction_list_param_2    
-            )  
+        # for j in range(int32(cycles)):        
+        #     self.run_sequence(j,
+        #         self.high_probe_power_att,                    #parameter 2
+        #         scan_frequency_values[j],  #stepping aom values
+        #         self.rabi_pulse_duration_ms_param_2,
+        #         2,                         #parameter marker
+        #         excitation_fraction_list_param_1,
+        #         excitation_fraction_list_param_2    
+        #     )  
 
         #process data and do fit from the scan
 
         
-        self.analyse_fit(2,scan_frequency_values,excitation_fraction_list_param_2)
+        # self.analyse_fit(2,scan_frequency_values,excitation_fraction_list_param_2)
 
         # from the excitation fraction list we need to manually extract the peak height and center_frequency. 
 
         max_val_1 = excitation_fraction_list_param_1[0]
         max_idx_1 = 0
-        max_val_2 = excitation_fraction_list_param_2[0]
-        max_idx_2 = 0
+        # max_val_2 = excitation_fraction_list_param_2[0]
+        # max_idx_2 = 0
 
         # Loop through the lists
         for i in range(1, len(excitation_fraction_list_param_1)):
             if excitation_fraction_list_param_1[i] > max_val_1:
                 max_val_1 = excitation_fraction_list_param_1[i]
                 max_idx_1 = i
-            if excitation_fraction_list_param_2[i] > max_val_2:
-                max_val_2 = excitation_fraction_list_param_2[i]
-                max_idx_2 = i
+            # if excitation_fraction_list_param_2[i] > max_val_2:
+            #     max_val_2 = excitation_fraction_list_param_2[i]
+            #     max_idx_2 = i
 
         # Assign contrast and center frequency
-        contrast_1 = max_val_1
+        contrast_1 = 0.5
         center_frequency_1 = scan_frequency_values[max_idx_1]
 
-        contrast_2 = max_val_2
-        center_frequency_2 = scan_frequency_values[max_idx_2]
+        contrast_2 = 0.5
+        # center_frequency_2 = scan_frequency_values[max_idx_2]
+        param_shift = self.param_shift_guess
 
-
-        param_shift = center_frequency_2 - center_frequency_1
         print(param_shift)
         
 
@@ -697,8 +695,34 @@ class probe_light_shift_disc(EnvExperiment):
                     excitation_fraction_list_param_2    
                 )
 
-                delta_f1 = -(self.servo_gain_1 * (p_1_high - p_1_low) * self.linewidth_1 ) / (4 * contrast_1 )       #Scaling into Hz
-                delta_f2 = -(self.servo_gain_2 * (p_2_high - p_2_low) * self.linewidth_2) / (4 * contrast_2)
+                   #generates each error signal
+                error_1 = (p_1_high - p_1_low)  
+                error_2 = (p_2_high - p_2_low)
+
+                # filters out bad cycles
+                if error_1 == 0.0:
+                    delta_f1 = 0.0
+                    # print("No correction made")
+                elif p_1_high+p_1_low <= 0.05:
+                    delta_f1 = 0.0
+                    # print("No correction made - too low")
+                elif p_1_high+p_1_low >= 1.5:
+                    delta_f1 = 0.0
+                    # print("No correction made - too high")
+                else:
+                    delta_f1 = -(self.servo_gain_1 * error_1 * self.linewidth_1 ) / 4 * contrast_1        #Scaling into Hz
+
+                if error_2 == 0.0:
+                    delta_f2 = 0.0
+                    # print("No correction made")
+                elif p_2_high+p_2_low <= 0.05:
+                    delta_f2 = 0.0
+                    # print("No correction made - too low")
+                elif p_2_high+p_2_low >= 1.5:
+                    delta_f2 = 0.0
+                    # print("No correction made - too high")
+                else:
+                    delta_f2 = -(self.servo_gain_2 * error_2 * self.linewidth_2) / 4 * contrast_2        #Scaling into Hz
 
                 feedback_aom_frequency_1 = feedback_aom_frequency_1 + delta_f1
                 feedback_aom_frequency_2 = feedback_aom_frequency_2 + delta_f2
