@@ -368,8 +368,6 @@ class Atom_Servo(EnvExperiment):
         self.clock_shutter.off()
 
 
-
-
         
     @kernel
     def normalised_detection(self,j,gs_list,es_list,excitation_fraction_list,atom_count_list):        #This function should be sampling from the PMT at the same time as the camera being triggered for seperate probe
@@ -871,7 +869,7 @@ class Atom_Servo(EnvExperiment):
                         aom_frequency = 80000000 + self.linewidth/2,
                         pulse_time = self.rabi_pulse_duration_ms,
                     )
-                    high_side = self.normalised_detection(0,[0.0],[0.0],[0.0],[0.0])
+                    high_side =self.normalised_detection(0,[0.0],[0.0],[0.0],[0.0]) 
                     # print("high_side")
                     self.atom_lock_ex(high_side)
                     delay(2*ms)
