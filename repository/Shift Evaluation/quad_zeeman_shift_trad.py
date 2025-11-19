@@ -676,7 +676,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
             while len(thue_morse) <= n:
                 thue_morse = thue_morse + [1 - bit for bit in thue_morse]  
 
-            count = 0
+            count = 1
             p_1_high = 0.0
             p_1_low = 0.0
             p_2_high = 0.0
@@ -685,6 +685,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
             p2_correction = 0.0 
             p_1_error = 0.0
             p_2_error = 0.0
+            drift_param = 0.0
             feedback_aom_frequency_1 = 125.0 * MHz 
             feedback_aom_frequency_2 = feedback_aom_frequency_1 + (param_shift / 2)
             print("Feedback AOM Frequency 1: ", feedback_aom_frequency_1)
@@ -700,10 +701,14 @@ class quad_zeeman_shift_trad(EnvExperiment):
                 #Using the traditional method, we are switching between parameter 1 and 2 every 8 cycles, and generating a correction every 2 cycles for each parameter.
                 #The parameter shift is calculated every 16 cycles.
 
-                if ((count//16) % 2 == 0):        # every 8 cycles we switch the parameter
-                    # check bit in thue morse sequence
-                    self.atom_lock_aom.set(frequency = feedback_aom_frequency_1) # Sets the feedback AOM frequency for parameter 1
+                cycle16 = (count - 1) % 16          #gives us where we are in the 16 cycle loop, 0-15
+                mode = cycle16 // 8          #gives us whether we are in parameter 1 or 2 mode, 0-7 for param 1, 8-15 for param 2
+
+                if mode == 0:
+                    ################### Parameter 1 ##########################
+                    self.atom_lock_aom.set(frequency = feedback_aom_frequency_1 + drift_param) # Sets the feedback AOM frequency for parameter 1
                     delay(1*ms)
+
                     if thue_morse[count] == 0:                         #Check if low side or high side         
                         p_1_low = self.run_sequence(0,
                             self.bias_field_mT_low,                    #parameter 1
@@ -726,15 +731,15 @@ class quad_zeeman_shift_trad(EnvExperiment):
                     if count % 2 == 0:                              # Generates correction every 2 cycles
                         p_1_error = p_1_high - p_1_low
 
-                        if p_1_error == 0.0:                     #Calculate correction
+                        if p_1_error == 0.0:                     #Calculate correction, checks for bad cycles
                             p1_correction = 0.0
-                            # print("No correction made")
+         
                         elif p_1_high+p_1_low <= 0.05:
                             p1_correction = 0.0
-                            # print("No correction made - too low")
-                        elif p_1_high+p_1_low >= 1.3:
+                   
+                        elif p_1_high+p_1_low >= 1.5:
                             p1_correction = 0.0
-                            # print("No correction made - too high")
+                     
                         else:
                             p1_correction =  -(self.servo_gain_1 * p_1_error * self.linewidth_1) / (2* (2 * 0.7))
 
@@ -743,19 +748,26 @@ class quad_zeeman_shift_trad(EnvExperiment):
                         delay(500*us)
                     
                         feedback_aom_frequency_1 = feedback_aom_frequency_1 + p1_correction
-                        self.feedback_log(1,feedback_aom_frequency_1)
+
+                        if cycle16 == 1:                              #calculate the drift of parameter 1, store for use in parameter 2
+                            drift_param_1 = feedback_aom_frequency_1
+                        if cycle16 == 7: 
+                            drift_param_2 = feedback_aom_frequency_1
+                            drift_param = drift_param_2 - drift_param_1  #drift_param gets updated every 16 cycles
+   
+                        self.feedback_log(1,feedback_aom_frequency_1)  # Log values for param 1 analysis
                         self.error_log(1,p1_correction)
                         self.atom_lock_ex_log(1,p_1_low)
-                        
 
+ 
 
                 else:
-                    self.atom_lock_aom.set(frequency = feedback_aom_frequency_2)
+                    self.atom_lock_aom.set(frequency = feedback_aom_frequency_2 + drift_param) # Sets the feedback AOM frequency for parameter 2
                     delay(1*ms)
                     if thue_morse[count] == 0:
                         p_2_low = self.run_sequence(0,
                             self.bias_field_mT_high,                    #parameter 2
-                            center_frequency_1- self.linewidth_2/2,  #stepping aom values
+                            center_frequency_1 - self.linewidth_2 / 2,  #stepping aom values
                             self.rabi_pulse_duration_ms_param_2,
                             2,
                             excitation_fraction_list_param_1,
@@ -782,7 +794,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                         elif p_2_high+p_2_low <= 0.05:
                             p2_correction = 0.0
                             # print("No correction made - too low")
-                        elif p_2_high+p_2_low >= 1.3:
+                        elif p_2_high+p_2_low >= 1.5:
                             p2_correction = 0.0
                             # print("No correction made - too high")
                         else:
@@ -800,7 +812,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
      
                 delay(5*ms)
 
-                if count % 32 == 0:
+                if count % 16 == 0:
                     param_shift = feedback_aom_frequency_1 - feedback_aom_frequency_2
                     self.param_shift_log(param_shift)
 
