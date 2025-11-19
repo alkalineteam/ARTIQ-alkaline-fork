@@ -686,6 +686,8 @@ class quad_zeeman_shift_trad(EnvExperiment):
             p_1_error = 0.0
             p_2_error = 0.0
             drift_param = 0.0
+            drift_param_1 = 0.0
+            drift_param_2 = 0.0
             feedback_aom_frequency_1 = 125.0 * MHz 
             feedback_aom_frequency_2 = feedback_aom_frequency_1 + (param_shift / 2)
             print("Feedback AOM Frequency 1: ", feedback_aom_frequency_1)
