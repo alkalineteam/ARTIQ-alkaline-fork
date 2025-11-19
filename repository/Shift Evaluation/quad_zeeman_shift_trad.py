@@ -700,7 +700,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                 #Using the traditional method, we are switching between parameter 1 and 2 every 8 cycles, and generating a correction every 2 cycles for each parameter.
                 #The parameter shift is calculated every 16 cycles.
 
-                if ((count//8) % 2 == 0):        # every 8 cycles we switch the parameter
+                if ((count//16) % 2 == 0):        # every 8 cycles we switch the parameter
                     # check bit in thue morse sequence
                     self.atom_lock_aom.set(frequency = feedback_aom_frequency_1) # Sets the feedback AOM frequency for parameter 1
                     delay(1*ms)
@@ -723,11 +723,8 @@ class quad_zeeman_shift_trad(EnvExperiment):
                             excitation_fraction_list_param_2    
                         )
 
-                    if count % 2 == 0:                             # Generates correction every 2 cycles
-                        if p_1_high > 1.0 or p_1_low > 1.0:        #prevents bad excitation fraction from destabilising the lock
-                            p_1_error = 0.0
-                        else:
-                            p_1_error = p_1_high - p_1_low
+                    if count % 2 == 0:                              # Generates correction every 2 cycles
+                        p_1_error = p_1_high - p_1_low
 
                         if p_1_error == 0.0:                     #Calculate correction
                             p1_correction = 0.0
@@ -776,11 +773,8 @@ class quad_zeeman_shift_trad(EnvExperiment):
 
 
                     if count % 2 == 0:
-                        if count % 2 == 0:                              # Generates correction every 2 cycles
-                         if p_2_high > 1.0 or p_2_low > 1.0:        #prevents bad excitation fraction from destabilising the lock
-                            p_2_error = 0.0
-                        else:
-                            p_2_error = p_2_high - p_2_low
+                    
+                        p_2_error = p_2_high - p_2_low
 
                         if p_2_error == 0.0:                     #Calculate correction
                             p2_correction = 0.0
@@ -806,7 +800,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
      
                 delay(5*ms)
 
-                if count % 16 == 0:
+                if count % 32 == 0:
                     param_shift = feedback_aom_frequency_1 - feedback_aom_frequency_2
                     self.param_shift_log(param_shift)
 

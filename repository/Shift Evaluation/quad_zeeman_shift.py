@@ -160,12 +160,11 @@ class quad_zeeman_shift_disc(EnvExperiment):
         comp_field = 1.35 * 0.14    # comp current * scaling factor from measurement
         bias_at_coil = (bias_field - comp_field)/ 0.914   #bias field dips in center of coils due to geometry, scaling factor provided by modelling field
         current_per_coil = ((bias_at_coil) / 2.0086) / 2   
-        coil_2_voltage = current_per_coil + 5.0
-        coil_1_voltage = 5.0 - (current_per_coil / 0.94 )           #Scaled against coil 1
+        
+        coil_1_voltage = (current_per_coil + 4.7225) / 0.9487
+        coil_2_voltage = (-current_per_coil + 5.0154) / 1.0147        #scaled with coil calibration
 
-       
-       
-         #Switch to Helmholtz
+       #Switch to Helmholtz
         self.mot_coil_1.write_dac(0, coil_1_voltage)  
         self.mot_coil_2.write_dac(1, coil_2_voltage)
         
@@ -651,6 +650,7 @@ class quad_zeeman_shift_disc(EnvExperiment):
         # Assign contrast and center frequency
         contrast_1 = 0.5
         center_frequency_1 = scan_frequency_values[max_idx_1] 
+        print(center_frequency_1)
 
         contrast_2 = 0.5
         # center_frequency_2 = scan_frequency_values[max_idx_2]

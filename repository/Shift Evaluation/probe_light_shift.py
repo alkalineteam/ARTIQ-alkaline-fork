@@ -197,7 +197,7 @@ class probe_light_shift_disc(EnvExperiment):
         sample_period = 1 / 25000   #10kHz sampling rate should give us enough data points
         sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
 
-        num_samples = int32(sampling_duration/sample_period)
+        num_samples = int(sampling_duration/sample_period)
         samples = [[0.0 for i in range(8)] for i in range(num_samples)]
     
         with parallel:
@@ -483,7 +483,7 @@ class probe_light_shift_disc(EnvExperiment):
         volt_2_steps = (compressed_blue_mot_coil_2_voltage - bmot_voltage_2 )/steps_com
         amp_steps = (bmot_amp-compress_bmot_amp)/steps_com
     
-        for i in range(int64(steps_com)):
+        for i in range(int(steps_com)):
 
             voltage_1 = bmot_voltage_1 + ((i+1) * volt_1_steps)
             voltage_2 = bmot_voltage_2 + ((i+1) * volt_2_steps)
@@ -536,7 +536,7 @@ class probe_light_shift_disc(EnvExperiment):
         amp_steps = (rmot_A_start - rmot_A_end)/steps_com
         
 
-        for i in range(int64(steps_com)):
+        for i in range(int(steps_com)):
             voltage_1 = bb_rmot_coil_1_voltage + ((i+1) * volt_1_steps)
             voltage_2 = bb_rmot_coil_2_voltage + ((i+1) * volt_2_steps)
             amp = rmot_A_start - ((i+1) * amp_steps)
@@ -577,9 +577,9 @@ class probe_light_shift_disc(EnvExperiment):
 
         self.initialise_modules()
 
-        scan_start = int32(self.scan_center_frequency_Hz - (int32(self.scan_range_Hz )/ 2))
-        scan_end = int32(self.scan_center_frequency_Hz + (int32(self.scan_range_Hz ) / 2))
-        scan_frequency_values = [float(x) for x in range(scan_start, scan_end, int32(self.scan_step_size_Hz))]
+        scan_start = int(self.scan_center_frequency_Hz - (int32(self.scan_range_Hz )/ 2))
+        scan_end = int(self.scan_center_frequency_Hz + (int32(self.scan_range_Hz ) / 2))
+        scan_frequency_values = [float(x) for x in range(scan_start, scan_end, int(self.scan_step_size_Hz))]
         cycles = len(scan_frequency_values)
 
         excitation_fraction_list_param_1 = [0.0] * cycles
@@ -587,7 +587,7 @@ class probe_light_shift_disc(EnvExperiment):
         
 
         ############################### Scan Parameter 1: Low Probe power ##############################
-        for j in range(int32(cycles)):        
+        for j in range(int(cycles)):        
             self.run_sequence(j,
                 self.low_probe_power_att,    #Here the parameter we are changing is the probe power
                 scan_frequency_values[j],
@@ -598,46 +598,46 @@ class probe_light_shift_disc(EnvExperiment):
             )  
         self.analyse_fit(1,scan_frequency_values,excitation_fraction_list_param_1)
         ############################### Scan Parameter 2: High Probe Power ###############################
-        for j in range(int32(cycles)):        
-            self.run_sequence(j,
-                self.high_probe_power_att,                    #parameter 2
-                scan_frequency_values[j],  #stepping aom values
-                self.rabi_pulse_duration_ms_param_2,
-                2,                         #parameter marker
-                excitation_fraction_list_param_1,
-                excitation_fraction_list_param_2    
-            )  
+ #       for j in range(int(cycles)):        
+  #          self.run_sequence(j,
+  #              self.high_probe_power_att,                    #parameter 2
+  #              scan_frequency_values[j],  #stepping aom values
+  #              self.rabi_pulse_duration_ms_param_2,
+   #             2,                         #parameter marker
+   #             excitation_fraction_list_param_1,
+   #             excitation_fraction_list_param_2    
+            # )  
 
         #process data and do fit from the scan
 
         
-        self.analyse_fit(2,scan_frequency_values,excitation_fraction_list_param_2)
+   #     self.analyse_fit(2,scan_frequency_values,excitation_fraction_list_param_2)
 
         # from the excitation fraction list we need to manually extract the peak height and center_frequency. 
 
         max_val_1 = excitation_fraction_list_param_1[0]
         max_idx_1 = 0
-        max_val_2 = excitation_fraction_list_param_2[0]
-        max_idx_2 = 0
+    #    max_val_2 = excitation_fraction_list_param_2[0]
+   #     max_idx_2 = 0
 
         # Loop through the lists
         for i in range(1, len(excitation_fraction_list_param_1)):
             if excitation_fraction_list_param_1[i] > max_val_1:
                 max_val_1 = excitation_fraction_list_param_1[i]
                 max_idx_1 = i
-            if excitation_fraction_list_param_2[i] > max_val_2:
-                max_val_2 = excitation_fraction_list_param_2[i]
-                max_idx_2 = i
+            # if excitation_fraction_list_param_2[i] > max_val_2:
+            #     max_val_2 = excitation_fraction_list_param_2[i]
+            #     max_idx_2 = i
 
         # Assign contrast and center frequency
-        contrast_1 = max_val_1
+        contrast_1 = 0.6
         center_frequency_1 = scan_frequency_values[max_idx_1]
 
-        contrast_2 = max_val_2
-        center_frequency_2 = scan_frequency_values[max_idx_2]
+        contrast_2 = 0.6
+        # center_frequency_2 = scan_frequency_values[max_idx_2]
 
 
-        param_shift = center_frequency_2 - center_frequency_1
+        param_shift = self.param_shift_guess
         print(param_shift)
         
 
