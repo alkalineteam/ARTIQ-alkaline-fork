@@ -113,8 +113,8 @@ class Everything_ON(EnvExperiment):
 
         if self.High_Low == True:
             for i in range(int64(self.Cycle)):
-                self.MOT_Coil_1.write_dac(0, 1.05)
-                self.MOT_Coil_2.write_dac(1, 0.535)
+                self.MOT_Coil_1.write_dac(0, 1.07)
+                self.MOT_Coil_2.write_dac(1, 0.477)
 
                 with parallel:
                     self.MOT_Coil_1.load()

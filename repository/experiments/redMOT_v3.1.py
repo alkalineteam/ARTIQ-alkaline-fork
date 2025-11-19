@@ -82,8 +82,8 @@ class redMOT_v3_1(EnvExperiment):
             self.Probe.set(frequency=65*MHz, amplitude=0.00)
             self.Single_Freq.set(frequency=80*MHz, amplitude=0.35)
             
-            voltage_1 = 1.05
-            voltage_2 = 0.535
+            voltage_1 = 1.07
+            voltage_2 = 0.477
             self.MOT_Coil_1.write_dac(0, voltage_1)
             self.MOT_Coil_2.write_dac(1, voltage_2)
 
@@ -98,8 +98,25 @@ class redMOT_v3_1(EnvExperiment):
                 self.Repump707.on()
                 self.Repump679.on()
                 # self.Flush.off()
-
+            
             delay(self.Loading_Time*ms)
+
+            # Scanning blue MOT frequency during loading
+            # freq = 87.5
+            # freq_ = 92.5
+            # freq_st = (freq_ - freq)/ (self.Loading_Time/2)
+            # with parallel:
+            #     delay(self.Loading_Time*ms)
+            #     with sequential:
+            #         for i in range(int(self.Loading_Time/2)):
+            #             freq += freq_st
+            #             self.BMOT_AOM.set(frequency=freq*MHz, amplitude=0.08)
+            #             delay(1*ms)
+
+            #         for i in range(int(self.Loading_Time/2)):
+            #             freq -= freq_st
+            #             self.BMOT_AOM.set(frequency=freq*MHz, amplitude=0.08)
+            #             delay(1*ms)
 
             # **************************** Slice 2: Transfer ****************************
             self.ZeemanSlower.set(frequency=180 * MHz, amplitude=0.00)
