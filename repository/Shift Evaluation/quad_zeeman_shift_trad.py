@@ -159,8 +159,9 @@ class quad_zeeman_shift_trad(EnvExperiment):
         comp_field = 1.35 * 0.14    # comp current * scaling factor from measurement
         bias_at_coil = (bias_field - comp_field)/ 0.914   #bias field dips in center of coils due to geometry, scaling factor provided by modelling field
         current_per_coil = ((bias_at_coil) / 2.0086) / 2   
-        coil_2_voltage = current_per_coil + 5.0
-        coil_1_voltage = 5.0 - (current_per_coil / 0.94 )           #Scaled against coil 1
+        
+        coil_1_voltage = (current_per_coil + 4.7225) / 0.9487
+        coil_2_voltage = (-current_per_coil + 5.0154) / 1.0147        #scaled with coil calibration
 
        
        
@@ -711,7 +712,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                     self.atom_lock_aom.set(frequency = feedback_aom_frequency_1 + drift_param) # Sets the feedback AOM frequency for parameter 1
                     delay(1*ms)
 
-                    if thue_morse[count] == 0:                         #Check if low side or high side         
+                    if thue_morse[count-1] == 0:                         #Check if low side or high side         
                         p_1_low = self.run_sequence(0,
                             self.bias_field_mT_low,                    #parameter 1
                             center_frequency_1 - self.linewidth_1/2,  #stepping aom values
@@ -720,6 +721,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                             excitation_fraction_list_param_1,
                             excitation_fraction_list_param_2    
                         )
+                        print("p_1_low:",p_1_low)
                     else:
                         p_1_high = self.run_sequence(0,
                             self.bias_field_mT_low,                    #parameter 1
@@ -729,6 +731,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                             excitation_fraction_list_param_1,
                             excitation_fraction_list_param_2    
                         )
+                        print("p_1_high:",p_1_high)
 
                     if count % 2 == 0:                              # Generates correction every 2 cycles
                         p_1_error = p_1_high - p_1_low
@@ -756,7 +759,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                         if cycle16 == 7: 
                             drift_param_2 = feedback_aom_frequency_1
                             drift_param = drift_param_2 - drift_param_1  #drift_param gets updated every 16 cycles
-   
+                            print(drift_param)
                         self.feedback_log(1,feedback_aom_frequency_1)  # Log values for param 1 analysis
                         self.error_log(1,p1_correction)
                         self.atom_lock_ex_log(1,p_1_low)
@@ -766,7 +769,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                 else:
                     self.atom_lock_aom.set(frequency = feedback_aom_frequency_2 + drift_param) # Sets the feedback AOM frequency for parameter 2
                     delay(1*ms)
-                    if thue_morse[count] == 0:
+                    if thue_morse[count-1] == 0:
                         p_2_low = self.run_sequence(0,
                             self.bias_field_mT_high,                    #parameter 2
                             center_frequency_1 - self.linewidth_2 / 2,  #stepping aom values
@@ -815,7 +818,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                 delay(5*ms)
 
                 if count % 16 == 0:
-                    param_shift = feedback_aom_frequency_1 - feedback_aom_frequency_2
+                    param_shift = feedback_aom_frequency_1 - (feedback_aom_frequency_2-drift_param)
                     self.param_shift_log(param_shift)
 
                 
