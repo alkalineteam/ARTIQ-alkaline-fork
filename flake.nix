@@ -405,6 +405,10 @@
         target = "efc";
         variant = "songbird";
       };
+      artiq-board-phaser-mtdds = makeArtiqBoardPackage {
+        target = "phaser";
+        variant = "mtdds";
+      };
       inherit latex-artiq-manual;
       artiq-manual-html = pkgs.stdenvNoCC.mkDerivation rec {
         name = "artiq-manual-html-${version}";
@@ -515,7 +519,13 @@
           export LIBARTIQ_SUPPORT=`libartiq-support`
           export QT_PLUGIN_PATH=${qtPaths.QT_PLUGIN_PATH}
           export QML2_IMPORT_PATH=${qtPaths.QML2_IMPORT_PATH}
-          export PYTHONPATH=`git rev-parse --show-toplevel`:$PYTHONPATH
+          artiq_root=$(git rev-parse --show-toplevel 2>/dev/null)
+          if [[ -z "$artiq_root" ]] || ! artiq_run --version > /dev/null 2>&1; then
+            echo "WARNING: Local ARTIQ repository not found, could not be added to PYTHONPATH."
+            echo "This development shell must be run from within the ARTIQ repository."
+          else
+            export PYTHONPATH="$artiq_root:$PYTHONPATH"
+          fi
         '';
       };
       # Lighter development shell optimized for building firmware and flashing boards.
@@ -541,7 +551,7 @@
     };
 
     hydraJobs = {
-      inherit (packages.x86_64-linux) artiq artiq-board-kc705-nist_clock artiq-board-efc-shuttler artiq-board-efc-songbird openocd-bscanspi;
+      inherit (packages.x86_64-linux) artiq artiq-board-kc705-nist_clock artiq-board-efc-shuttler artiq-board-efc-songbird artiq-board-phaser-mtdds openocd-bscanspi;
       gateware-sim = pkgs.stdenvNoCC.mkDerivation {
         name = "gateware-sim";
         buildInputs = [
