@@ -405,6 +405,10 @@
         target = "efc";
         variant = "songbird";
       };
+      artiq-board-phaser-mtdds = makeArtiqBoardPackage {
+        target = "phaser";
+        variant = "mtdds";
+      };
       inherit latex-artiq-manual;
       artiq-manual-html = pkgs.stdenvNoCC.mkDerivation rec {
         name = "artiq-manual-html-${version}";
@@ -547,7 +551,7 @@
     };
 
     hydraJobs = {
-      inherit (packages.x86_64-linux) artiq artiq-board-kc705-nist_clock artiq-board-efc-shuttler artiq-board-efc-songbird openocd-bscanspi;
+      inherit (packages.x86_64-linux) artiq artiq-board-kc705-nist_clock artiq-board-efc-shuttler artiq-board-efc-songbird artiq-board-phaser-mtdds openocd-bscanspi;
       gateware-sim = pkgs.stdenvNoCC.mkDerivation {
         name = "gateware-sim";
         buildInputs = [
