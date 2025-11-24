@@ -12,7 +12,7 @@ from artiq.coredevice.phaser import PHASER_GW_BASE, PHASER_GW_MIQRO
 from artiq.coredevice.shuttler import shuttler_volt_to_mu
 from artiq.coredevice.suservo import SyncDataEeprom as SUServoEeprom
 from artiq.master.databases import DeviceDB
-from artiq.master.worker_db import DeviceManager
+from artiq.master.worker_db import DeviceManager, DeviceError
 
 
 if os.name == "nt":
@@ -57,6 +57,8 @@ class SinaraTester(EnvExperiment):
         self.zotinos = dict()
         self.fastinos = dict()
         self.phasers = dict()
+        self.phaser_drtio_mtdds_fpgas = dict()
+        self.phaser_drtio_mtddss = dict()
         self.grabbers = dict()
         self.mirny_cplds = dict()
         self.mirnies = dict()
@@ -94,6 +96,10 @@ class SinaraTester(EnvExperiment):
                     self.fastinos[name] = self.get_device(name)
                 elif (module, cls) == ("artiq.coredevice.phaser", "Phaser"):
                     self.phasers[name] = self.get_device(name)
+                elif (module, cls) == ("artiq.coredevice.phaser_drtio", "PhaserMTDDS"):
+                    self.phaser_drtio_mtdds_fpgas[name] = self.get_device(name)
+                elif (module, cls) == ("artiq.coredevice.phaser_drtio", "PhaserMTDDSChannel"):
+                    self.phaser_drtio_mtddss[name] = self.get_device(name)
                 elif (module, cls) == ("artiq.coredevice.grabber", "Grabber"):
                     self.grabbers[name] = self.get_device(name)
                 elif (module, cls) == ("artiq.coredevice.mirny", "Mirny"):
@@ -121,10 +127,20 @@ class SinaraTester(EnvExperiment):
                     })
                 elif (module, cls) == ("artiq.coredevice.songbird", "Songbird"):
                     songbird_name = name.replace("_config", "")
+                    n_dds = 0
+                    # try to find out how many DDS there are
+                    # hard limit on 16 (see schema)
+                    while n_dds < 16:
+                        try:
+                            self.get_device(f"{songbird_name}_dds{n_dds}")
+                            n_dds += 1
+                        except DeviceError:
+                            break
+
                     self.songbirds[songbird_name] = ({
                         "config": self.get_device(name),
                         "leds": [self.get_device(f"{songbird_name}_led{i}") for i in range(2)],
-                        "dds": [self.get_device(f"{songbird_name}_dds{i}") for i in range(4)],
+                        "dds": [self.get_device(f"{songbird_name}_dds{i}") for i in range(n_dds)],
                     })
                 elif (module, cls) == ("artiq.coredevice.cxp_grabber", "CXPGrabber"):
                     self.coaxpress_sfps[name] = self.get_device(name)
@@ -170,6 +186,8 @@ class SinaraTester(EnvExperiment):
         self.zotinos = sorted(self.zotinos.items(), key=lambda x: x[1].bus.channel)
         self.fastinos = sorted(self.fastinos.items(), key=lambda x: x[1].channel)
         self.phasers = sorted(self.phasers.items(), key=lambda x: x[1].channel_base)
+        self.phaser_drtio_mtdds_fpgas = sorted(self.phaser_drtio_mtdds_fpgas.items(), key=lambda x: x[1].channel)
+        self.phaser_drtio_mtddss = sorted(self.phaser_drtio_mtddss.items(), key=lambda x: x[1].ddss[0].channel)
         self.grabbers = sorted(self.grabbers.items(), key=lambda x: x[1].channel_base)
         self.mirnies = sorted(self.mirnies.items(), key=lambda x: (x[1].cpld.bus.channel, x[1].channel))
         self.suservos = sorted(self.suservos.items(), key=lambda x: x[1].channel)
@@ -708,6 +726,89 @@ class SinaraTester(EnvExperiment):
             [card_dev for _, (__, card_dev) in enumerate(self.phasers)]
         )
 
+
+   
+    @kernel
+    def test_phaser_drtio_att(self, att):
+        self.core.break_realtime()
+        for i in range(8):
+            test_word = 1 << i
+            att.set_att_mu(test_word)
+            readback_word = att.get_att_mu()
+            if test_word != readback_word:
+                print("Expected: ", test_word, ", readback:", readback_word)
+                raise ValueError("Test and readback attenuator word mismatch")
+
+    @kernel
+    def init_phaser_mtdds_fpga(self, fpga):
+        self.core.break_realtime()
+        fpga.init()
+
+    @kernel
+    def init_phaser_mtdds_channel(self, channel):
+        self.core.break_realtime()
+        channel.init()
+
+    @kernel
+    def setup_phaser_mtdds_channel(self, channel, frequencies):
+        self.core.break_realtime()
+        channel.attenuator.set_att(6.0 * dB)
+
+        f_len = len(frequencies)
+        assert f_len <= channel.tones
+        for n in range(f_len):
+            # delay to prevent RTIO collision
+            channel.ddss[n].set_frequency(frequencies[n])
+            delay(20 * us)
+            channel.ddss[n].set_amplitude(1.0 / f_len)
+            delay(20 * us)
+            channel.ddss[n].enable_phase_accumulator(True)
+            delay(20 * us)
+
+    @kernel
+    def setup_phaser_mtdds_upconverter(self, channel, frequency):
+        self.core.break_realtime()
+        channel.upconverter.enable_mixer_rf_output(False)
+        channel.upconverter.set_mixer_frequency(frequency)
+        channel.upconverter.enable_mixer_rf_output(True)
+        delay(500 * us) # wait for PLL to locks
+        if not channel.upconverter_pll_locked():
+            raise ValueError("TRF372017 PLL fails to lock")
+
+    def test_phaser_drtio_mtddss(self):
+        print("*** Testing Phaser DRTIO MTDDSs")
+        for card_n, (card_name, card_dev) in enumerate(self.phaser_drtio_mtdds_fpgas):
+            print(f"{card_name}: initializing...")
+            self.init_phaser_mtdds_fpga(card_dev)
+        print("...done")
+            
+        for card_n, (card_name, card_dev) in enumerate(self.phaser_drtio_mtddss):
+            print(f"{card_name}: initializing...")
+            self.init_phaser_mtdds_channel(card_dev)
+            print(f"{card_name}: testing attenuator digital control...")
+            self.test_phaser_drtio_att(card_dev.attenuator)
+        print("...done")
+
+        print("All Phaser MTDDS channels active:")
+
+        for card_n, (card_name, card_dev) in enumerate(self.phaser_drtio_mtddss):
+            if card_dev.has_upconverter:
+                if card_dev.upconverter.use_external_lo:
+                    print(f"{card_name}: enabling upconverter without internal PLL, please provide external LO")
+                else:
+                    lo_freq = 2000 + 100 * card_n
+                    print(f"{card_name}: setting upconverter at {lo_freq} MHz ")
+                    self.setup_phaser_mtdds_upconverter(card_dev, lo_freq * MHz)
+
+            n_tones = card_dev.tones
+            base_freq = 10 + card_n
+            freqs = [(base_freq + i) * MHz for i in range(n_tones)]
+            print(f"{card_name}: outputing {n_tones} tones (" + " ".join([str(f/MHz) for f in freqs]) + ") MHz")
+            self.setup_phaser_mtdds_channel(card_dev, freqs)
+
+        print("Press ENTER when done.")
+        input()
+
     @kernel
     def grabber_capture(self, card_dev, rois):
         self.core.break_realtime()
@@ -992,14 +1093,16 @@ class SinaraTester(EnvExperiment):
     @kernel
     def setup_songbird_waveforms(self, card_n, config, ddss):
         self.core.break_realtime()
-        config.clear(0b1111)
+        n_dds = len(ddss)
+        config.clear((1 << n_dds) - 1)
         delay(1*ms)
         # Set some waveforms
         i = 1
+        ampl_offset = 0x8000 // n_dds
         for channel in ddss:
-            freq = (10.0*float(i) + float(card_n)) * MHz
+            freq = (25.0 + 50.0*float(card_n) + 15.0*float(i)) * MHz
             freq_mu = config.frequency_to_mu(freq)
-            channel.set_waveform(ampl_offset=0x2000, 
+            channel.set_waveform(ampl_offset=ampl_offset, 
                                  damp=0, 
                                  ddamp=0, 
                                  dddamp=0, 
@@ -1008,8 +1111,8 @@ class SinaraTester(EnvExperiment):
                                  chirp=0,
                                  shift=0)
             i += 1
-        delay(1*ms)
-        config.trigger(0b1111)
+            delay(1*ms)
+        config.trigger((1 << n_dds) - 1)
         delay(1*ms)
         config.clear(0)
 
@@ -1026,7 +1129,7 @@ class SinaraTester(EnvExperiment):
             print("...done")
             print("{} output active. Frequencies: {} MHz.".format(
                 card_name,
-                ", ".join([str(10*i + card_n) for i in range(1, 5)]))
+                ", ".join([str(25 + 15*(i + 1) + 50*card_n) for i in range(len(card_dev["dds"]))]))
                 )
         print("Check the outputs on an oscilloscope, using the FFT function. Press ENTER to continue.")
         input()
