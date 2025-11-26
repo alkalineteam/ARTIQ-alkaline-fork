@@ -292,13 +292,18 @@ class Atom_Servo(EnvExperiment):
         bias_at_coil = (self.bias_field_mT - comp_field)/ 0.914   #bias field dips in center of coils due to geometry, scaling factor provided by modelling field
         current_per_coil = ((bias_at_coil) / 2.0086) / 2   
         
+
         if self.change_bias_direction == True:
-            coil_1_voltage = (current_per_coil + 4.7225) / 0.9487
-            coil_2_voltage = (-current_per_coil + 5.0154) / 1.0147        #scaled with coil calibration
+            coil_1_voltage = (-current_per_coil + 4.7225) / 0.9487
+            coil_2_voltage = (current_per_coil + 5.0154) / 1.0147        #scaled with coil calibration
         else:
-            coil_1_voltage = (+current_per_coil + 4.7225) / 0.9487
-            coil_2_voltage = (-current_per_coil + 5.0154) / 1.0147        #scaled with coil calibration
-         #Switch to Helmholtz
+            coil_1_voltage = (current_per_coil + 4.7225) / 0.9487
+            coil_2_voltage = (-current_per_coil + 5.0154) / 1.047   #scaled with coil calibration
+        #Switch to Helmholtz
+
+        print(coil_1_voltage)
+        print(coil_2_voltage)
+
         self.mot_coil_1.write_dac(1, coil_1_voltage)  
         self.mot_coil_2.write_dac(0, coil_2_voltage)
         
@@ -309,7 +314,7 @@ class Atom_Servo(EnvExperiment):
         # self.pmt_shutter.on()
         # self.camera_shutter.on()
           
-
+        print(current_per_coil)
         delay(70*ms)  #wait for coils to switch
 
         self.clock_shutter.on()  
@@ -336,7 +341,7 @@ class Atom_Servo(EnvExperiment):
         current_per_coil = ((bias_at_coil) / 2.0086) / 2   
         coil_1_voltage = (current_per_coil + 4.7225) / 0.9487
         coil_2_voltage = (-current_per_coil + 5.0154) / 1.0147        #scaled with coil calibration
-        
+
          #Switch to Helmholtz
         self.mot_coil_1.write_dac(1, coil_1_voltage)  
         self.mot_coil_2.write_dac(0, coil_2_voltage)

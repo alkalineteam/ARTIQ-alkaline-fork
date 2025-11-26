@@ -721,7 +721,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                             excitation_fraction_list_param_1,
                             excitation_fraction_list_param_2    
                         )
-                        print("p_1_low:",p_1_low)
+                        self.atom_lock_ex_log(1,p_1_low)
                     else:
                         p_1_high = self.run_sequence(0,
                             self.bias_field_mT_low,                    #parameter 1
@@ -731,7 +731,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                             excitation_fraction_list_param_1,
                             excitation_fraction_list_param_2    
                         )
-                        print("p_1_high:",p_1_high)
+                        self.atom_lock_ex_log(1,p_1_high)
 
                     if count % 2 == 0:                              # Generates correction every 2 cycles
                         p_1_error = p_1_high - p_1_low
@@ -762,7 +762,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                             print(drift_param)
                         self.feedback_log(1,feedback_aom_frequency_1)  # Log values for param 1 analysis
                         self.error_log(1,p1_correction)
-                        self.atom_lock_ex_log(1,p_1_low)
+                        
 
  
 
@@ -778,6 +778,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                             excitation_fraction_list_param_1,
                             excitation_fraction_list_param_2    
                         )
+                        self.atom_lock_ex_log(2,p_2_low)
                     else:
                         p_2_high = self.run_sequence(0,
                             self.bias_field_mT_high,                    #parameter 2
@@ -787,7 +788,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                             excitation_fraction_list_param_1,
                             excitation_fraction_list_param_2    
                         )
-
+                        self.atom_lock_ex_log(2,p_2_high)
 
                     if count % 2 == 0:
                     
@@ -812,14 +813,14 @@ class quad_zeeman_shift_trad(EnvExperiment):
                         feedback_aom_frequency_2 = feedback_aom_frequency_2 + p2_correction
                         self.feedback_log(2,feedback_aom_frequency_2)
                         self.error_log(2,p2_correction)
-                        self.atom_lock_ex_log(2,p_2_low)
+                        
                         
      
                 delay(5*ms)
 
                 if count % 16 == 0:
                     param_shift = feedback_aom_frequency_1 - (feedback_aom_frequency_2-drift_param)
-                    self.param_shift_log(param_shift)
+                    self.param_shift_log(2*param_shift)
 
                 
                 count = count + 1
