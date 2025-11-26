@@ -10,6 +10,7 @@ ARTIQ-9 (Unreleased)
    - 12Gbps CoaXPress grabber support on Kasli-SoC with CoaXPress-SFP adapter
      (and ZC706 with Hello-FPGA CXP 4R FMC card).
    - Songbird - a 4-tone, 16-bit DDS using a 2.5Gsps LTC2000 DAC.
+   - Phaser MTDDS - a new gateware variant for Phaser that supports DRTIO and 2 IQ channels with 26-tone each
    - Improved SDRAM memory controller and DMA cores puts Kasli DMA performance on par with
      other platforms.
    - Core device reflashing over the network through the new ``flash`` tool in ``artiq_coremgmt``.
@@ -18,6 +19,9 @@ ARTIQ-9 (Unreleased)
      bytes and integer arrays, and slight improvements in other cases.
    - Urukul 1.6 support and new Urukul capabilities: Digital Ramp Generation (DRG) and individual
      per-channel control for PROFILE, IO_UPDATE, OSK, DRCTRL, DRHOLD, and ATT_EN.
+   - SU-Servo can now perform DDS synchronization for PROTO_REV 9 Urukuls.
+   - Support variable numbers of Urukul cards on SU-Servo.
+   - Gateware support for phase tracking mode on SU-Servo.
    - DRTIO repeater support across GT/EEM. This enables Shuttler support on DRTIO satellites.
    - Fastino monitoring with Moninj.
    - Zotino monitoring now displays the values in volts.
@@ -36,9 +40,10 @@ ARTIQ-9 (Unreleased)
      header context menu.
    - State files are now automatically backed up upon successful loading.
    - Experiments can now use ``restart_applet`` CCB command to restart applets.
+   - Interactive argument widgets now remember their layout between runs.
 * ``artiq_session`` has been revamped. Output now indicates the originating process. Dashboard
-   is started after the controller manager. All processes are cleanly terminated after dashboard
-   is closed.
+  is started after the controller manager. All processes are cleanly terminated after dashboard
+  is closed.
 * ``afws_client`` now uses the "happy eyeballs" algorithm (RFC 6555) for a faster and more
   reliable connection to the server.
 * Compiler can now give automatic suggestions for ``kernel_invariants``. 
@@ -80,6 +85,7 @@ Breaking changes:
   artiq_flash erase=storage write=gateware,firmware start -d ./artiq_kasli/master/ --srcbuild
 
 * Experimental features have been removed.
+* SU-Servo coefficient memory have been remapped. Users should re-interpret the record written by Channel.get_profile_mu().
 
 ARTIQ-8
 -------
