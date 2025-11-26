@@ -72,8 +72,8 @@ class quad_zeeman_shift_trad(EnvExperiment):
         self.setattr_argument("scan_center_frequency_Hz", NumberValue(default=85000000 * Hz),group="Scan Parameters",)
         self.setattr_argument("scan_range_Hz", NumberValue(default=500000 * Hz), group="Scan Parameters")
         self.setattr_argument("scan_step_size_Hz", NumberValue(default=1000 * Hz), group="Scan Parameters")
-        self.setattr_argument("bias_field_mT_high", NumberValue(default=3.0),group="Shift Parameters")
-        self.setattr_argument("bias_field_mT_low", NumberValue(default=3.0),group="Shift Parameters")
+        self.setattr_argument("bias_current_test", NumberValue(default=3.0),group="Shift Parameters")
+        self.setattr_argument("bias_current_ref", NumberValue(default=3.0),group="Shift Parameters")
         self.setattr_argument("blue_mot_loading_time", NumberValue(default=2000 * ms), group="Sequence Parameters")
         self.setattr_argument("Enable_Lock", BooleanValue(default=False), group="Locking")
         self.setattr_argument("servo_gain_1", NumberValue(default=0.3), group="Locking")
@@ -150,20 +150,17 @@ class quad_zeeman_shift_trad(EnvExperiment):
 
  
     @kernel
-    def clock_spectroscopy(self,aom_frequency,pulse_time,bias_field):                     #Switch to Helmholtz field, wait, then generate Rabi Pulse
+    def clock_spectroscopy(self,aom_frequency,pulse_time,bias_current):                     #Switch to Helmholtz field, wait, then generate Rabi Pulse
        
         self.red_mot_aom.sw.off()
         self.stepping_aom.sw.off()
         self.red_mot_shutter.off()
 
-        comp_field = 1.35 * 0.14    # comp current * scaling factor from measurement
-        bias_at_coil = (bias_field - comp_field)/ 0.914   #bias field dips in center of coils due to geometry, scaling factor provided by modelling field
-        current_per_coil = ((bias_at_coil) / 2.0086) / 2   
-        
-        coil_1_voltage = (current_per_coil + 4.7225) / 0.9487
-        coil_2_voltage = (-current_per_coil + 5.0154) / 1.0147        #scaled with coil calibration
 
-       
+        coil_1_voltage = 0.9564 * (bias_current) + 4.973
+        coil_2_voltage = 1.0393 * (-bias_current) + 4.965
+
+
        
          #Switch to Helmholtz
         self.mot_coil_1.write_dac(0, coil_1_voltage)  
@@ -714,7 +711,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
 
                     if thue_morse[count-1] == 0:                         #Check if low side or high side         
                         p_1_low = self.run_sequence(0,
-                            self.bias_field_mT_low,                    #parameter 1
+                            self.bias_current_ref,                    #parameter 1
                             center_frequency_1 - self.linewidth_1/2,  #stepping aom values
                             self.rabi_pulse_duration_ms_param_1,
                             1,
@@ -724,7 +721,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                         self.atom_lock_ex_log(1,p_1_low)
                     else:
                         p_1_high = self.run_sequence(0,
-                            self.bias_field_mT_low,                    #parameter 1
+                            self.bias_current_ref,                    #parameter 1
                             center_frequency_1 + self.linewidth_1/2,  #stepping aom values
                             self.rabi_pulse_duration_ms_param_1,
                             1,
@@ -771,7 +768,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                     delay(1*ms)
                     if thue_morse[count-1] == 0:
                         p_2_low = self.run_sequence(0,
-                            self.bias_field_mT_high,                    #parameter 2
+                            self.bias_current_test,                    #parameter 2
                             center_frequency_1 - self.linewidth_2 / 2,  #stepping aom values
                             self.rabi_pulse_duration_ms_param_2,
                             2,
@@ -781,7 +778,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                         self.atom_lock_ex_log(2,p_2_low)
                     else:
                         p_2_high = self.run_sequence(0,
-                            self.bias_field_mT_high,                    #parameter 2
+                            self.bias_current_test,                    #parameter 2
                             center_frequency_1 + self.linewidth_2/2,  #stepping aom values
                             self.rabi_pulse_duration_ms_param_2,
                             2,             
