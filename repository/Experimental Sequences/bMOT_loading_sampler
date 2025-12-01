@@ -1,0 +1,135 @@
+from artiq.experiment import *
+from artiq.coredevice.ttl import TTLOut
+from artiq.language.core import delay
+import numpy as numpy
+import numpy as np
+from scipy.optimize import curve_fit
+from artiq.coredevice import ad9910
+import os
+import csv
+from datetime import datetime
+
+class bMOT_loading_sampler(EnvExperiment):
+
+    def build(self):
+        self.setattr_device("core")
+        self.sampler:Sampler = self.get_device("sampler0")
+        self.blue_mot_shutter:TTLOut=self.get_device("ttl4")
+        self.repump_shutter_707:TTLOut=self.get_device("ttl5")
+        self.zeeman_slower_shutter:TTLOut=self.get_device("ttl6")
+        self.probe_shutter:TTLOut=self.get_device("ttl7")
+        self.red_mot_shutter:TTLOut=self.get_device("ttl12")   
+        #AD9910
+        self.red_mot_aom = self.get_device("urukul0_ch0")
+        self.blue_mot_aom = self.get_device("urukul0_ch1")
+        self.zeeman_slower_aom = self.get_device("urukul0_ch2")
+        self.probe_aom = self.get_device("urukul0_ch3")
+        self.atom_lock_aom=self.get_device("urukul1_ch2")
+        #Zotino
+        self.mot_coil_1=self.get_device("zotino0")
+        self.mot_coil_2=self.get_device("zotino0")
+
+    @kernel
+    def initialise_modules(self):
+            
+        delay(100*us)
+
+        # Initialise shutters
+
+        self.blue_mot_shutter.output()
+        self.red_mot_shutter.output()
+        self.zeeman_slower_shutter.output()
+        self.repump_shutter_707.output()
+        self.repump_shutter_679.output()
+        self.probe_shutter.output()
+        
+        #initialise aoms and cplds
+        self.mot_coil_1.init()
+        self.mot_coil_2.init()
+        self.blue_mot_aom.cpld.init()
+        self.blue_mot_aom.init()
+        self.zeeman_slower_aom.cpld.init()
+        self.zeeman_slower_aom.init()
+        self.probe_aom.cpld.init()
+        self.probe_aom.init()
+        self.red_mot_aom.cpld.init()
+        self.red_mot_aom.init()
+        self.atom_lock_aom.init()
+        self.atom_lock_aom.cpld.init()
+
+
+        self.sampler.init() 
+
+        self.probe_aom.sw.off()
+        self.atom_lock_aom.sw.on()
+        self.blue_mot_aom.sw.on()
+        self.zeeman_slower_aom.sw.on()
+
+         #Atom Lock AOM - for feeding back to 1397 clock laser 
+        self.atom_lock_aom.set(frequency = 125 * MHz)
+        self.atom_lock_aom.set_att(13*dB)
+        
+        self.blue_mot_aom.set_att(0.0)
+        self.zeeman_slower_aom.set_att(0.0)
+        self.probe_aom.set_att(0.0)
+        self.red_mot_aom.set_att(0.0)
+
+        def run(self):
+
+            self.core.break_realtime()
+            sample_period = 1 / 1000   #10kHz sampling rate should give us enough data points
+            sampling_duration = 3      #30ms sampling time to allow for all the imaging slices to take place
+
+            num_samples = int(sampling_duration/sample_period)
+            samples = [[0.0 for i in range(8)] for i in range(num_samples)]
+        
+            with parallel:
+        
+                with sequential:
+                    bmot_voltage_1 = 8.0
+                    bmot_voltage_2 = 7.9
+
+                    ################################# Blue MOT #########################################
+
+                    delay(500*us)
+                    self.blue_mot_aom.set(frequency= 90 * MHz, amplitude=0.06)
+                    self.zeeman_slower_aom.set(frequency= 70 * MHz, amplitude=0.08)
+
+                    self.blue_mot_aom.sw.on()
+                    self.zeeman_slower_aom.sw.on()
+                
+                    self.mot_coil_1.write_dac(0, bmot_voltage_1)
+                    self.mot_coil_2.write_dac(1, bmot_voltage_2)
+
+                    with parallel:
+                        self.mot_coil_1.load()
+                        self.mot_coil_2.load()
+                        self.blue_mot_shutter.on()
+                        self.probe_shutter.off()
+                        self.zeeman_slower_shutter.on()
+                        self.repump_shutter_707.on()
+                        self.repump_shutter_679.on()
+                        self.red_mot_shutter.on()  
+
+                    self.red_mot_aom.set(frequency = 80.45 * MHz, amplitude = 0.08)
+                    self.red_mot_aom.sw.on()
+                    
+                    delay(self.blue_mot_loading_time* ms)
+
+                    
+                with sequential:
+                    self.core.break_realtime()
+                    for k in range(num_samples):   
+                        delay(5*us)
+                        self.sampler.sample(samples[k])
+                        delay(sample_period*s)
+                    
+                    delay(sampling_duration*s)
+
+            samples_ch0 = [float(i[0]) for i in samples]
+            
+
+            self.set_dataset("blue_mot_loading_curve", samples_ch0, broadcast=True, archive=True)
+
+
+           
