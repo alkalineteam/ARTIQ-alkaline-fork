@@ -301,14 +301,9 @@ class Atom_Servo(EnvExperiment):
         #     coil_2_voltage = (-current_per_coil + 5.0154) / 1.047   #scaled with coil calibration
         #Switch to Helmholtz
 
-        if self.change_bias_direction == False:
-            coil_1_voltage = 0.9564*(self.bias_current)+4.973
-            coil_2_voltage = 1.0393*(-self.bias_current)+4.965
-        else:
-            coil_1_voltage = 0.9564*(-self.bias_current)+4.973
-            coil_2_voltage = 1.0393*(self.bias_current)+4.965
+        coil_2_voltage = 0.9564 * (-self.bias_current) + 4.973
+        coil_1_voltage = 1.0393 * (self.bias_current) + 4.965
 
-     
 
         self.mot_coil_1.write_dac(1, coil_1_voltage)  
         self.mot_coil_2.write_dac(0, coil_2_voltage)
@@ -632,7 +627,7 @@ class Atom_Servo(EnvExperiment):
         rmot_f_start = 80.6,
         rmot_f_end = 81,
         rmot_A_start = 0.05,
-        rmot_A_end = 0.003
+        rmot_A_end = 0.004
 
         scan_start = int(self.scan_center_frequency_Hz - (int(self.scan_range_Hz )/ 2))
         scan_end =int(self.scan_center_frequency_Hz + (int(self.scan_range_Hz ) / 2))
@@ -660,7 +655,7 @@ class Atom_Servo(EnvExperiment):
 
             self.red_mot_shutter.on()
             self.red_mot_aom.set(frequency = 80.45 * MHz, amplitude = 0.08)
-            self.red_mot_aom.sw.on()
+            
 
 
             delay(self.blue_mot_loading_time* ms)
@@ -692,7 +687,7 @@ class Atom_Servo(EnvExperiment):
             delay(broadband_red_mot_time*ms)
 
             self.red_mot_aom.set(frequency = 80.55 *MHz, amplitude = 0.05)
-
+            self.red_mot_aom.sw.on()
             delay(5*ms)
 
 

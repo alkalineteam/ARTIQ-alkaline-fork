@@ -157,11 +157,9 @@ class quad_zeeman_shift_trad(EnvExperiment):
         self.red_mot_shutter.off()
 
 
-        coil_1_voltage = 0.9564 * (bias_current) + 4.973
-        coil_2_voltage = 1.0393 * (-bias_current) + 4.965
+        coil_2_voltage = 0.9564 * (-bias_current) + 4.973
+        coil_1_voltage = 1.0393 * (bias_current) + 4.965
 
-
-       
          #Switch to Helmholtz
         self.mot_coil_1.write_dac(0, coil_1_voltage)  
         self.mot_coil_2.write_dac(1, coil_2_voltage)
