@@ -675,6 +675,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                 thue_morse = thue_morse + [1 - bit for bit in thue_morse]  
 
             count = 1
+            integrator_pointer = 1
             p_1_high = 0.0
             p_1_low = 0.0
             p_2_high = 0.0
@@ -690,7 +691,15 @@ class quad_zeeman_shift_trad(EnvExperiment):
             feedback_aom_frequency_2 = feedback_aom_frequency_1 + (param_shift / 2)
             print("Feedback AOM Frequency 1: ", feedback_aom_frequency_1)
             print("Feedback AOM Frequency 2: ", feedback_aom_frequency_2)
+
+            previous_correction_values = [0.0] * 10
+
+
+            #once integrator pointer hits 10, we shift all values down and add the new one at the end
+            #we then 
             
+
+
             delay(10*ms)
             
             while True:
