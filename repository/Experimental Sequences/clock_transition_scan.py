@@ -59,6 +59,7 @@ class Atom_Servo(EnvExperiment):
         self.setattr_argument("Enable_Lock", BooleanValue(default=False), group="Locking")
         self.setattr_argument("change_bias_direction", BooleanValue(default=False), group="Sequence Parameters")
         self.setattr_argument("servo_gain", NumberValue(default=0.3), group="Locking")
+        self.setattr_argument("servo_gain_2", NumberValue(default=0.05), group="Locking")
         self.setattr_argument("linewidth", NumberValue(default=100 * Hz), group="Locking")  # This is the linewidth of the clock transition, adjust as necessary
         self.setattr_argument("lattice_aom_att", NumberValue(default=13 * dB), group="Sequence Parameters")
 
@@ -67,6 +68,10 @@ class Atom_Servo(EnvExperiment):
         self.atom_lock_list = []
         self.error_log_list = []
         self.atom_no_list = []
+
+        #required for the double integrator servo
+        self.num_filled = 0
+        self.previous_correction_values = [0.0]*10
         
 
     @kernel
@@ -542,7 +547,18 @@ class Atom_Servo(EnvExperiment):
         
         # ef.append(self.excitation_fraction_list)
 
-     
+    @kernel
+    def update_correction_list(self, new_value: float):
+        if self.num_filled < len(self.previous_correction_values):
+            # Still filling the list initially
+            self.previous_correction_values[self.num_filled] = new_value
+            self.num_filled += 1
+        else:
+            # List is full → shift everything left
+            for i in range(len(self.previous_correction_values) - 1):
+                self.previous_correction_values[i] = self.previous_correction_values[i + 1]
+            # Add the new value at the end
+            self.previous_correction_values[len(self.previous_correction_values) - 1] = new_value
 
     def fit_lorentzian(self, xdata, ydata):
         """Fit a Lorentzian function to the data and return the fit curve and parameters."""
@@ -605,6 +621,7 @@ class Atom_Servo(EnvExperiment):
         freq_after_harpo = ((Sr_Hz - 2*value +2*80000000 +(2*174700000))/2)+100000000
         self.set_dataset("atom_servo.clock_freq_radar", freq_after_harpo, broadcast=True, archive=True)
    
+
     @kernel
     def run(self):
         self.core.reset()
@@ -783,8 +800,9 @@ class Atom_Servo(EnvExperiment):
             feedback_aom_frequency = (125.000 * MHz) - offset_frequency
             print(feedback_aom_frequency)
 
-
-        
+            #Set up an integrating loop as a second servo to correct for long term drifts
+            
+            corrections_pointer = 0
 
 
             delay(100*ms)
@@ -905,6 +923,7 @@ class Atom_Servo(EnvExperiment):
                     #     frequency_correction = (self.servo_gain / denominator) * error_signal
                     # # This is the first servo loop
 
+
                         if error_signal == 0.0:
                             frequency_correction = 0.0
                             # print("No correction made")
@@ -915,13 +934,16 @@ class Atom_Servo(EnvExperiment):
                             frequency_correction = 0.0
                             # print("No correction made - too high")
                         else:
-                            frequency_correction =  -(self.servo_gain * error_signal * self.linewidth) / (2* (2 * contrast))
+                            frequency_correction =  - (self.servo_gain * error_signal * self.linewidth) / (2* (2 * contrast))
+                        
+                        self.update_correction_list(frequency_correction)
+                        double_integrator_correction = self.servo_gain_2 * sum(self.previous_correction_values) *self.linewidth / (2 * (2 * contrast))
 
                         self.core.break_realtime()
                         delay(500*us)
 
                         
-                        feedback_aom_frequency = feedback_aom_frequency + frequency_correction
+                        feedback_aom_frequency = feedback_aom_frequency - (frequency_correction + double_integrator_correction)
                     #    print(feedback_aom_frequency)
                         delay(5*ms)
 
