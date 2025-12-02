@@ -76,10 +76,12 @@ class quad_zeeman_shift_trad(EnvExperiment):
         self.setattr_argument("bias_current_ref", NumberValue(default=3.0),group="Shift Parameters")
         self.setattr_argument("blue_mot_loading_time", NumberValue(default=2000 * ms), group="Sequence Parameters")
         self.setattr_argument("Enable_Lock", BooleanValue(default=False), group="Locking")
-        self.setattr_argument("servo_gain_1", NumberValue(default=0.3), group="Locking")
+        self.setattr_argument("param_1_gain_1", NumberValue(default=0.3), group="Locking")
         self.setattr_argument("linewidth_1", NumberValue(default=100 * Hz), group="Locking")  # This is the linewidth of the clock transition, adjust as necessary
-        self.setattr_argument("servo_gain_2", NumberValue(default=0.3), group="Locking")  # Added new servo gain parameter
+        self.setattr_argument("param_1_gain_2", NumberValue(default=0.03), group="Locking")  # Added new servo gain parameter
         self.setattr_argument("linewidth_2", NumberValue(default=100 * Hz), group="Locking")  # Added new linewidth parameter
+        self.setattr_argument("param_2_gain_1", NumberValue(default=0.3), group="Locking")
+        self.setattr_argument("param_2_gain_2", NumberValue(default=0.03), group="Locking")
         self.setattr_argument("param_shift_guess",NumberValue(default=43*Hz),group="Locking")
 
         self.feedback_list = []
@@ -95,6 +97,12 @@ class quad_zeeman_shift_trad(EnvExperiment):
         self.correction_log_list_main = []
         self.feedback_log_list_1 = []
         self.feedback_log_list_2 = []
+
+        self.num_filled_p1 = 0
+        self.num_filled_p2 = 0
+        self.prev_correction_1 = [0.0]*10
+        self.prev_correction_2 = [0.0]*10
+
 
     
 
@@ -395,9 +403,6 @@ class quad_zeeman_shift_trad(EnvExperiment):
             self.feedback_log_list_2.append(125000000-value)
             self.set_dataset("feedback_list_2", self.feedback_log_list_2, broadcast=True, archive=True)
 
-
-
-
     @rpc 
     def error_log(self,which_param,value):
         """log of the error in the clock frequency"""
@@ -425,6 +430,40 @@ class quad_zeeman_shift_trad(EnvExperiment):
             self.set_dataset("lock_excitation_fraction_param_2", self.lock_ex_list_2, broadcast=True, archive=True)
         self.lock_ex_list_main.append(value)
         self.set_dataset("lock_excitation_fraction_both", self.lock_ex_list_main, broadcast=True, archive=True)
+
+    
+    @kernel
+    def update_correction_list_p1(self, new_value: float):
+        if self.num_filled_p1 < len(self.prev_correction_1):
+            # Still filling the list initially
+            self.prev_correction_1[self.num_filled_p1] = new_value
+            self.num_filled_p1 += 1
+        else:
+            # List is full → shift everything left
+            for i in range(len(self.prev_correction_1) - 1):
+                self.prev_correction_1[i] = self.prev_correction_1[i + 1]
+            # Add the new value at the end
+            self.prev_correction_1[len(self.prev_correction_1) - 1] = new_value
+
+    @kernel
+    def update_correction_list_p2(self, new_value: float):
+        if self.num_filled_p2 < len(self.prev_correction_2):
+            # Still filling the list initially
+            self.prev_correction_2[self.num_filled_p2] = new_value
+            self.num_filled_p2 += 1
+        else:
+            # List is full → shift everything left
+            for i in range(len(self.prev_correction_2) - 1):
+                self.prev_correction_2[i] = self.prev_correction_2[i + 1]
+            # Add the new value at the end
+            self.prev_correction_2[len(self.prev_correction_2) - 1] = new_value
+
+    @kernel
+    def double_integrator_sum(self,list):
+        total = 0.0
+        for i in range(10):
+            total += list[i]
+        return total
 
 
     @kernel
@@ -750,13 +789,17 @@ class quad_zeeman_shift_trad(EnvExperiment):
                             p1_correction = 0.0
                      
                         else:
-                            p1_correction =  -(self.servo_gain_1 * p_1_error * self.linewidth_1) / (2* (2 * 0.7))
+                            p1_correction =  (self.param_1_gain_1 * p_1_error * self.linewidth_1) / (2* (2 * 0.7))
 
+
+                        #addition of double integrator term
+                        self.update_correction_list_p1(p1_correction)
+                        double_integrator_correction = (self.param_1_gain_2 * self.double_integrator_sum(self.prev_correction_1) * self.linewidth_1) / (2* (2 * 0.7))
 
                         self.core.break_realtime()
                         delay(500*us)
                     
-                        feedback_aom_frequency_1 = feedback_aom_frequency_1 + p1_correction
+                        feedback_aom_frequency_1 = feedback_aom_frequency_1 - (p1_correction + double_integrator_correction)
 
                         if cycle16 == 1:                              #calculate the drift of parameter 1, store for use in parameter 2
                             drift_param_1 = feedback_aom_frequency_1
@@ -808,13 +851,16 @@ class quad_zeeman_shift_trad(EnvExperiment):
                             p2_correction = 0.0
                             # print("No correction made - too high")
                         else:
-                            p2_correction =  -(self.servo_gain_2 * p_2_error * self.linewidth_2) / (2* (2 * 0.7))
+                            p2_correction =  (self.param_2_gain_1 * p_2_error * self.linewidth_2) / (2* (2 * 0.7))
+
+                        self.update_correction_list_p2(p2_correction)
+                        double_integrator_correction_p2 = (self.param_1_gain_2 * self.double_integrator_sum(self.prev_correction_2) * self.linewidth_2) / (2* (2 * 0.7))
 
 
                         self.core.break_realtime()
                         delay(500*us)
                     
-                        feedback_aom_frequency_2 = feedback_aom_frequency_2 + p2_correction
+                        feedback_aom_frequency_2 = feedback_aom_frequency_2 - (p2_correction+ double_integrator_correction_p2)
                         self.feedback_log(2,feedback_aom_frequency_2)
                         self.error_log(2,p2_correction)
                         
