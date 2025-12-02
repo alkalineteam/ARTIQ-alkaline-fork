@@ -157,11 +157,9 @@ class quad_zeeman_shift_trad(EnvExperiment):
         self.red_mot_shutter.off()
 
 
-        coil_1_voltage = 0.9564 * (bias_current) + 4.973
-        coil_2_voltage = 1.0393 * (-bias_current) + 4.965
+        coil_2_voltage = 0.9564 * (-bias_current) + 4.973
+        coil_1_voltage = 1.0393 * (bias_current) + 4.965
 
-
-       
          #Switch to Helmholtz
         self.mot_coil_1.write_dac(0, coil_1_voltage)  
         self.mot_coil_2.write_dac(1, coil_2_voltage)
@@ -574,7 +572,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
         self.clock_spectroscopy(
             aom_frequency = stepping_aom_freq,
             pulse_time = rabi_pulse_duration,
-            bias_field = param
+            bias_current = param
         )
 
         excitation = self.normalised_detection(j,is_param_1,excitation_fraction_list_param_1,excitation_fraction_list_param_2)           
@@ -605,7 +603,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
         ############################### Scan Parameter 1: Low Bias Field ##############################
         for j in range(int(cycles)):        
             self.run_sequence(j,
-                self.bias_field_mT_low,    #Here the parameter we are changing is the bias field
+                self.bias_current_ref,    #Here the parameter we are changing is the bias field
                 scan_frequency_values[j],
                 self.rabi_pulse_duration_ms_param_1,
                 1,
@@ -709,9 +707,9 @@ class quad_zeeman_shift_trad(EnvExperiment):
 
                 #Using the traditional method, we are switching between parameter 1 and 2 every 8 cycles, and generating a correction every 2 cycles for each parameter.
                 #The parameter shift is calculated every 16 cycles.
-
-                cycle16 = (count - 1) % 16          #gives us where we are in the 16 cycle loop, 0-15
-                mode = cycle16 // 8          #gives us whether we are in parameter 1 or 2 mode, 0-7 for param 1, 8-15 for param 2
+                n = 8
+                cycle16 = (count - 1) % (2*n)         #gives us where we are in the 16 cycle loop, 0-15
+                mode = cycle16 // n          #gives us whether we are in parameter 1 or 2 mode, 0-7 for param 1, 8-15 for param 2
 
                 if mode == 0:
                     ################### Parameter 1 ##########################
@@ -764,7 +762,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
                             drift_param_1 = feedback_aom_frequency_1
                         if cycle16 == 7: 
                             drift_param_2 = feedback_aom_frequency_1
-                            drift_param = drift_param_2 - drift_param_1  #drift_param gets updated every 16 cycles
+                            drift_param = (n/(n-2))*(drift_param_2 - drift_param_1)  #drift_param gets updated every 16 cycles
                             print(drift_param)
                         self.feedback_log(1,feedback_aom_frequency_1)  # Log values for param 1 analysis
                         self.error_log(1,p1_correction)
@@ -824,7 +822,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
      
                 delay(5*ms)
 
-                if count % 16 == 0:
+                if count % (2*n) == 0:
                     param_shift = feedback_aom_frequency_1 - (feedback_aom_frequency_2-drift_param)
                     self.param_shift_log(2*param_shift)
 
