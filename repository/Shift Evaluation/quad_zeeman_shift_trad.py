@@ -430,8 +430,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
             self.set_dataset("lock_excitation_fraction_param_2", self.lock_ex_list_2, broadcast=True, archive=True)
         self.lock_ex_list_main.append(value)
         self.set_dataset("lock_excitation_fraction_both", self.lock_ex_list_main, broadcast=True, archive=True)
-
-    
+ 
     @kernel
     def update_correction_list_p1(self, new_value: float):
         if self.num_filled_p1 < len(self.prev_correction_1):
@@ -464,7 +463,6 @@ class quad_zeeman_shift_trad(EnvExperiment):
         for i in range(10):
             total += list[i]
         return total
-
 
     @kernel
     def run_sequence(self,j,param,stepping_aom_freq,rabi_pulse_duration,which_param,excitation_fraction_list_param_1,excitation_fraction_list_param_2 ):
@@ -712,7 +710,6 @@ class quad_zeeman_shift_trad(EnvExperiment):
                 thue_morse = thue_morse + [1 - bit for bit in thue_morse]  
 
             count = 1
-            integrator_pointer = 1
             p_1_high = 0.0
             p_1_low = 0.0
             p_2_high = 0.0
@@ -729,7 +726,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
             print("Feedback AOM Frequency 1: ", feedback_aom_frequency_1)
             print("Feedback AOM Frequency 2: ", feedback_aom_frequency_2)
 
-            previous_correction_values = [0.0] * 10
+           
 
 
             #once integrator pointer hits 10, we shift all values down and add the new one at the end

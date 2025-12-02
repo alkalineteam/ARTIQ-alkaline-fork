@@ -1,19 +1,8 @@
 """
 Author: Jordan Wayland
-Last Updated: 2025-06-28
+Last Updated: 2025-12-02
 Description:
-    Drift-insensitive self-comparison (DISC) clock lock loop for Sr-88 using ARTIQ.
-    Interleaves probe powers and corrects AOM frequencies based on excitation fractions.
-    
-
-    DISC Method Citation: 
-      Zhou, C.; Lu, X.; Lu, B.;
-    Wang, Y.; Chang, H. Demonstration
-    of the Systematic Evaluation of an
-    Optical Lattice Clock Using the
-    Drift-Insensitive Self-Comparison
-    Method. Appl. Sci. 2021, 11, 1206.
-    https://doi.org/10.3390/app11031206
+    Probe light shift evaluation sequence with dual parameter locking
 
 """
 
@@ -65,21 +54,24 @@ class probe_light_shift_disc(EnvExperiment):
         self.mot_coil_1=self.get_device("zotino0")
         self.mot_coil_2=self.get_device("zotino0")
         
-        self.setattr_argument("high_probe_power_att", NumberValue(default=16*dB),group="Shift Parameters")
-        self.setattr_argument("low_probe_power_att", NumberValue(default=22*dB),group="Shift Parameters")
+        self.setattr_argument("test_probe_power_att", NumberValue(default=16*dB),group="Shift Parameters")
+        self.setattr_argument("ref_probe_power_att", NumberValue(default=22*dB),group="Shift Parameters")
         self.setattr_argument("rabi_pulse_duration_ms_param_1", NumberValue(default= 60 * ms), group="Shift Parameters")
         self.setattr_argument("rabi_pulse_duration_ms_param_2", NumberValue(default= 60 * ms), group="Shift Parameters")
         self.setattr_argument("scan_center_frequency_Hz", NumberValue(default=85000000 * Hz),group="Scan Parameters",)
         self.setattr_argument("scan_range_Hz", NumberValue(default=500000 * Hz), group="Scan Parameters")
         self.setattr_argument("scan_step_size_Hz", NumberValue(default=1000 * Hz), group="Scan Parameters")
-        self.setattr_argument("bias_field_mT", NumberValue(default=3.0),group="Locking")
+        self.setattr_argument("bias_current", NumberValue(default=3.0),group="Locking")
         self.setattr_argument("blue_mot_loading_time", NumberValue(default=2000 * ms), group="Sequence Parameters")
         self.setattr_argument("Enable_Lock", BooleanValue(default=False), group="Locking")
-        self.setattr_argument("servo_gain_1", NumberValue(default=0.3), group="Locking")
+        self.setattr_argument("param_1_gain_1", NumberValue(default=0.3), group="Locking")
         self.setattr_argument("linewidth_1", NumberValue(default=100 * Hz), group="Locking")  # This is the linewidth of the clock transition, adjust as necessary
-        self.setattr_argument("servo_gain_2", NumberValue(default=0.3), group="Locking")  # Added new servo gain parameter
+        self.setattr_argument("param_1_gain_2", NumberValue(default=0.03), group="Locking")  # Added new servo gain parameter
         self.setattr_argument("linewidth_2", NumberValue(default=100 * Hz), group="Locking")  # Added new linewidth parameter
+        self.setattr_argument("param_2_gain_1", NumberValue(default=0.3), group="Locking")
+        self.setattr_argument("param_2_gain_2", NumberValue(default=0.03), group="Locking")
         self.setattr_argument("param_shift_guess",NumberValue(default=43*Hz),group="Locking")
+
 
         self.feedback_list = []
         self.atom_lock_list = []
@@ -92,6 +84,11 @@ class probe_light_shift_disc(EnvExperiment):
         self.correction_log_list_1 = []
         self.correction_log_list_2 = []
         self.correction_log_list_main = []
+
+        self.num_filled_p1 = 0
+        self.num_filled_p2 = 0
+        self.prev_correction_1 = [0.0]*10
+        self.prev_correction_2 = [0.0]*10
 
 
     @kernel
@@ -161,11 +158,8 @@ class probe_light_shift_disc(EnvExperiment):
         self.red_mot_aom.sw.off()
         self.stepping_aom.sw.off()
 
-        comp_field = 1.35 * 0.14    # comp current * scaling factor from measurement
-        bias_at_coil = (self.bias_field_mT - comp_field)/ 0.914   #bias field dips in center of coils due to geometry, scaling factor provided by modelling field
-        current_per_coil = ((bias_at_coil) / 2.0086) / 2   
-        coil_1_voltage = current_per_coil + 5.0
-        coil_2_voltage = 5.0 - (current_per_coil / 0.94 )           #Scaled against coil 1
+        coil_2_voltage = 0.9564 * (-self.bias_current) + 4.973
+        coil_1_voltage = 1.0393 * (self.bias_current) + 4.965
        
        
          #Switch to Helmholtz
@@ -411,7 +405,39 @@ class probe_light_shift_disc(EnvExperiment):
             self.set_dataset("lock_excitation_fraction_param_2", self.lock_ex_list_2, broadcast=True, archive=True)
         self.lock_ex_list_main.append(value)
         self.set_dataset("lock_excitation_fraction_both", self.lock_ex_list_main, broadcast=True, archive=True)
+      
+    @kernel
+    def update_correction_list_p1(self, new_value: float):
+        if self.num_filled_p1 < len(self.prev_correction_1):
+            # Still filling the list initially
+            self.prev_correction_1[self.num_filled_p1] = new_value
+            self.num_filled_p1 += 1
+        else:
+            # List is full → shift everything left
+            for i in range(len(self.prev_correction_1) - 1):
+                self.prev_correction_1[i] = self.prev_correction_1[i + 1]
+            # Add the new value at the end
+            self.prev_correction_1[len(self.prev_correction_1) - 1] = new_value
 
+    @kernel
+    def update_correction_list_p2(self, new_value: float):
+        if self.num_filled_p2 < len(self.prev_correction_2):
+            # Still filling the list initially
+            self.prev_correction_2[self.num_filled_p2] = new_value
+            self.num_filled_p2 += 1
+        else:
+            # List is full → shift everything left
+            for i in range(len(self.prev_correction_2) - 1):
+                self.prev_correction_2[i] = self.prev_correction_2[i + 1]
+            # Add the new value at the end
+            self.prev_correction_2[len(self.prev_correction_2) - 1] = new_value
+
+    @kernel
+    def double_integrator_sum(self,list):
+        total = 0.0
+        for i in range(10):
+            total += list[i]
+        return total
 
     @kernel
     def run_sequence(self,j,param,stepping_aom_freq,rabi_pulse_duration,which_param,excitation_fraction_list_param_1,excitation_fraction_list_param_2 ):
@@ -585,10 +611,10 @@ class probe_light_shift_disc(EnvExperiment):
         excitation_fraction_list_param_2 = [0.0] * cycles
         
 
-        ############################### Scan Parameter 1: Low Probe power ##############################
+        ############################### Scan Parameter 1: ref probe power ##############################
         for j in range(int(cycles)):        
             self.run_sequence(j,
-                self.low_probe_power_att,    #Here the parameter we are changing is the probe power
+                self.ref_probe_power_att,    #Here the parameter we are changing is the probe power
                 scan_frequency_values[j],
                 self.rabi_pulse_duration_ms_param_1,
                 1,
@@ -596,44 +622,21 @@ class probe_light_shift_disc(EnvExperiment):
                 excitation_fraction_list_param_2     
             )  
         self.analyse_fit(1,scan_frequency_values,excitation_fraction_list_param_1)
-        ############################### Scan Parameter 2: High Probe Power ###############################
- #       for j in range(int(cycles)):        
-  #          self.run_sequence(j,
-  #              self.high_probe_power_att,                    #parameter 2
-  #              scan_frequency_values[j],  #stepping aom values
-  #              self.rabi_pulse_duration_ms_param_2,
-   #             2,                         #parameter marker
-   #             excitation_fraction_list_param_1,
-   #             excitation_fraction_list_param_2    
-            # )  
 
-        #process data and do fit from the scan
-
-        
-   #     self.analyse_fit(2,scan_frequency_values,excitation_fraction_list_param_2)
-
-        # from the excitation fraction list we need to manually extract the peak height and center_frequency. 
 
         max_val_1 = excitation_fraction_list_param_1[0]
         max_idx_1 = 0
-    #    max_val_2 = excitation_fraction_list_param_2[0]
-   #     max_idx_2 = 0
 
         # Loop through the lists
         for i in range(1, len(excitation_fraction_list_param_1)):
             if excitation_fraction_list_param_1[i] > max_val_1:
                 max_val_1 = excitation_fraction_list_param_1[i]
                 max_idx_1 = i
-            # if excitation_fraction_list_param_2[i] > max_val_2:
-            #     max_val_2 = excitation_fraction_list_param_2[i]
-            #     max_idx_2 = i
+
 
         # Assign contrast and center frequency
         contrast_1 = 0.6
         center_frequency_1 = scan_frequency_values[max_idx_1]
-
-        contrast_2 = 0.6
-        # center_frequency_2 = scan_frequency_values[max_idx_2]
 
 
         param_shift = self.param_shift_guess
@@ -646,10 +649,27 @@ class probe_light_shift_disc(EnvExperiment):
         if self.Enable_Lock == True:
 
             self.core.break_realtime()                                       # How many seconds there are in a month
-            count = 0
-            feedback_aom_frequency_1 = 125.0 * MHz
-            feedback_aom_frequency_2 = feedback_aom_frequency_1 + param_shift
-            
+            n = 2628288 
+            thue_morse = [0]
+            while len(thue_morse) <= n:
+                thue_morse = thue_morse + [1 - bit for bit in thue_morse]  
+
+            count = 1
+            p_1_high = 0.0
+            p_1_low = 0.0
+            p_2_high = 0.0
+            p_2_low = 0.0
+            p1_correction = 0.0
+            p2_correction = 0.0 
+            p_1_error = 0.0
+            p_2_error = 0.0
+            drift_param = 0.0
+            drift_param_1 = 0.0
+            drift_param_2 = 0.0
+            feedback_aom_frequency_1 = 125.0 * MHz 
+            feedback_aom_frequency_2 = feedback_aom_frequency_1 + (param_shift / 2)
+            print("Feedback AOM Frequency 1: ", feedback_aom_frequency_1)
+            print("Feedback AOM Frequency 2: ", feedback_aom_frequency_2)
             delay(10*ms)
             
             while True:
@@ -657,91 +677,134 @@ class probe_light_shift_disc(EnvExperiment):
                 ### Insert entire sequence again
                 t1 = self.core.get_rtio_counter_mu()
 
-                #In the DISC method, we interleave between Parameter 1 and Parameter 2 in a P1 P2 P2 P1 order rather than P1 P2 P1 P2, therefore the correction is generated every 4 clock cycles. 
+                #Using the traditional method, we are switching between parameter 1 and 2 every 8 cycles, and generating a correction every 2 cycles for each parameter.
+                #The parameter shift is calculated every 16 cycles.
+                n = 8
+                cycle16 = (count - 1) % (2*n)         #gives us where we are in the 16 cycle loop, 0-15
+                mode = cycle16 // n          #gives us whether we are in parameter 1 or 2 mode, 0-7 for param 1, 8-15 for param 2
                 
+                if mode == 0:
+                    ################### Parameter 1 ##########################
+                    self.atom_lock_aom.set(frequency = feedback_aom_frequency_1 + drift_param) # Sets the feedback AOM frequency for parameter 1
+                    delay(1*ms)
 
-                self.atom_lock_aom.set(frequency = feedback_aom_frequency_1)
-                p_1_low = self.run_sequence(0,
-                    self.low_probe_power_att,                    #parameter 1
-                    center_frequency_1 - self.linewidth_1/2,  #stepping aom values
-                    self.rabi_pulse_duration_ms_param_1,
-                    1,
-                    excitation_fraction_list_param_1,
-                    excitation_fraction_list_param_2    
-                ) 
-                self.atom_lock_aom.set(frequency = feedback_aom_frequency_2)
-                p_2_low = self.run_sequence(0,
-                    self.high_probe_power_att,                    #parameter 2
-                    center_frequency_1 - self.linewidth_2/2,  #stepping aom values
-                    self.rabi_pulse_duration_ms_param_2,
-                    2,
-                    excitation_fraction_list_param_1,
-                    excitation_fraction_list_param_2    
-                ) 
-                p_2_high = self.run_sequence(0,
-                    self.high_probe_power_att,                    #parameter 2
-                    center_frequency_1 - self.linewidth_2/2,  #stepping aom values
-                    self.rabi_pulse_duration_ms_param_2,
-                    2,             
-                    excitation_fraction_list_param_1,
-                    excitation_fraction_list_param_2    
-                )
-                self.atom_lock_aom.set(frequency = feedback_aom_frequency_1)
-                p_1_high = self.run_sequence(0,
-                    self.low_probe_power_att,                    #parameter 2
-                    center_frequency_1 + self.linewidth_1/2,  #stepping aom values
-                    self.rabi_pulse_duration_ms_param_1,
-                    1,
-                    excitation_fraction_list_param_1,
-                    excitation_fraction_list_param_2    
-                )
+                    if thue_morse[count-1] == 0:                         #Check if low side or high side         
+                        p_1_low = self.run_sequence(0,
+                            self.ref_probe_power_att,                    #parameter 1
+                            center_frequency_1 - self.linewidth_1/2,  #stepping aom values
+                            self.rabi_pulse_duration_ms_param_1,
+                            1,
+                            excitation_fraction_list_param_1,
+                            excitation_fraction_list_param_2    
+                        )
+                        self.atom_lock_ex_log(1,p_1_low)
+                    else:
+                        p_1_high = self.run_sequence(0,
+                            self.ref_probe_power_att,                    #parameter 1
+                            center_frequency_1 + self.linewidth_1/2,  #stepping aom values
+                            self.rabi_pulse_duration_ms_param_1,
+                            1,
+                            excitation_fraction_list_param_1,
+                            excitation_fraction_list_param_2    
+                        )
+                        self.atom_lock_ex_log(1,p_1_high)
 
-                   #generates each error signal
-                error_1 = (p_1_high - p_1_low)  
-                error_2 = (p_2_high - p_2_low)
+                    if count % 2 == 0:                              # Generates correction every 2 cycles
+                        p_1_error = p_1_high - p_1_low
 
-                # filters out bad cycles
-                if error_1 == 0.0:
-                    delta_f1 = 0.0
-                    # print("No correction made")
-                elif p_1_high+p_1_low <= 0.05:
-                    delta_f1 = 0.0
-                    # print("No correction made - too low")
-                elif p_1_high+p_1_low >= 1.5:
-                    delta_f1 = 0.0
-                    # print("No correction made - too high")
-                else:
-                    delta_f1 = -(self.servo_gain_1 * error_1 * self.linewidth_1 ) / 4 * contrast_1        #Scaling into Hz
+                        if p_1_error == 0.0:                     #Calculate correction, checks for bad cycles
+                            p1_correction = 0.0
+         
+                        elif p_1_high+p_1_low <= 0.05:
+                            p1_correction = 0.0
+                   
+                        elif p_1_high+p_1_low >= 1.5:
+                            p1_correction = 0.0
+                     
+                        else:
+                            p1_correction =  (self.param_1_gain_1 * p_1_error * self.linewidth_1) / (2* (2 * 0.7))
 
-                if error_2 == 0.0:
-                    delta_f2 = 0.0
-                    # print("No correction made")
-                elif p_2_high+p_2_low <= 0.05:
-                    delta_f2 = 0.0
-                    # print("No correction made - too low")
-                elif p_2_high+p_2_low >= 1.5:
-                    delta_f2 = 0.0
-                    # print("No correction made - too high")
-                else:
-                    delta_f2 = -(self.servo_gain_2 * error_2 * self.linewidth_2) / 4 * contrast_2        #Scaling into Hz
 
-                feedback_aom_frequency_1 = feedback_aom_frequency_1 + delta_f1
-                feedback_aom_frequency_2 = feedback_aom_frequency_2 + delta_f2
-                param_shift = feedback_aom_frequency_2 - feedback_aom_frequency_1
+                        #addition of double integrator term
+                        self.update_correction_list_p1(p1_correction)
+                        double_integrator_correction = (self.param_1_gain_2 * self.double_integrator_sum(self.prev_correction_1) * self.linewidth_1) / (2* (2 * 0.7))
 
-                self.error_log(1,delta_f1)
-                self.error_log(2,delta_f2)
-                self.param_shift_log(param_shift)
-                self.atom_lock_ex_log(1,p_1_low)
-                self.atom_lock_ex_log(1,p_1_high)
-
-                self.atom_lock_ex_log(2,p_2_low) 
-                self.atom_lock_ex_log(2,p_2_high)               
-                self.correction_log(1,delta_f1)
-                self.correction_log(2,delta_f2)
+                        self.core.break_realtime()
+                        delay(500*us)
                     
+                        feedback_aom_frequency_1 = feedback_aom_frequency_1 - (p1_correction + double_integrator_correction)
+
+                        ############################### Helps deal
+
+                        if cycle16 == 1:                              #calculate the drift of parameter 1, store for use in parameter 2
+                            drift_param_1 = feedback_aom_frequency_1
+                        if cycle16 == 7: 
+                            drift_param_2 = feedback_aom_frequency_1
+                            drift_param = (n/(n-2))*(drift_param_2 - drift_param_1)  #drift_param gets updated every 16 cycles
+                            print(drift_param)
+                        self.feedback_log(1,feedback_aom_frequency_1)  # Log values for param 1 analysis
+                        self.error_log(1,p1_error)
+                        
+
+                else:
+                    self.atom_lock_aom.set(frequency = feedback_aom_frequency_2 + drift_param) # Sets the feedback AOM frequency for parameter 2
+                    delay(1*ms)
+                    if thue_morse[count-1] == 0:
+                        p_2_low = self.run_sequence(0,
+                            self.test_probe_power_att,                    #parameter 2
+                            center_frequency_1 - self.linewidth_2 / 2,  #stepping aom values
+                            self.rabi_pulse_duration_ms_param_2,
+                            2,
+                            excitation_fraction_list_param_1,
+                            excitation_fraction_list_param_2    
+                        )
+                        self.atom_lock_ex_log(2,p_2_low)
+                    else:
+                        p_2_high = self.run_sequence(0,
+                            self.test_probe_power_att,                    #parameter 2
+                            center_frequency_1 + self.linewidth_2/2,  #stepping aom values
+                            self.rabi_pulse_duration_ms_param_2,
+                            2,             
+                            excitation_fraction_list_param_1,
+                            excitation_fraction_list_param_2    
+                        )
+                        self.atom_lock_ex_log(2,p_2_high)
+
+                    if count % 2 == 0:
+                    
+                        p_2_error = p_2_high - p_2_low
+
+                        if p_2_error == 0.0:                     #Calculate correction
+                            p2_correction = 0.0
+                            # print("No correction made")
+                        elif p_2_high+p_2_low <= 0.05:
+                            p2_correction = 0.0
+                            # print("No correction made - too low")
+                        elif p_2_high+p_2_low >= 1.5:
+                            p2_correction = 0.0
+                            # print("No correction made - too high")
+                        else:
+                            p2_correction =  (self.param_2_gain_1 * p_2_error * self.linewidth_2) / (2* (2 * 0.7))
+
+                        self.update_correction_list_p2(p2_correction)
+                        double_integrator_correction_p2 = (self.param_1_gain_2 * self.double_integrator_sum(self.prev_correction_2) * self.linewidth_2) / (2* (2 * 0.7))
+
+
+                        self.core.break_realtime()
+                        delay(500*us)
+                    
+                        feedback_aom_frequency_2 = feedback_aom_frequency_2 - (p2_correction+ double_integrator_correction_p2)
+                        self.feedback_log(2,feedback_aom_frequency_2)
+                        self.error_log(2,p2_error)
+                        
+                        
+     
                 delay(5*ms)
 
+                if count % (2*n) == 0:
+                    param_shift = feedback_aom_frequency_1 - (feedback_aom_frequency_2-drift_param)
+                    self.param_shift_log(2*param_shift)
+                
                 
                 count = count + 1
                 t2 = self.core.get_rtio_counter_mu()
