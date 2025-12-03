@@ -158,7 +158,7 @@ class Urukul(_EEM):
                 (7, eem, "dds_reset_sync_in", Misc("IOB=TRUE"))]
         if eem_aux is not None:
             ttls += [(0, eem_aux, "sync_clk"),
-                     (1, eem_aux, "sync_in"),
+                     (1, eem_aux, "sync_out"),
                      (2, eem_aux, "io_update_ret"),
                      (3, eem_aux, "nu_mosi3"),
                      (4, eem_aux, "sw0"),
@@ -245,7 +245,7 @@ class Urukul(_EEM):
         if dds_type == "ad9912":
             # DDS_RESET for AD9912 variant only
             target.specials += DifferentialOutput(0, pads.p, pads.n)
-        elif sync_gen_cls is not None:  # AD9910 variant and SYNC_IN from EEM
+        elif sync_gen_cls is not None:  # AD9910 variant and SYNC_IN to EEM
             sync_phy = sync_gen_cls(pad=pads.p, pad_n=pads.n, ftw_width=4)
             target.submodules += sync_phy
             target.rtio_channels.append(rtio.Channel.from_phy(sync_phy))
@@ -562,6 +562,7 @@ class SUServo(_EEM):
                 t_rtt=4, clk=1, shift=11, profile=5,
                 sync_gen_cls=None,
                 use_miso=True,
+                sysclks_per_clk=8,
                 iostandard=default_iostandard):
         """Add a 8-channel Sampler-Urukul Servo
 
@@ -578,6 +579,10 @@ class SUServo(_EEM):
             (default: 11)
         :param profile: log2 of the number of profiles for each DDS channel
             (default: 5)
+        :param sysclks_per_clk: DDS "sysclk" cycles per RTIO clock cycle.
+            Only the default (8) is supported. Other ratios can be supported
+            provided that that I/O update of the DDSes are aligned to its own
+            sysclk (default: 8)
         """
         cls.add_extension(
             target, *(eems_sampler + sum(eems_urukul, [])),
@@ -599,7 +604,7 @@ class SUServo(_EEM):
                                 profile=profile, dly=8)
         dds_p = servo.DDSParams(width=8 + 32 + 16 + 16,
                                 channels=4*len(eems_urukul), clk=clk)
-        su = servo.Servo(sampler_pads, urukul_pads, adc_p, iir_p, dds_p)
+        su = servo.Servo(sampler_pads, urukul_pads, adc_p, iir_p, dds_p, sysclks_per_clk)
         su = ClockDomainsRenamer("rio_phy")(su)
         # explicitly name the servo submodule to enable the migen namer to derive
         # a name for the adc return clock domain
@@ -609,7 +614,7 @@ class SUServo(_EEM):
         target.submodules += ctrls
         target.rtio_channels.extend(
             rtio.Channel.from_phy(ctrl) for ctrl in ctrls)
-        mem = rtservo.RTServoMem(iir_p, su)
+        mem = rtservo.RTServoMem(iir_p, su, sysclks_per_clk)
         target.submodules += mem
         target.rtio_channels.append(rtio.Channel.from_phy(mem, ififo_depth=4))
 
