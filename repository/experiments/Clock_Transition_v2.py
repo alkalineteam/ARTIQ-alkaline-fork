@@ -63,7 +63,7 @@ class clock_transition_lookup_v2(EnvExperiment):
         else:
             self.Probe.set(frequency=65*MHz, amplitude=0.02)
 
-        delay(1.0*ms)
+        delay(0.5*ms)
 
         if camera:
             with parallel:
@@ -109,7 +109,7 @@ class clock_transition_lookup_v2(EnvExperiment):
         self.BMOT_AOM.sw.on()
         self.ZeemanSlower.sw.on()
         self.Probe.sw.on()
-        self.Clock.sw.off()
+        self.Clock.sw.on()
 
         # Set the RF attenuation
         self.BMOT_AOM.set_att(0.0)
@@ -204,8 +204,8 @@ class clock_transition_lookup_v2(EnvExperiment):
             voltage_2_com = 2.286
             red_amp = 0.35
             amp_com = 0.03
-            red_freq = 80.0
-            red_freq_com = 80.3
+            red_freq = 75.0
+            red_freq_com = 75.3
             steps_com = self.Compression_Time
             t_com = self.Compression_Time/steps_com
             volt_1_steps = (voltage_1_Tr - voltage_1_com)/steps_com
@@ -231,13 +231,13 @@ class clock_transition_lookup_v2(EnvExperiment):
                     delay(t_com*ms)
 
             # **************************** Slice 5: Single Frequency ****************************
-            self.Single_Freq.set(frequency=80.3*MHz, amplitude=amp_com)
+            self.Single_Freq.set(frequency=75.3*MHz, amplitude=amp_com)
             delay(self.Single_Freq_Time*ms)
             self.Single_Freq.sw.off()
 
             # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 7.177)# 4.7/3.32 = 0.8; 4.898/3.14 = 1; 5.07/2.93 = 1.2; 5.64/2.27 = 1.85; 7.1/0.54 = 3.5;
-            self.MOT_Coil_2.write_dac(1, 0.477)
+            self.MOT_Coil_1.write_dac(0, 7.175)# 4.7/3.32 = 0.8; 4.898/3.14 = 1; 5.07/2.93 = 1.2; 5.64/2.27 = 1.85; 7.1/0.54 = 3.5;
+            self.MOT_Coil_2.write_dac(1, 0.441)
             with parallel:
                 self.MOT_Coil_1.load()
                 self.MOT_Coil_2.load()
@@ -245,10 +245,10 @@ class clock_transition_lookup_v2(EnvExperiment):
             delay(self.State_Preparation_Time*ms)
 
             # **************************** Slice 5: Clock Interrogation *****************************
-            self.Clock.set_att(31.9)
+            # self.Clock.set_att(31.9)
             self.clock_shutter.on()
             delay(4*ms)
-            self.Clock.set_att(0.0)
+            # self.Clock.set_att(0.0)
 
             self.Clock.set(frequency=start*MHz)
             print("Clock Frequency:", start, "MHz, Cycle:", j)
@@ -268,7 +268,7 @@ class clock_transition_lookup_v2(EnvExperiment):
                 self.MOT_Coil_2.load()            
 
             self.BMOT_AOM.set(frequency=10*MHz, amplitude=0.08)
-             
+
             with parallel:
                 with sequential:
                     # **************************** Ground State **************************
@@ -309,13 +309,12 @@ class clock_transition_lookup_v2(EnvExperiment):
                         group = "excitation"
                     )
             
-            ground_state = detection[184:205]
-            excited_state = detection[1103:1124]
-            background = detection[1716:1737]
+            ground_state = detection[163:175]
+            excited_state = detection[1052:1064]
+            background = detection[1634:1646]
 
             # ground_state = detection[163:185]
             # excited_state = detection[1062:1084]
-            # # background = detection[1451:1471]
             # background = detection[1654:1676]
 
             # ground_state = detection[163:205]
