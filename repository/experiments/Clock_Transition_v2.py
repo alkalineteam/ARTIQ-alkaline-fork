@@ -44,7 +44,7 @@ class clock_transition_lookup_v2(EnvExperiment):
         self.setattr_argument("State_Preparation_Time", NumberValue(default=30))
         self.setattr_argument("Clock_Interrogation_Time", NumberValue(default=300))
 
-        self.setattr_argument("Center_Frequency", NumberValue(default=79.841, precision=4))
+        self.setattr_argument("Center_Frequency", NumberValue(default=79.42, precision=4))
         self.setattr_argument("Step_Size", NumberValue(default=500, precision=4))
         self.setattr_argument("Scan_Range", NumberValue(default=100, precision=4))
     
