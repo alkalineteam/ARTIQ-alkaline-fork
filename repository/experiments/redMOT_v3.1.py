@@ -165,8 +165,8 @@ class redMOT_v3_1(EnvExperiment):
             voltage_2_com = 2.286
             red_amp = 0.35
             amp_com = 0.03
-            red_freq = 80.0
-            red_freq_com = 80.3
+            red_freq = 75.0
+            red_freq_com = 75.3
             steps_com = self.Compression_Time
             t_com = self.Compression_Time/steps_com
             volt_1_steps = (voltage_1_Tr - voltage_1_com)/steps_com
@@ -192,7 +192,7 @@ class redMOT_v3_1(EnvExperiment):
                     delay(t_com*ms)
 
             # **************************** Slice 5: Single Frequency ****************************
-            self.Single_Freq.set(frequency=80.3*MHz, amplitude=amp_com)
+            self.Single_Freq.set(frequency=75.3*MHz, amplitude=amp_com)
             delay(self.Single_Freq_Time*ms)
             self.Single_Freq.sw.off()
             

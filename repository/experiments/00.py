@@ -38,7 +38,7 @@ class Everything_ON(EnvExperiment):
         self.setattr_argument("Zeeman_Amplitude", NumberValue(default = 0.35)) 
         # self.setattr_argument("Zeeman_Attenuation", NumberValue(default = 0.0))
 
-        self.setattr_argument("RMOT_Frequency", NumberValue(default = 80.0))
+        self.setattr_argument("RMOT_Frequency", NumberValue(default = 75.0))
         self.setattr_argument("RMOT_Amplitude", NumberValue(default = 0.35)) 
         # self.setattr_argument("RMOT_Attenuation", NumberValue(default = 0.0))
 
