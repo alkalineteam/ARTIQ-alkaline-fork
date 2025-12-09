@@ -46,7 +46,7 @@ class Everything_ON(EnvExperiment):
         self.setattr_argument("Probe_Amplitude", NumberValue(default = 0.02)) 
         # self.setattr_argument("Probe_Attenuation", NumberValue(default = 0.0))
 
-        self.setattr_argument("Clock_Frequency", NumberValue(default = 79.95))
+        self.setattr_argument("Clock_Frequency", NumberValue(default = 79.42))
         self.setattr_argument("Clock_Attenuation", NumberValue(default = 0.0))
 
     @kernel
