@@ -82,8 +82,8 @@ class redMOT_v3_1(EnvExperiment):
             self.Probe.set(frequency=65*MHz, amplitude=0.00)
             self.Single_Freq.set(frequency=80*MHz, amplitude=0.35)
             
-            voltage_1 = 1.07
-            voltage_2 = 0.477
+            voltage_1 = 1.13
+            voltage_2 = 0.497
             self.MOT_Coil_1.write_dac(0, voltage_1)
             self.MOT_Coil_2.write_dac(1, voltage_2)
 
@@ -161,7 +161,7 @@ class redMOT_v3_1(EnvExperiment):
                 self.Broadband_Off.pulse(10*ms)
                 self.Single_Freq.sw.on()
 
-            voltage_1_com = 2.53
+            voltage_1_com = 2.585
             voltage_2_com = 2.286
             red_amp = 0.35
             amp_com = 0.03
@@ -236,7 +236,7 @@ class redMOT_v3_1(EnvExperiment):
                 with parallel:
                     self.Camera.on()
                     self.Pixelfly.on()
-                    self.Probe.set(frequency=65*MHz, amplitude=0.02)
+                    self.Probe.set(frequency=65*MHz, amplitude=0.03)
                     self.Ref.sw.on()
             
                 delay(0.5 *ms)
@@ -250,7 +250,7 @@ class redMOT_v3_1(EnvExperiment):
             
             # **************************** Slice 4 ****************************
             self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
-            self.Probe.set(frequency= 65*MHz, amplitude=0.02)
+            self.Probe.set(frequency= 65*MHz, amplitude=0.03)
             self.Single_Freq.set(frequency=80*MHz, amplitude=0.35)
             self.Broadband_On.pulse(10*ms)
             delay(1500*ms)

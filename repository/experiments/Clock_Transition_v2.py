@@ -50,18 +50,18 @@ class clock_transition_lookup_v2(EnvExperiment):
     
     @kernel
     def probe_init(self, camera: bool):
-        self.Probe.set(frequency=65*MHz, amplitude=0.02)
+        self.Probe.set(frequency=65*MHz, amplitude=0.03)
         delay(5*ms)
         self.Probe.set(frequency=65*MHz, amplitude=0.00)
         self.Probe_TTL.on()
-        delay(3*ms)
+        delay(3.4*ms)
 
         if camera:
             with parallel:
                 self.Camera.on()
-                self.Probe.set(frequency=65*MHz, amplitude=0.02)
+                self.Probe.set(frequency=65*MHz, amplitude=0.03)
         else:
-            self.Probe.set(frequency=65*MHz, amplitude=0.02)
+            self.Probe.set(frequency=65*MHz, amplitude=0.03)
 
         delay(0.5*ms)
 
@@ -140,11 +140,11 @@ class clock_transition_lookup_v2(EnvExperiment):
             delay(100*ms)
             self.BMOT_AOM.set(frequency=90 * MHz, amplitude=0.08)
             self.ZeemanSlower.set(frequency=180 * MHz, amplitude=0.35)
-            self.Probe.set(frequency= 65 * MHz, amplitude=0.02)
+            self.Probe.set(frequency= 65 * MHz, amplitude=0.03)
             self.Single_Freq.set(frequency= 80 * MHz, amplitude=0.35)
             
-            voltage_1 = 1.07
-            voltage_2 = 0.477
+            voltage_1 = 1.13
+            voltage_2 = 0.497
             self.MOT_Coil_1.write_dac(0, voltage_1)
             self.MOT_Coil_2.write_dac(1, voltage_2)
 
@@ -200,7 +200,7 @@ class clock_transition_lookup_v2(EnvExperiment):
                 self.Broadband_Off.pulse(10*ms)
                 self.Single_Freq.sw.on()
 
-            voltage_1_com = 2.53
+            voltage_1_com = 2.585
             voltage_2_com = 2.286
             red_amp = 0.35
             amp_com = 0.03
@@ -236,8 +236,8 @@ class clock_transition_lookup_v2(EnvExperiment):
             self.Single_Freq.sw.off()
 
             # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 7.175)# 4.7/3.32 = 0.8; 4.898/3.14 = 1; 5.07/2.93 = 1.2; 5.64/2.27 = 1.85; 7.1/0.54 = 3.5;
-            self.MOT_Coil_2.write_dac(1, 0.441)
+            self.MOT_Coil_1.write_dac(0, 7.185)# 4.7/3.32 = 0.8; 4.898/3.14 = 1; 5.07/2.93 = 1.2; 5.64/2.27 = 1.85; 7.1/0.54 = 3.5;
+            self.MOT_Coil_2.write_dac(1, 0.487)
             with parallel:
                 self.MOT_Coil_1.load()
                 self.MOT_Coil_2.load()
@@ -292,7 +292,7 @@ class clock_transition_lookup_v2(EnvExperiment):
                         delay(sampling_period * ms)
                 
             # **************************** Slice 4 ****************************
-            self.Probe.set(frequency=65*MHz, amplitude=0.02)
+            self.Probe.set(frequency=65*MHz, amplitude=0.03)
             self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
             self.Single_Freq.set(frequency=80*MHz, amplitude=0.35)
             self.Broadband_On.pulse(10*ms)
@@ -309,21 +309,9 @@ class clock_transition_lookup_v2(EnvExperiment):
                         group = "excitation"
                     )
             
-            ground_state = detection[163:175]
-            excited_state = detection[1052:1064]
-            background = detection[1634:1646]
-
-            # ground_state = detection[163:185]
-            # excited_state = detection[1062:1084]
-            # background = detection[1654:1676]
-
-            # ground_state = detection[163:205]
-            # excited_state = detection[1082:1124]
-            # background = detection[1389:1431]
-
-            # ground_state = detection[163:226]
-            # excited_state = detection[1103:1166]
-            # background = detection[1430:1493]
+            ground_state = detection[171:183]
+            excited_state = detection[1068:1080]
+            background = detection[1658:1670]
 
             gs_sum = 0.0
             for _ in ground_state:

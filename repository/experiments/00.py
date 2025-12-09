@@ -113,8 +113,8 @@ class Everything_ON(EnvExperiment):
 
         if self.High_Low == True:
             for i in range(int64(self.Cycle)):
-                self.MOT_Coil_1.write_dac(0, 1.07)
-                self.MOT_Coil_2.write_dac(1, 0.477)
+                self.MOT_Coil_1.write_dac(0, 1.13)
+                self.MOT_Coil_2.write_dac(1, 0.497)
 
                 with parallel:
                     self.MOT_Coil_1.load()
@@ -124,7 +124,7 @@ class Everything_ON(EnvExperiment):
                 self.Ref.sw.on()
                 delay(1500*ms)
 
-                self.MOT_Coil_1.write_dac(0, 2.53)
+                self.MOT_Coil_1.write_dac(0, 2.585)
                 self.MOT_Coil_2.write_dac(1, 2.286)
                 self.ZeemanSlower.set(frequency=self.Zeeman_Frequency * MHz, amplitude=0.0)
 
@@ -144,5 +144,6 @@ class Everything_ON(EnvExperiment):
             with parallel:
                 self.MOT_Coil_1.load()
                 self.MOT_Coil_2.load()
-        
+            # self.BMOT.set_att(31.0)
+            # self.Probe_TTL.on()
         print("Parameters are set")
