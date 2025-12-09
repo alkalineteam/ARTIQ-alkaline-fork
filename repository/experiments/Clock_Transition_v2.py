@@ -245,10 +245,8 @@ class clock_transition_lookup_v2(EnvExperiment):
             delay(self.State_Preparation_Time*ms)
 
             # **************************** Slice 5: Clock Interrogation *****************************
-            # self.Clock.set_att(31.9)
             self.clock_shutter.on()
             delay(4*ms)
-            # self.Clock.set_att(0.0)
 
             self.Clock.set(frequency=start*MHz)
             print("Clock Frequency:", start, "MHz, Cycle:", j)
@@ -256,7 +254,6 @@ class clock_transition_lookup_v2(EnvExperiment):
 
             delay(self.Clock_Interrogation_Time*ms)
 
-            # self.Clock.set_att(31.9)
             self.clock_shutter.off()
             delay(4*ms)
 
