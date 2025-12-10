@@ -12,6 +12,7 @@ from artiq.experiment import parallel, sequential
 from artiq.experiment import rpc
 from artiq.language.core import delay
 from artiq.language.units import ms, MHz
+import numpy as np
 class atom_lock(EnvExperiment):
     def build(self):
         self.core: Core = self.get_device("core")
@@ -47,6 +48,28 @@ class atom_lock(EnvExperiment):
 
         self.setattr_argument("Center_Frequency", NumberValue(default=79.42, precision=4, unit="MHz"))
         self.setattr_argument("linewidth", NumberValue(default=100, precision=4, unit="Hz"))
+
+    def prepare(self):
+        self.n = 10000  # seconds in a month
+        self.high_side = 0.0
+        self.low_side = 0.0
+
+        # Generate Thue-Morse sequence
+        self.thue_morse = [0]
+        while len(self.thue_morse) < self.n:
+            self.thue_morse += [1 - bit for bit in self.thue_morse]
+        self.thue_morse = self.thue_morse[:self.n]
+
+        # Sampler params
+        self.sample_duration = 70  # 60 ms detection window
+        self.sampling_period = 0.04  # in ms = 25 kHz
+        self.num_samples = int(self.sample_duration / self.sampling_period)
+
+        # Pre-allocate arrays
+        self.samples = [[0.0 for i in range(8)] for _ in range(self.num_samples)]
+        self.excitation_fraction_list = [0.0 for _ in range(self.n)]
+        self.error_signal_list = [0.0 for _ in range(self.n)]
+        self.feedback_frequency_list = [0.0 for _ in range(self.n)]
     
     @kernel
     def rabi_clock_spectroscopy(self, frequency):
@@ -235,26 +258,10 @@ class atom_lock(EnvExperiment):
 
 
         # self.core.break_realtime()
-        n = 10000                                  # seconds in a month
-        high_side = 0.0
-        low_side = 0.0
-        thue_morse = [0]
-        for i in range(n):
-            thue_morse = thue_morse + [1 - bit for bit in thue_morse]
-        thue_morse = thue_morse[:n]
-
-        # Sampler params
-        self.sample_duration = 70  #60 ms detection window
-        self.sampling_period = 0.04 #in ms = 25 kHz
-        self.num_samples = int(self.sample_duration / self.sampling_period)
-
-        # Pre-allocate arrays
-        self.samples = [[0.0 for i in range(8)] for _ in range(self.num_samples)]
-        self.excitation_fraction_list = [0.0 for _ in range(n)]
-        error_signal_list = [0.0 for _ in range(n)]
-        feedback_frequency_list = [0.0 for _ in range(n)]
-
-        for j in range(n):
+        
+        
+        
+        for j in range(self.n):
             # **************************** Slice 1: Loading ****************************
             delay(100*ms)
             self.BMOT_AOM.set(frequency=90 * MHz, amplitude=0.08)
@@ -364,23 +371,23 @@ class atom_lock(EnvExperiment):
             delay(self.State_Preparation_Time*ms)            
             
             # **************************** Slice 6: Atom Lock ****************************
-            if thue_morse[j] == 0:
+            if self.thue_morse[j] == 0:
                 # self.core.break_realtime()
                 self.rabi_clock_spectroscopy(
                     frequency = self.Center_Frequency * 1e6 - (self.linewidth/2)
                 )
-                low_side = self.detection()
+                self.low_side = self.detection()
                 print("Low Side:", low_side)    
 
                 # self.atom_lock_ex(low_side)
                 # delay(2*ms)
 
-            elif thue_morse[j] == 1:
+            elif self.thue_morse[j] == 1:
                 # self.core.break_realtime()
                 self.rabi_clock_spectroscopy(
                     frequency = self.Center_Frequency * 1e6 + self.linewidth/2
                 )
-                high_side = self.detection()
+                self.high_side = self.detection()
                 print("High Side:", high_side)
                 
                 # self.atom_lock_ex(high_side)
@@ -394,7 +401,7 @@ class atom_lock(EnvExperiment):
                 else:
                     error_signal = high_side - low_side
 
-                error_signal_list[j] = error_signal
+                self.error_signal_list[j] = error_signal
 
                 if error_signal == 0.0:
                     frequency_correction = 0.0
@@ -412,7 +419,7 @@ class atom_lock(EnvExperiment):
                 # double_integrator_correction = self.servo_gain_2 * sum(self.previous_correction_values) *self.linewidth / (2 * (2 * contrast))
                 
                 feedback_aom_frequency = feedback_aom_frequency - frequency_correction
-                feedback_frequency_list[j] = feedback_aom_frequency
+                self.feedback_frequency_list[j] = feedback_aom_frequency
 
                 self.Atom_Lock.set(frequency = feedback_aom_frequency)
 
