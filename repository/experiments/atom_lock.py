@@ -50,7 +50,7 @@ class atom_lock(EnvExperiment):
         self.setattr_argument("linewidth", NumberValue(default=100, precision=4, unit="Hz"))
 
     def prepare(self):
-        self.n = 10000  # seconds in a month
+        self.n = 10000  
         self.high_side = 0.0
         self.low_side = 0.0
 
@@ -99,7 +99,7 @@ class atom_lock(EnvExperiment):
         else:
             self.Probe.set(frequency=65*MHz, amplitude=0.03)
 
-        delay(0.5*ms)
+        delay(1.0*ms)
 
         if camera:
             with parallel:
@@ -160,9 +160,13 @@ class atom_lock(EnvExperiment):
                     group = "excitation"
                 )
         
-        ground_state = detection[172:182]
-        excited_state = detection[1069:1079]
-        background = detection[1660:1670]
+        # ground_state = detection[172:182]
+        # excited_state = detection[1069:1079]
+        # background = detection[1660:1670]
+
+        ground_state = detection[172:193]
+        excited_state = detection[1079:1100]
+        background = detection[1680:1701]
 
         gs_sum = 0.0
         for _ in ground_state:
@@ -357,8 +361,8 @@ class atom_lock(EnvExperiment):
             self.Single_Freq.sw.off()
 
             # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 7.232)# 4.7/3.32 = 0.8; 4.898/3.14 = 1; 5.07/2.93 = 1.2; 5.64/2.27 = 1.85; 7.1/0.54 = 3.5;
-            self.MOT_Coil_2.write_dac(1, 0.467)
+            self.MOT_Coil_1.write_dac(0, 7.216)# 4.7/3.32 = 0.8; 4.898/3.14 = 1; 5.07/2.93 = 1.2; 5.64/2.27 = 1.85; 7.1/0.54 = 3.5;
+            self.MOT_Coil_2.write_dac(1, 0.486)
             with parallel:
                 self.MOT_Coil_1.load()
                 self.MOT_Coil_2.load()
@@ -367,7 +371,6 @@ class atom_lock(EnvExperiment):
             
             # **************************** Slice 6: Atom Lock ****************************
             if self.thue_morse[j] == 0:
-                # self.core.break_realtime()
                 self.rabi_clock_spectroscopy(
                     frequency = self.Center_Frequency * 1e6 - (self.linewidth/2)
                 )
@@ -378,7 +381,6 @@ class atom_lock(EnvExperiment):
                 # delay(2*ms)
 
             elif self.thue_morse[j] == 1:
-                # self.core.break_realtime()
                 self.rabi_clock_spectroscopy(
                     frequency = self.Center_Frequency * 1e6 + self.linewidth/2
                 )

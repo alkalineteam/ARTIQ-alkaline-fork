@@ -54,7 +54,7 @@ class clock_transition_lookup_v2(EnvExperiment):
         delay(5*ms)
         self.Probe.set(frequency=65*MHz, amplitude=0.00)
         self.Probe_TTL.on()
-        delay(3.4*ms)
+        delay(3.0*ms)
 
         if camera:
             with parallel:
@@ -236,8 +236,8 @@ class clock_transition_lookup_v2(EnvExperiment):
             self.Single_Freq.sw.off()
 
             # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 7.224)# 4.7/3.32 = 0.8; 4.898/3.14 = 1; 5.07/2.93 = 1.2; 5.64/2.27 = 1.85; 7.1/0.54 = 3.5;
-            self.MOT_Coil_2.write_dac(1, 0.476)
+            self.MOT_Coil_1.write_dac(0, 7.206)# 4.7/3.32 = 0.8; 4.898/3.14 = 1; 5.07/2.93 = 1.2; 5.64/2.27 = 1.85; 7.1/0.54 = 3.5;
+            self.MOT_Coil_2.write_dac(1, 0.47)
             with parallel:
                 self.MOT_Coil_1.load()
                 self.MOT_Coil_2.load()
@@ -306,9 +306,23 @@ class clock_transition_lookup_v2(EnvExperiment):
                         group = "excitation"
                     )
             
-            ground_state = detection[172:182]
-            excited_state = detection[1069:1079]
-            background = detection[1660:1670]
+            # shutter 3.0ms delay
+            # probe 0.5ms delay
+            ground_state = detection[164:175]
+            excited_state = detection[1053:1064]
+            background = detection[1634:1645]
+
+            # # shutter 3.4ms delay
+            # # probe 0.5ms delay
+            # ground_state = detection[172:182]
+            # excited_state = detection[1069:1079]
+            # background = detection[1660:1670]
+
+            # shutter 3.4ms delay
+            # probe 1.0ms delay
+            # ground_state = detection[172:193]
+            # excited_state = detection[1079:1100]
+            # background = detection[1680:1701]
 
             gs_sum = 0.0
             for _ in ground_state:
