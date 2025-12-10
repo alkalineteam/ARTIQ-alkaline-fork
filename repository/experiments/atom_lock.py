@@ -112,7 +112,7 @@ class atom_lock(EnvExperiment):
                 self.Probe_TTL.off()
     
     @kernel
-    def detection(self):
+    def detection(self, j):
         self.MOT_Coil_1.write_dac(0, 4.08)
         self.MOT_Coil_2.write_dac(1, 4.11)
         with parallel:
@@ -256,11 +256,6 @@ class atom_lock(EnvExperiment):
         self.Ref.set(frequency=80 * MHz)
         self.Ref.set_att(0.0)
 
-
-        # self.core.break_realtime()
-        
-        
-        
         for j in range(self.n):
             # **************************** Slice 1: Loading ****************************
             delay(100*ms)
@@ -362,8 +357,8 @@ class atom_lock(EnvExperiment):
             self.Single_Freq.sw.off()
 
             # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 7.185)# 4.7/3.32 = 0.8; 4.898/3.14 = 1; 5.07/2.93 = 1.2; 5.64/2.27 = 1.85; 7.1/0.54 = 3.5;
-            self.MOT_Coil_2.write_dac(1, 0.487)
+            self.MOT_Coil_1.write_dac(0, 7.232)# 4.7/3.32 = 0.8; 4.898/3.14 = 1; 5.07/2.93 = 1.2; 5.64/2.27 = 1.85; 7.1/0.54 = 3.5;
+            self.MOT_Coil_2.write_dac(1, 0.467)
             with parallel:
                 self.MOT_Coil_1.load()
                 self.MOT_Coil_2.load()
@@ -376,10 +371,10 @@ class atom_lock(EnvExperiment):
                 self.rabi_clock_spectroscopy(
                     frequency = self.Center_Frequency * 1e6 - (self.linewidth/2)
                 )
-                self.low_side = self.detection()
-                print("Low Side:", low_side)    
+                self.low_side = self.detection(j)
+                print("Low Side:", self.low_side)    
 
-                # self.atom_lock_ex(low_side)
+                # self.atom_lock_ex(self.low_side)
                 # delay(2*ms)
 
             elif self.thue_morse[j] == 1:
@@ -387,29 +382,27 @@ class atom_lock(EnvExperiment):
                 self.rabi_clock_spectroscopy(
                     frequency = self.Center_Frequency * 1e6 + self.linewidth/2
                 )
-                self.high_side = self.detection()
-                print("High Side:", high_side)
+                self.high_side = self.detection(j)
+                print("High Side:", self.high_side)
                 
-                # self.atom_lock_ex(high_side)
+                # self.atom_lock_ex(self.high_side)
                 # delay(2*ms)
  
             if j % 2 == 0:              # Every other cycle generate correction
-                self.core.break_realtime()
-            
-                if high_side > 1.0 or low_side > 1.0:        #prevents bad excitation fraction from destabilising the lock
-                    error_signal = 0.0
-                else:
-                    error_signal = high_side - low_side
+                # if self.high_side > 1.0 or self.low_side > 1.0:        #prevents bad excitation fraction from destabilising the lock
+                #     error_signal = 0.0
+                # else:
+                error_signal = self.high_side - self.low_side
 
                 self.error_signal_list[j] = error_signal
 
                 if error_signal == 0.0:
                     frequency_correction = 0.0
                 #     # print("No correction made")
-                # elif high_side+low_side <= 0.05:
+                # elif self.high_side+self.low_side <= 0.05:
                 #     frequency_correction = 0.0
                 #     # print("No correction made - too low")
-                # elif high_side+low_side >= 1.0:
+                # elif self.high_side+self.low_side >= 1.0:
                 #     frequency_correction = 0.0
                 #     # print("No correction made - too high")
                 else:
@@ -423,7 +416,7 @@ class atom_lock(EnvExperiment):
 
                 self.Atom_Lock.set(frequency = feedback_aom_frequency)
 
-                self.set_dataset("lock.error_signal_list", error_signal_list, broadcast=True, archive=True)
+                self.set_dataset("lock.error_signal_list", self.error_signal_list, broadcast=True, archive=True)
                 self.ccb.issue("create_applet", 
                             "Error Signal", 
                             "${artiq_applet}plot_xy"
@@ -431,7 +424,7 @@ class atom_lock(EnvExperiment):
                             " --title Error_Signal", 
                             group = "lock"
                         )
-                self.set_dataset("lock.feedback_frequency_list", feedback_frequency_list, broadcast=True, archive=True)
+                self.set_dataset("lock.feedback_frequency_list", self.feedback_frequency_list, broadcast=True, archive=True)
                 self.ccb.issue("create_applet", 
                             "Feedback Frequency", 
                             "${artiq_applet}plot_xy"
