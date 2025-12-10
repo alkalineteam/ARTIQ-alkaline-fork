@@ -144,6 +144,6 @@ class Everything_ON(EnvExperiment):
             with parallel:
                 self.MOT_Coil_1.load()
                 self.MOT_Coil_2.load()
-            # self.BMOT.set_att(31.0)
-            # self.Probe_TTL.on()
+            self.BMOT.set_att(31.0)
+            self.Probe_TTL.on()
         print("Parameters are set")

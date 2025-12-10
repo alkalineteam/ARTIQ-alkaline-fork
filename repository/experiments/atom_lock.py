@@ -31,7 +31,7 @@ class atom_lock(EnvExperiment):
         self.Single_Freq:AD9910 = self.get_device("urukul1_ch2")
         self.Probe:AD9910 = self.get_device("urukul1_ch3")
         self.Clock:AD9912 = self.get_device("urukul0_ch0")
-        self.atom_lock_aom:AD9912 = self.get_device("urukul0_ch1")
+        self.Atom_Lock:AD9912 = self.get_device("urukul0_ch1")
         self.MOT_Coil_1:Zotino = self.get_device("zotino0")
         self.MOT_Coil_2:Zotino = self.get_device("zotino0")
         self.sampler:Sampler = self.get_device("sampler0")
@@ -101,8 +101,8 @@ class atom_lock(EnvExperiment):
         self.Single_Freq.init()
         self.Clock.cpld.init()
         self.Clock.init()
-        self.atom_lock_aom.cpld.init()
-        self.atom_lock_aom.init()
+        self.Atom_Lock.cpld.init()
+        self.Atom_Lock.init()
 
         self.Ref.cpld.init()
         self.Ref.init()
@@ -119,11 +119,11 @@ class atom_lock(EnvExperiment):
         self.Probe.set_att(0.0)
         self.Single_Freq.set_att(0.0)
         self.Clock.set_att(0.0)
-        self.atom_lock_aom.set_att(0.0)
+        self.Atom_Lock.set_att(0.0)
 
         feedback_aom_frequency = 125*MHz
-        self.atom_lock_aom.set(frequency=feedback_aom_frequency)
-        self.atom_lock_aom.set_att(0.0)
+        self.Atom_Lock.set(frequency=feedback_aom_frequency)
+        self.Atom_Lock.set_att(0.0)
         self.Ref.set(frequency=80 * MHz)
         self.Ref.set_att(0.0)
 
@@ -412,7 +412,7 @@ class atom_lock(EnvExperiment):
                 feedback_aom_frequency = feedback_aom_frequency - frequency_correction
                 feedback_frequency_list[j] = feedback_aom_frequency
 
-                self.atom_lock_aom.set(frequency = feedback_aom_frequency)
+                self.Atom_Lock.set(frequency = feedback_aom_frequency)
 
                 self.set_dataset("lock.error_signal_list", error_signal_list, broadcast=True, archive=True)
                 self.ccb.issue("create_applet", 

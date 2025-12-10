@@ -236,8 +236,8 @@ class clock_transition_lookup_v2(EnvExperiment):
             self.Single_Freq.sw.off()
 
             # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 7.185)# 4.7/3.32 = 0.8; 4.898/3.14 = 1; 5.07/2.93 = 1.2; 5.64/2.27 = 1.85; 7.1/0.54 = 3.5;
-            self.MOT_Coil_2.write_dac(1, 0.487)
+            self.MOT_Coil_1.write_dac(0, 7.222)# 4.7/3.32 = 0.8; 4.898/3.14 = 1; 5.07/2.93 = 1.2; 5.64/2.27 = 1.85; 7.1/0.54 = 3.5;
+            self.MOT_Coil_2.write_dac(1, 0.467)
             with parallel:
                 self.MOT_Coil_1.load()
                 self.MOT_Coil_2.load()
@@ -343,7 +343,7 @@ class clock_transition_lookup_v2(EnvExperiment):
                         "Excitation Fraction Plot", 
                         "${artiq_applet}plot_xy"
                         " excitation.excitation_fraction_list"
-                        " --x excitation.frequencies_MHz"
+                        # " --x excitation.frequencies_MHz"
                         " --title Excitation_Fraction", 
                         group = "excitation"
                     )
