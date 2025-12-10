@@ -45,9 +45,22 @@ class atom_lock(EnvExperiment):
         self.setattr_argument("State_Preparation_Time", NumberValue(default=30))
         self.setattr_argument("Clock_Interrogation_Time", NumberValue(default=300))
 
-        self.setattr_argument("Center_Frequency", NumberValue(default=79.42, precision=4))
-        self.setattr_argument("linewidth", NumberValue(default=100, precision=4))
+        self.setattr_argument("Center_Frequency", NumberValue(default=79.42, precision=4, unit="MHz"))
+        self.setattr_argument("linewidth", NumberValue(default=100, precision=4, unit="Hz"))
     
+    @kernel
+    def rabi_clock_spectroscopy(self, frequency):
+        self.clock_shutter.on()
+        delay(4*ms)
+
+        self.Clock.set(frequency=frequency*MHz)
+        print("Clock Frequency (MHz):", frequency)
+
+        delay(self.Clock_Interrogation_Time*ms)
+
+        self.clock_shutter.off()
+        delay(4*ms)
+
     @kernel
     def probe_init(self, camera: bool):
         self.Probe.set(frequency=65*MHz, amplitude=0.03)
@@ -74,6 +87,98 @@ class atom_lock(EnvExperiment):
             with parallel:
                 self.Probe.set(frequency=65*MHz, amplitude=0.00)
                 self.Probe_TTL.off()
+    
+    @kernel
+    def detection(self):
+        self.MOT_Coil_1.write_dac(0, 4.08)
+        self.MOT_Coil_2.write_dac(1, 4.11)
+        with parallel:
+            self.MOT_Coil_1.load()
+            self.MOT_Coil_2.load()            
+
+        self.BMOT_AOM.set(frequency=10*MHz, amplitude=0.08)
+
+        with parallel:
+            with sequential:
+                # **************************** Ground State **************************
+                self.probe_init(camera=True)                      
+                delay(5*ms)
+
+                # ***************************** Repumping ****************************
+                self.Repump679.pulse(30*ms)
+
+                # *************************** Excited State **************************
+                self.probe_init(camera=False)
+                delay(20*ms)
+
+                # ************************* Background State *************************
+                self.probe_init(camera=False)
+                delay(5*ms)
+
+            with sequential:
+                for k in range(self.num_samples):
+                    self.sampler.sample(self.samples[k])
+                    delay(self.sampling_period * ms)
+            
+        self.Probe.set(frequency=65*MHz, amplitude=0.03)
+        self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
+        self.Single_Freq.set(frequency=80*MHz, amplitude=0.35)
+        self.Broadband_On.pulse(10*ms)
+        delay(100*ms)
+
+        detection = [i[0] for i in self.samples]
+
+        self.set_dataset("excitation.detection", detection, broadcast=True, archive=True)
+        self.ccb.issue("create_applet", 
+                    "PMT Detection", 
+                    "${artiq_applet}plot_xy"
+                    " excitation.detection"
+                    " --title PMT_detection", 
+                    group = "excitation"
+                )
+        
+        ground_state = detection[172:182]
+        excited_state = detection[1069:1079]
+        background = detection[1660:1670]
+
+        gs_sum = 0.0
+        for _ in ground_state:
+            gs_sum+=_
+        
+        es_sum = 0.0
+        for _ in excited_state:
+            es_sum+=_
+
+        bg_sum = 0.0
+        for _ in background:
+            bg_sum+=_
+
+        gs_avg = gs_sum/len(ground_state)
+        es_avg = es_sum/len(excited_state)
+        bg_avg = bg_sum/len(background)
+        print("GS avg:", gs_avg, ", ES avg:", es_avg, ", BG avg:", bg_avg)
+
+        numerator = es_avg - bg_avg
+        denominator = es_avg + gs_avg - 2*bg_avg
+
+        # excitation_fraction = min(max(numerator / denominator if denominator != 0.0 else 0.0, 0.0), 1.0)
+        excitation_fraction = numerator / denominator
+        print("Excitation Fraction:", excitation_fraction, ", Cycle:", j)
+
+        self.excitation_fraction_list[j] = excitation_fraction
+
+        self.set_dataset("excitation.excitation_fraction_list", self.excitation_fraction_list, broadcast=True, archive=True)
+        # self.set_dataset("excitation.frequencies_MHz", frequencies_MHz, broadcast=True, archive=True)
+
+        self.ccb.issue("create_applet", 
+                    "Excitation Fraction Plot", 
+                    "${artiq_applet}plot_xy"
+                    " excitation.excitation_fraction_list"
+                    # " --x excitation.frequencies_MHz"
+                    " --title Excitation_Fraction", 
+                    group = "excitation"
+                )
+        return excitation_fraction
 
 
     @kernel
@@ -112,6 +217,7 @@ class atom_lock(EnvExperiment):
         self.ZeemanSlower.sw.on()
         self.Probe.sw.on()
         self.Clock.sw.on()
+        self.Atom_Lock.sw.on()
 
         # Set the RF attenuation
         self.BMOT_AOM.set_att(0.0)
@@ -138,13 +244,13 @@ class atom_lock(EnvExperiment):
         thue_morse = thue_morse[:n]
 
         # Sampler params
-        sample_duration = 70  #60 ms detection window
-        sampling_period = 0.04 #in ms = 25 kHz
-        num_samples = int(sample_duration / sampling_period)
+        self.sample_duration = 70  #60 ms detection window
+        self.sampling_period = 0.04 #in ms = 25 kHz
+        self.num_samples = int(self.sample_duration / self.sampling_period)
 
         # Pre-allocate arrays
-        samples = [[0.0 for i in range(8)] for _ in range(num_samples)]
-        excitation_fraction_list = [0.0 for _ in range(n)]
+        self.samples = [[0.0 for i in range(8)] for _ in range(self.num_samples)]
+        self.excitation_fraction_list = [0.0 for _ in range(n)]
         error_signal_list = [0.0 for _ in range(n)]
         feedback_frequency_list = [0.0 for _ in range(n)]
 
@@ -255,117 +361,13 @@ class atom_lock(EnvExperiment):
                 self.MOT_Coil_1.load()
                 self.MOT_Coil_2.load()
 
-            delay(self.State_Preparation_Time*ms)
-
-            # **************************** Slice 5: Clock Interrogation *****************************
-            def rabi_clock_spectroscopy(frequency):
-                self.clock_shutter.on()
-                delay(4*ms)
-
-                self.Clock.set(frequency=frequency*MHz)
-
-                delay(self.Clock_Interrogation_Time*ms)
-
-                self.clock_shutter.off()
-                delay(4*ms)
-
-            # **************************** Slice 6: Detection ****************************
-            def detection():
-                self.MOT_Coil_1.write_dac(0, 4.08)
-                self.MOT_Coil_2.write_dac(1, 4.11)
-                with parallel:
-                    self.MOT_Coil_1.load()
-                    self.MOT_Coil_2.load()            
-
-                self.BMOT_AOM.set(frequency=10*MHz, amplitude=0.08)
-
-                with parallel:
-                    with sequential:
-                        # **************************** Ground State **************************
-                        self.probe_init(camera=True)                      
-                        delay(5*ms)
-
-                        # ***************************** Repumping ****************************
-                        self.Repump679.pulse(30*ms)
-
-                        # *************************** Excited State **************************
-                        self.probe_init(camera=False)
-                        delay(20*ms)
-
-                        # ************************* Background State *************************
-                        self.probe_init(camera=False)
-                        delay(5*ms)
-
-                    with sequential:
-                        for k in range(num_samples):
-                            self.sampler.sample(samples[k])
-                            delay(sampling_period * ms)
-                    
-                self.Probe.set(frequency=65*MHz, amplitude=0.03)
-                self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
-                self.Single_Freq.set(frequency=80*MHz, amplitude=0.35)
-                self.Broadband_On.pulse(10*ms)
-                delay(100*ms)
-
-                detection = [i[0] for i in samples]
-
-                self.set_dataset("excitation.detection", detection, broadcast=True, archive=True)
-                self.ccb.issue("create_applet", 
-                            "PMT Detection", 
-                            "${artiq_applet}plot_xy"
-                            " excitation.detection"
-                            " --title PMT_detection", 
-                            group = "excitation"
-                        )
-                
-                ground_state = detection[172:182]
-                excited_state = detection[1069:1079]
-                background = detection[1660:1670]
-
-                gs_sum = 0.0
-                for _ in ground_state:
-                    gs_sum+=_
-                
-                es_sum = 0.0
-                for _ in excited_state:
-                    es_sum+=_
-
-                bg_sum = 0.0
-                for _ in background:
-                    bg_sum+=_
-
-                gs_avg = gs_sum/len(ground_state)
-                es_avg = es_sum/len(excited_state)
-                bg_avg = bg_sum/len(background)
-                print("GS avg:", gs_avg, ", ES avg:", es_avg, ", BG avg:", bg_avg)
-
-                numerator = es_avg - bg_avg
-                denominator = es_avg + gs_avg - 2*bg_avg
-
-                # excitation_fraction = min(max(numerator / denominator if denominator != 0.0 else 0.0, 0.0), 1.0)
-                excitation_fraction = numerator / denominator
-                print("Excitation Fraction:", excitation_fraction, ", Cycle:", j)
-
-                excitation_fraction_list[j] = excitation_fraction
-
-                self.set_dataset("excitation.excitation_fraction_list", excitation_fraction_list, broadcast=True, archive=True)
-                # self.set_dataset("excitation.frequencies_MHz", frequencies_MHz, broadcast=True, archive=True)
-
-                self.ccb.issue("create_applet", 
-                            "Excitation Fraction Plot", 
-                            "${artiq_applet}plot_xy"
-                            " excitation.excitation_fraction_list"
-                            # " --x excitation.frequencies_MHz"
-                            " --title Excitation_Fraction", 
-                            group = "excitation"
-                        )
-                return excitation_fraction
+            delay(self.State_Preparation_Time*ms)            
             
-            # **************************** Slice 7: Atom Lock ****************************
+            # **************************** Slice 6: Atom Lock ****************************
             if thue_morse[j] == 0:
                 # self.core.break_realtime()
                 self.rabi_clock_spectroscopy(
-                    frequency = (self.Center_Frequency - (self.linewidth/2))*Hz,
+                    frequency = self.Center_Frequency * 1e6 - (self.linewidth/2)
                 )
                 low_side = self.detection()
                 print("Low Side:", low_side)    
@@ -376,7 +378,7 @@ class atom_lock(EnvExperiment):
             elif thue_morse[j] == 1:
                 # self.core.break_realtime()
                 self.rabi_clock_spectroscopy(
-                    frequency = self.Center_Frequency + self.linewidth/2,
+                    frequency = self.Center_Frequency * 1e6 + self.linewidth/2
                 )
                 high_side = self.detection()
                 print("High Side:", high_side)
@@ -431,5 +433,5 @@ class atom_lock(EnvExperiment):
                             group = "lock"
                         )
                 
-                delay(5*ms)
+                delay(100*ms)
             
