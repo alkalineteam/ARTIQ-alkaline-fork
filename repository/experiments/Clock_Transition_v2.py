@@ -306,9 +306,9 @@ class clock_transition_lookup_v2(EnvExperiment):
                         group = "excitation"
                     )
             
-            ground_state = detection[171:183]
-            excited_state = detection[1068:1080]
-            background = detection[1658:1670]
+            ground_state = detection[172:182]
+            excited_state = detection[1069:1079]
+            background = detection[1660:1670]
 
             gs_sum = 0.0
             for _ in ground_state:
