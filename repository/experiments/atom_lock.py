@@ -32,7 +32,7 @@ class atom_lock(EnvExperiment):
         self.Single_Freq:AD9910 = self.get_device("urukul1_ch2")
         self.Probe:AD9910 = self.get_device("urukul1_ch3")
         self.Clock:AD9912 = self.get_device("urukul0_ch0")
-        self.Atom_Lock:AD9912 = self.get_device("urukul0_ch1")
+        self.Clock_Feedback:AD9912 = self.get_device("urukul0_ch1")
         self.MOT_Coil_1:Zotino = self.get_device("zotino0")
         self.MOT_Coil_2:Zotino = self.get_device("zotino0")
         self.sampler:Sampler = self.get_device("sampler0")
@@ -90,7 +90,7 @@ class atom_lock(EnvExperiment):
         delay(5*ms)
         self.Probe.set(frequency=65*MHz, amplitude=0.00)
         self.Probe_TTL.on()
-        delay(3.4*ms)
+        delay(3.0*ms)
 
         if camera:
             with parallel:
@@ -159,14 +159,16 @@ class atom_lock(EnvExperiment):
                     " --title PMT_detection", 
                     group = "excitation"
                 )
-        
+        ground_state = detection[164:175]
+        excited_state = detection[1053:1064]
+        background = detection[1634:1645]        
         # ground_state = detection[172:182]
         # excited_state = detection[1069:1079]
         # background = detection[1660:1670]
 
-        ground_state = detection[172:193]
-        excited_state = detection[1079:1100]
-        background = detection[1680:1701]
+        # ground_state = detection[172:193]
+        # excited_state = detection[1079:1100]
+        # background = detection[1680:1701]
 
         gs_sum = 0.0
         for _ in ground_state:
@@ -233,8 +235,8 @@ class atom_lock(EnvExperiment):
         self.Single_Freq.init()
         self.Clock.cpld.init()
         self.Clock.init()
-        self.Atom_Lock.cpld.init()
-        self.Atom_Lock.init()
+        self.Clock_Feedback.cpld.init()
+        self.Clock_Feedback.init()
 
         self.Ref.cpld.init()
         self.Ref.init()
@@ -244,7 +246,7 @@ class atom_lock(EnvExperiment):
         self.ZeemanSlower.sw.on()
         self.Probe.sw.on()
         self.Clock.sw.on()
-        self.Atom_Lock.sw.on()
+        self.Clock_Feedback.sw.on()
 
         # Set the RF attenuation
         self.BMOT_AOM.set_att(0.0)
@@ -252,11 +254,11 @@ class atom_lock(EnvExperiment):
         self.Probe.set_att(0.0)
         self.Single_Freq.set_att(0.0)
         self.Clock.set_att(0.0)
-        self.Atom_Lock.set_att(0.0)
+        self.Clock_Feedback.set_att(0.0)
 
-        feedback_aom_frequency = 125*MHz
-        self.Atom_Lock.set(frequency=feedback_aom_frequency)
-        self.Atom_Lock.set_att(0.0)
+        Clock_Feedback_Freq = 66*MHz
+        self.Clock_Feedback.set(frequency=Clock_Feedback_Freq)
+        self.Clock_Feedback.set_att(0.0)
         self.Ref.set(frequency=80 * MHz)
         self.Ref.set_att(0.0)
 
@@ -361,8 +363,8 @@ class atom_lock(EnvExperiment):
             self.Single_Freq.sw.off()
 
             # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 7.216)# 4.7/3.32 = 0.8; 4.898/3.14 = 1; 5.07/2.93 = 1.2; 5.64/2.27 = 1.85; 7.1/0.54 = 3.5;
-            self.MOT_Coil_2.write_dac(1, 0.486)
+            self.MOT_Coil_1.write_dac(0, 7.171)# 4.7/3.32 = 0.8; 4.898/3.14 = 1; 5.07/2.93 = 1.2; 5.64/2.27 = 1.85; 7.1/0.54 = 3.5;
+            self.MOT_Coil_2.write_dac(1, 0.395)
             with parallel:
                 self.MOT_Coil_1.load()
                 self.MOT_Coil_2.load()
@@ -378,7 +380,6 @@ class atom_lock(EnvExperiment):
                 print("Low Side:", self.low_side)    
 
                 # self.atom_lock_ex(self.low_side)
-                # delay(2*ms)
 
             elif self.thue_morse[j] == 1:
                 self.rabi_clock_spectroscopy(
@@ -388,7 +389,6 @@ class atom_lock(EnvExperiment):
                 print("High Side:", self.high_side)
                 
                 # self.atom_lock_ex(self.high_side)
-                # delay(2*ms)
  
             if j % 2 == 0:              # Every other cycle generate correction
                 # if self.high_side > 1.0 or self.low_side > 1.0:        #prevents bad excitation fraction from destabilising the lock
@@ -409,14 +409,13 @@ class atom_lock(EnvExperiment):
                 #     # print("No correction made - too high")
                 else:
                     # frequency_correction =  - (self.servo_gain * error_signal * self.linewidth) / (2* (2 * contrast))
-                    frequency_correction =  - (0.3 * error_signal * self.linewidth) / (2* (2 * 0.6))
+                    frequency_correction =  - (0.3 * error_signal * self.linewidth) / (2*(2*0.6))
                 
                 # double_integrator_correction = self.servo_gain_2 * sum(self.previous_correction_values) *self.linewidth / (2 * (2 * contrast))
                 
-                feedback_aom_frequency = feedback_aom_frequency - frequency_correction
-                self.feedback_frequency_list[j] = feedback_aom_frequency
-
-                self.Atom_Lock.set(frequency = feedback_aom_frequency)
+                Clock_Feedback_Freq -= frequency_correction
+                self.feedback_frequency_list[j] = Clock_Feedback_Freq
+                self.Clock_Feedback.set(frequency = Clock_Feedback_Freq)
 
                 self.set_dataset("lock.error_signal_list", self.error_signal_list, broadcast=True, archive=True)
                 self.ccb.issue("create_applet", 

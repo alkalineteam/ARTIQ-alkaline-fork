@@ -236,7 +236,7 @@ class redMOT_v3_1(EnvExperiment):
                 with parallel:
                     self.Camera.on()
                     self.Pixelfly.on()
-                    self.Probe.set(frequency=65*MHz, amplitude=0.03)
+                    self.Probe.set(frequency=65*MHz, amplitude=0.02)
                     self.Ref.sw.on()
             
                 delay(0.5 *ms)
@@ -250,7 +250,7 @@ class redMOT_v3_1(EnvExperiment):
             
             # **************************** Slice 4 ****************************
             self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
-            self.Probe.set(frequency= 65*MHz, amplitude=0.03)
+            self.Probe.set(frequency= 65*MHz, amplitude=0.02)
             self.Single_Freq.set(frequency=80*MHz, amplitude=0.35)
             self.Broadband_On.pulse(10*ms)
             delay(1500*ms)

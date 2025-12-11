@@ -16,6 +16,7 @@ class Everything_ON(EnvExperiment):
         self.RMOT=self.get_device("urukul1_ch2")
         self.Probe=self.get_device("urukul1_ch3")
         self.Clock=self.get_device("urukul0_ch0")
+        self.Clock_Feedback=self.get_device("urukul0_ch1")
         self.Ref = self.get_device("urukul0_ch3")
 
         self.clock_shutter:TTLOut=self.get_device("ttl4")
@@ -27,8 +28,8 @@ class Everything_ON(EnvExperiment):
         self.setattr_argument("Cycle", NumberValue(default = 100))
         self.setattr_argument("High_Low", BooleanValue(default=False))
         self.setattr_argument("Idle_State", BooleanValue(default=False))
-        self.setattr_argument("Coil_1_voltage", NumberValue(default = 1.06, unit="V", precision=3))
-        self.setattr_argument("Coil_2_voltage", NumberValue(default = 0.44, unit="V", precision=3))
+        self.setattr_argument("Coil_1_voltage", NumberValue(default = 1.06, unit="V", precision=4))
+        self.setattr_argument("Coil_2_voltage", NumberValue(default = 0.44, unit="V", precision=4))
 
         self.setattr_argument("BMOT_Frequency", NumberValue(default = 90.0))
         self.setattr_argument("BMOT_Amplitude", NumberValue(default = 0.08))
@@ -38,7 +39,7 @@ class Everything_ON(EnvExperiment):
         self.setattr_argument("Zeeman_Amplitude", NumberValue(default = 0.35)) 
         # self.setattr_argument("Zeeman_Attenuation", NumberValue(default = 0.0))
 
-        self.setattr_argument("RMOT_Frequency", NumberValue(default = 75.0))
+        self.setattr_argument("RMOT_Frequency", NumberValue(default = 80.0))
         self.setattr_argument("RMOT_Amplitude", NumberValue(default = 0.35)) 
         # self.setattr_argument("RMOT_Attenuation", NumberValue(default = 0.0))
 
@@ -46,8 +47,10 @@ class Everything_ON(EnvExperiment):
         self.setattr_argument("Probe_Amplitude", NumberValue(default = 0.02)) 
         # self.setattr_argument("Probe_Attenuation", NumberValue(default = 0.0))
 
-        self.setattr_argument("Clock_Frequency", NumberValue(default = 79.42))
-        self.setattr_argument("Clock_Attenuation", NumberValue(default = 0.0))
+        self.setattr_argument("Clock_Frequency", NumberValue(default = 79.48))
+
+        self.setattr_argument("Clock_Feedback_Frequency", NumberValue(default = 66.0))
+        
 
     @kernel
     def run(self):
@@ -77,14 +80,14 @@ class Everything_ON(EnvExperiment):
         self.RMOT.sw.on()
         self.Probe.sw.on()
         self.Clock.sw.on()
-        # self.Flush.sw.on()
+        self.Clock_Feedback.sw.on()
 
         self.BMOT.set_att(0.0)
         self.ZeemanSlower.set_att(0.0)
         self.RMOT.set_att(0.0)
         self.Probe.set_att(0.0)
-        self.Clock.set_att(self.Clock_Attenuation)
-        # self.Flush.set_att(self.Flush_Attenuation)
+        self.Clock.set_att(0.0)
+        self.Clock_Feedback.set_att(0.0)
         self.MOT_Coil_1.write_dac(0, self.Coil_1_voltage)
         self.MOT_Coil_2.write_dac(1, self.Coil_2_voltage)
         
@@ -106,6 +109,8 @@ class Everything_ON(EnvExperiment):
         self.Probe.set(frequency=self.Probe_Frequency * MHz, amplitude=self.Probe_Amplitude)
 
         self.Clock.set(frequency=self.Clock_Frequency * MHz)
+
+        self.Clock_Feedback.set(frequency=self.Clock_Feedback_Frequency * MHz)
 
         self.Ref.set(frequency=10 * MHz)
 

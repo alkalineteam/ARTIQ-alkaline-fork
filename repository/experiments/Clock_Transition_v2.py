@@ -31,6 +31,7 @@ class clock_transition_lookup_v2(EnvExperiment):
         self.Single_Freq:AD9910 = self.get_device("urukul1_ch2")
         self.Probe:AD9910 = self.get_device("urukul1_ch3")
         self.Clock:AD9912 = self.get_device("urukul0_ch0")
+        self.Clock_Feedback:AD9912 = self.get_device("urukul0_ch1")
         self.MOT_Coil_1:Zotino = self.get_device("zotino0")
         self.MOT_Coil_2:Zotino = self.get_device("zotino0")
         self.sampler:Sampler = self.get_device("sampler0")
@@ -50,7 +51,7 @@ class clock_transition_lookup_v2(EnvExperiment):
     
     @kernel
     def probe_init(self, camera: bool):
-        self.Probe.set(frequency=65*MHz, amplitude=0.03)
+        self.Probe.set(frequency=65*MHz, amplitude=0.02)
         delay(5*ms)
         self.Probe.set(frequency=65*MHz, amplitude=0.00)
         self.Probe_TTL.on()
@@ -59,9 +60,9 @@ class clock_transition_lookup_v2(EnvExperiment):
         if camera:
             with parallel:
                 self.Camera.on()
-                self.Probe.set(frequency=65*MHz, amplitude=0.03)
+                self.Probe.set(frequency=65*MHz, amplitude=0.02)
         else:
-            self.Probe.set(frequency=65*MHz, amplitude=0.03)
+            self.Probe.set(frequency=65*MHz, amplitude=0.02)
 
         delay(0.5*ms)
 
@@ -101,6 +102,8 @@ class clock_transition_lookup_v2(EnvExperiment):
         self.Single_Freq.init()
         self.Clock.cpld.init()
         self.Clock.init()
+        self.Clock_Feedback.cpld.init()
+        self.Clock_Feedback.init()
 
         self.Ref.cpld.init()
         self.Ref.init()
@@ -110,6 +113,7 @@ class clock_transition_lookup_v2(EnvExperiment):
         self.ZeemanSlower.sw.on()
         self.Probe.sw.on()
         self.Clock.sw.on()
+        self.Clock_Feedback.sw.on()
 
         # Set the RF attenuation
         self.BMOT_AOM.set_att(0.0)
@@ -117,8 +121,10 @@ class clock_transition_lookup_v2(EnvExperiment):
         self.Probe.set_att(0.0)
         self.Single_Freq.set_att(0.0)
         self.Clock.set_att(0.0)
+        self.Clock_Feedback.set_att(0.0)
 
-        self.Ref.set(frequency=80 * MHz)
+        self.Clock_Feedback.set(frequency=66*MHz)
+        self.Ref.set(frequency=80*MHz)
         self.Ref.set_att(0.0)
 
         # Clock parameters
@@ -140,7 +146,7 @@ class clock_transition_lookup_v2(EnvExperiment):
             delay(100*ms)
             self.BMOT_AOM.set(frequency=90 * MHz, amplitude=0.08)
             self.ZeemanSlower.set(frequency=180 * MHz, amplitude=0.35)
-            self.Probe.set(frequency= 65 * MHz, amplitude=0.03)
+            self.Probe.set(frequency= 65 * MHz, amplitude=0.02)
             self.Single_Freq.set(frequency= 80 * MHz, amplitude=0.35)
             
             voltage_1 = 1.13
@@ -236,8 +242,8 @@ class clock_transition_lookup_v2(EnvExperiment):
             self.Single_Freq.sw.off()
 
             # **************************** Slice 5: State Preparation *****************************
-            self.MOT_Coil_1.write_dac(0, 7.206)# 4.7/3.32 = 0.8; 4.898/3.14 = 1; 5.07/2.93 = 1.2; 5.64/2.27 = 1.85; 7.1/0.54 = 3.5;
-            self.MOT_Coil_2.write_dac(1, 0.47)
+            self.MOT_Coil_1.write_dac(0, 7.163)# 4.7/3.32 = 0.8; 4.898/3.14 = 1; 5.07/2.93 = 1.2; 5.64/2.27 = 1.85; 7.1/0.54 = 3.5;
+            self.MOT_Coil_2.write_dac(1, 0.433)
             with parallel:
                 self.MOT_Coil_1.load()
                 self.MOT_Coil_2.load()
@@ -289,7 +295,7 @@ class clock_transition_lookup_v2(EnvExperiment):
                         delay(sampling_period * ms)
                 
             # **************************** Slice 4 ****************************
-            self.Probe.set(frequency=65*MHz, amplitude=0.03)
+            self.Probe.set(frequency=65*MHz, amplitude=0.02)
             self.BMOT_AOM.set(frequency=90*MHz, amplitude=0.08)
             self.Single_Freq.set(frequency=80*MHz, amplitude=0.35)
             self.Broadband_On.pulse(10*ms)
@@ -312,17 +318,11 @@ class clock_transition_lookup_v2(EnvExperiment):
             excited_state = detection[1053:1064]
             background = detection[1634:1645]
 
-            # # shutter 3.4ms delay
-            # # probe 0.5ms delay
-            # ground_state = detection[172:182]
-            # excited_state = detection[1069:1079]
-            # background = detection[1660:1670]
-
-            # shutter 3.4ms delay
-            # probe 1.0ms delay
-            # ground_state = detection[172:193]
-            # excited_state = detection[1079:1100]
-            # background = detection[1680:1701]
+            # # shutter 3.0ms delay
+            # # probe 1.0ms delay
+            # ground_state = detection[164:185]
+            # excited_state = detection[1063:1084]
+            # background = detection[1655:1676]
 
             gs_sum = 0.0
             for _ in ground_state:
