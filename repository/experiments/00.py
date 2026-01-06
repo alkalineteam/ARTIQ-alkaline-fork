@@ -118,8 +118,8 @@ class Everything_ON(EnvExperiment):
 
         if self.High_Low == True:
             for i in range(int64(self.Cycle)):
-                self.MOT_Coil_1.write_dac(0, 1.13)
-                self.MOT_Coil_2.write_dac(1, 0.497)
+                self.MOT_Coil_1.write_dac(0, 1.045)
+                self.MOT_Coil_2.write_dac(1, 0.547)
 
                 with parallel:
                     self.MOT_Coil_1.load()
@@ -149,6 +149,6 @@ class Everything_ON(EnvExperiment):
             with parallel:
                 self.MOT_Coil_1.load()
                 self.MOT_Coil_2.load()
-            self.BMOT.set_att(31.0)
-            self.Probe_TTL.on()
+            "self.BMOT.set_att(31.0)"
+            """self.Probe_TTL.on()"""
         print("Parameters are set")
