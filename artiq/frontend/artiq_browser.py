@@ -35,7 +35,7 @@ def get_argparser():
                         help="root path for directory tree "
                         "(default %(default)s)")
     parser.add_argument(
-        "-s", "--server", default="::1",
+        "-s", "--server", default="localhost",
         help="hostname or IP of the master to connect to "
              "when uploading datasets")
     parser.add_argument(

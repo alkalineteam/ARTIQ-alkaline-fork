@@ -15,7 +15,7 @@ device_db = {
         "type": "local",
         "module": "artiq.coredevice.core",
         "class": "Core",
-        "arguments": {"host": "::1", "ref_period": 1e-09},
+        "arguments": {"host": "localhost", "ref_period": 1e-09},
     },
 
     "core_alias": "core",
@@ -101,9 +101,9 @@ class TestDeviceDB(unittest.TestCase):
         update = """
 device_db["core_log"] = {
     "type": "controller",
-    "host": "::1",
+    "host": "localhost",
     "port": 1068,
-    "command": "aqctl_corelog -p {port} --bind {bind} ::1",
+    "command": "aqctl_corelog -p {port} --bind {bind} localhost",
 }"""
 
         print(update, file=self.ddb_file, flush=True)

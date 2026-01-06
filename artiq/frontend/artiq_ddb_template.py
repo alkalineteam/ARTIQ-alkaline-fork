@@ -25,6 +25,21 @@ def get_cpu_target(description):
     else:
         raise NotImplementedError
 
+def get_acpki_batcher(description):
+    if description["enable_acpki"]:
+        if description["target"] == "kasli_soc":
+            return """\
+"core_batch" = {
+        "type": "local",
+        "module": "artiq.coredevice.rtio",
+        "class": "RTIOBatch",
+    }
+            """
+        else:
+            raise ValueError("ACPKI is supported only on Zynq devices")
+    else:
+        return ""
+
 
 def get_num_leds(description):
     drtio_role = description["drtio_role"]
@@ -67,20 +82,20 @@ def process_header(output, description):
             }},
             "core_log": {{
                 "type": "controller",
-                "host": "::1",
+                "host": "localhost",
                 "port": 1068,
                 "command": "aqctl_corelog -p {{port}} --bind {{bind}} " + core_addr
             }},
             "core_moninj": {{
                 "type": "controller",
-                "host": "::1",
+                "host": "localhost",
                 "port_proxy": 1383,
                 "port": 1384,
                 "command": "aqctl_moninj_proxy --port-proxy {{port_proxy}} --port-control {{port}} --bind {{bind}} " + core_addr
             }},
             "core_analyzer": {{
                 "type": "controller",
-                "host": "::1",
+                "host": "localhost",
                 "port_proxy": 1385,
                 "port": 1386,
                 "command": "aqctl_coreanalyzer_proxy --port-proxy {{port_proxy}} --port-control {{port}} --bind {{bind}} " + core_addr
@@ -95,6 +110,7 @@ def process_header(output, description):
                 "module": "artiq.coredevice.dma",
                 "class": "CoreDMA"
             }},
+            {acpki_batcher}
 
             "i2c_switch0": {{
                 "type": "local",
@@ -113,7 +129,8 @@ def process_header(output, description):
             variant=description["variant"],
             core_addr=description["core_addr"],
             ref_period=1/(8*description["rtio_frequency"]),
-            cpu_target=get_cpu_target(description)),
+            cpu_target=get_cpu_target(description),
+            acpki_batcher=get_acpki_batcher(description)),
         file=output)
 
 
@@ -827,6 +844,7 @@ class PeripheralManager:
                             "fpga_device": "{name}_fpga",
                             "dac_device": "{name}_dac",
                             "att_device": "{name}_att{ch}",
+                            "servo_device": "{name}_channel{ch}_servo",
                             "dds_device_prefix": "{name}_channel{ch}_dds"{iquc_device}
                         }}
                     }}""",
@@ -853,6 +871,20 @@ class PeripheralManager:
                         channel=rtio_offset + next(channel),
                         bandwidth=peripheral["dds_bandwidth"],
                     )
+                self.gen(
+                    """
+                    device_db["{name}_channel{ch}_servo"] = {{
+                        "type": "local",
+                        "module": "artiq.coredevice.phaser_drtio",
+                        "class": "PhaserServo",
+                        "arguments": {{
+                            "channel": 0x{channel:06x},
+                        }}
+                    }}""",
+                    name=phaser_name,
+                    ch=ch,
+                    channel=rtio_offset + next(channel),
+                )
         return 0
 
     def process_hvamp(self, rtio_offset, peripheral):

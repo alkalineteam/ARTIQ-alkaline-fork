@@ -31,7 +31,7 @@ def get_argparser():
                         version="ARTIQ v{}".format(artiq_version),
                         help="print the ARTIQ version number")
     parser.add_argument(
-        "-s", "--server", default="::1",
+        "-s", "--server", default="localhost",
         help="hostname or IP of the master to connect to (default: %(default)s)")
     parser.add_argument(
         "--port-notify", default=3250, type=int,

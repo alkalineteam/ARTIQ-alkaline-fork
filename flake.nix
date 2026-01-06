@@ -15,23 +15,26 @@
     };
 
     artiq-comtools = {
-      url = "github:m-labs/artiq-comtools";
+      url = "https://git.m-labs.hk/M-Labs/artiq-comtools.git";
+      type = "git";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.sipyco.follows = "sipyco";
     };
 
     sipyco = {
-      url = "github:m-labs/sipyco";
+      url = "https://git.m-labs.hk/M-Labs/sipyco.git";
+      type = "git";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
     src-migen = {
-      url = "github:m-labs/migen";
+      url = "https://git.m-labs.hk/M-Labs/migen.git";
+      type = "git";
       flake = false;
     };
 
     src-misoc = {
-      url = "https://github.com/m-labs/misoc.git";
+      url = "https://git.m-labs.hk/M-Labs/misoc.git";
       type = "git";
       submodules = true;
       flake = false;

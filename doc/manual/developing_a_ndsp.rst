@@ -42,7 +42,7 @@ For the controller itself, we will turn this method into a server using ``sipyco
 and add a ``main`` function that is run when the program is executed: ::
 
     def main():
-        simple_server_loop({"hello": Hello()}, "::1", 3249)
+        simple_server_loop({"hello": Hello()}, "localhost", 3249)
 
     if __name__ == "__main__":
         main()
@@ -50,7 +50,7 @@ and add a ``main`` function that is run when the program is executed: ::
 .. tip::
      Defining the ``main`` function instead of putting its code directly in the ``if __name__ == "__main__"`` body enables the controller to be used as a setuptools entry point as well.
 
-The parameters ``::1`` and ``3249`` are respectively the address to bind the server to (in this case, we use IPv6 localhost) and the TCP port. Add a line: ::
+The parameters ``localhost`` and ``3249`` are respectively the address to bind the server to and the TCP port. Add a line: ::
 
     #!/usr/bin/env python3
 
@@ -64,7 +64,7 @@ Run it as: ::
 
 In a different console, verify that you can connect to the TCP port: ::
 
-    $ telnet ::1 3249
+    $ telnet localhost 3249
     Trying ::1...
     Connected to ::1.
     Escape character is '^]'.
@@ -75,7 +75,7 @@ In a different console, verify that you can connect to the TCP port: ::
 
 Also verify that a target (i.e. available service for RPC) named "hello" exists: ::
 
-    $ sipyco_rpctool ::1 3249 list-targets
+    $ sipyco_rpctool localhost 3249 list-targets
     Target(s):   hello
 
 The client
@@ -83,8 +83,8 @@ The client
 
 Clients are small command-line utilities that expose certain functionalities of the drivers. The ``sipyco_rpctool`` utility contains a generic client that can be used in most cases, and developing a custom client is not required. You have already used it above in the form of ``list-targets``. Try these commands: ::
 
-    $ sipyco_rpctool ::1 3249 list-methods
-    $ sipyco_rpctool ::1 3249 call message test
+    $ sipyco_rpctool localhost 3249 list-methods
+    $ sipyco_rpctool localhost 3249 call message test
 
 In case you are developing a NDSP that is complex enough to need a custom client, we will see how to develop one. Create a ``aqcli_hello.py`` file with the following contents: ::
 
@@ -94,7 +94,7 @@ In case you are developing a NDSP that is complex enough to need a custom client
 
 
     def main():
-        remote = Client("::1", 3249, "hello")
+        remote = Client("localhost", 3249, "hello")
         try:
             remote.message("Hello World!")
         finally:
@@ -125,7 +125,7 @@ Generally we will want to add the device to our :ref:`device database <device-db
 	device_db.update({
             "hello": {
         	"type": "controller",
-        	"host": "::1",
+                "host": "localhost",
         	"port": 3249,
         	"command": "python /abs/path/to/aqctl_hello.py -p {port}"
     	    },

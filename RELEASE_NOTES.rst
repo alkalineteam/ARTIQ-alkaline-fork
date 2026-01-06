@@ -10,7 +10,7 @@ ARTIQ-9 (Unreleased)
    - 12Gbps CoaXPress grabber support on Kasli-SoC with CoaXPress-SFP adapter
      (and ZC706 with Hello-FPGA CXP 4R FMC card).
    - Songbird - a 4-tone, 16-bit DDS using a 2.5Gsps LTC2000 DAC.
-   - Phaser MTDDS - a new gateware variant for Phaser that supports DRTIO and 2 IQ channels with 26-tone each
+   - Phaser MTDDS - a new gateware variant for Phaser that supports DRTIO and two 26-tone channels with servo support
    - Improved SDRAM memory controller and DMA cores puts Kasli DMA performance on par with
      other platforms.
    - Core device reflashing over the network through the new ``flash`` tool in ``artiq_coremgmt``.
@@ -52,6 +52,7 @@ ARTIQ-9 (Unreleased)
 * The Zadig driver installer was added to the MSYS2 offline installer.
 * ``artiq.coredevice.fmcdio_vhdci_eem`` has been removed.
 * Optional SSL support with mutual certificate authentication was added between components running on computers.
+* Default support for systems without IPv6.
 
 Breaking changes:
 
@@ -87,6 +88,7 @@ Breaking changes:
 
 * Experimental features have been removed.
 * SU-Servo coefficient memory have been remapped. Users should re-interpret the record written by Channel.get_profile_mu().
+* ``device_db.py`` now requires all device DB keys to be valid Python identifiers ``[A-Za-z0-9_]``; no special characters (except underscore) are allowed.
 
 ARTIQ-8
 -------
