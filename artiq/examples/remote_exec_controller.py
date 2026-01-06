@@ -57,7 +57,7 @@ class CameraSimulation:
 def main():
     logging.basicConfig(level=logging.INFO)
     simple_rexec_server_loop("camera_sim", CameraSimulation(),
-                             "::1", 6283)
+                             "localhost", 6283)
 
 if __name__ == "__main__":
     main()

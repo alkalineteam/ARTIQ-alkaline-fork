@@ -203,7 +203,7 @@ class SimpleApplet:
 
         group = self.argparser.add_argument_group("standalone mode (default)")
         group.add_argument(
-            "--server", default="::1",
+            "--server", default="localhost",
             help="hostname or IP of the master to connect to "
                  "for dataset notifications "
                  "(ignored in embedded mode)")

@@ -46,14 +46,14 @@ device_db = {
     "lda": {
         "type": "controller",
         "best_effort": True,
-        "host": "::1",
+        "host": "localhost",
         "port": 3253,
         "command": "aqctl_lda -p {port} --bind {bind} --simulation"
     },
 
     "camera_sim": {
         "type": "controller",
-        "host": "::1",
+        "host": "localhost",
         "port": 6283,
         "target_name": "camera_sim",
         "command": "python3 -m artiq.examples.remote_exec_controller"

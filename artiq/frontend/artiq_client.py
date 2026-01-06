@@ -34,7 +34,7 @@ def clear_screen():
 def get_argparser():
     parser = argparse.ArgumentParser(description="ARTIQ CLI client")
     parser.add_argument(
-        "-s", "--server", default="::1",
+        "-s", "--server", default="localhost",
         help="hostname or IP of the master to connect to (default: %(default)s)")
     parser.add_argument(
         "--port", default=None, type=int,

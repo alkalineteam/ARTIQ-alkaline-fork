@@ -17,9 +17,19 @@ def device_db_from_file(filename):
     # use __dict__ instead of direct attribute access
     # for backwards compatibility of the exception interface
     # (raise KeyError and not AttributeError if device_db is missing)
-    return mod.__dict__["device_db"]
+    device_db = mod.__dict__["device_db"]
+    validate_device_db(device_db)
+    return device_db
 
-
+def validate_device_db(device_db):
+    for key in device_db.keys():
+        if not isinstance(key, str):
+            raise ValueError("device DB keys must be strings")
+        if not key.isidentifier():
+            raise ValueError(
+                f"device_db key {key!r} contains invalid characters, only Python identifiers are allowed"
+            )
+        
 class DeviceDB:
     def __init__(self, backing_file):
         self.backing_file = backing_file

@@ -15,23 +15,26 @@
     };
 
     artiq-comtools = {
-      url = "github:m-labs/artiq-comtools";
+      url = "https://git.m-labs.hk/M-Labs/artiq-comtools.git";
+      type = "git";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.sipyco.follows = "sipyco";
     };
 
     sipyco = {
-      url = "github:m-labs/sipyco";
+      url = "https://git.m-labs.hk/M-Labs/sipyco.git";
+      type = "git";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
     src-migen = {
-      url = "github:m-labs/migen";
+      url = "https://git.m-labs.hk/M-Labs/migen.git";
+      type = "git";
       flake = false;
     };
 
     src-misoc = {
-      url = "https://github.com/m-labs/misoc.git";
+      url = "https://git.m-labs.hk/M-Labs/misoc.git";
       type = "git";
       submodules = true;
       flake = false;
@@ -520,11 +523,15 @@
           export QT_PLUGIN_PATH=${qtPaths.QT_PLUGIN_PATH}
           export QML2_IMPORT_PATH=${qtPaths.QML2_IMPORT_PATH}
           artiq_root=$(git rev-parse --show-toplevel 2>/dev/null)
-          if [[ -z "$artiq_root" ]] || ! artiq_run --version > /dev/null 2>&1; then
+          if [[ -z "$artiq_root" ]]; then
             echo "WARNING: Local ARTIQ repository not found, could not be added to PYTHONPATH."
             echo "This development shell must be run from within the ARTIQ repository."
           else
             export PYTHONPATH="$artiq_root:$PYTHONPATH"
+            if ! artiq_run --version > /dev/null 2>&1; then
+              echo "WARNING: Local repository does not contain ARTIQ source modules."
+              echo "This development shell must be run from within the ARTIQ repository."
+            fi
           fi
         '';
       };
