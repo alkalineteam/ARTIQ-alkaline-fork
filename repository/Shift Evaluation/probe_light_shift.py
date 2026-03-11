@@ -19,7 +19,7 @@ import os
 import csv
 from datetime import datetime
 
-class probe_light_shift_disc(EnvExperiment):
+class probe_light_shift_eval(EnvExperiment):
 
     def build(self):
         self.setattr_device("core")
@@ -48,6 +48,7 @@ class probe_light_shift_disc(EnvExperiment):
         self.lattice_aom=self.get_device("urukul1_ch0")
         self.stepping_aom=self.get_device("urukul1_ch1")
         self.atom_lock_aom=self.get_device("urukul1_ch2")
+        self.offset_lock_aom=self.get_device("urukul1_ch3")
                
         
         #Zotino
@@ -126,6 +127,13 @@ class probe_light_shift_disc(EnvExperiment):
         self.atom_lock_aom.set(frequency = 125 * MHz)
         self.atom_lock_aom.set_att(13*dB)
 
+                #Lattice AOM - for magic wavelength lattice measurements
+        self.lattice_aom.set(frequency = 80 *MHz)
+        self.lattice_aom.set_att(14* dB)
+
+        self.offset_lock_aom.set(frequency = 174.7 * MHz)
+        self.offset_lock_aom.set_att(0*dB)
+        self.offset_lock_aom.sw.on()
 
         # Set the RF channels ON
         self.blue_mot_aom.sw.on()
@@ -158,13 +166,13 @@ class probe_light_shift_disc(EnvExperiment):
         self.red_mot_aom.sw.off()
         self.stepping_aom.sw.off()
 
-        coil_2_voltage = 0.9564 * (-self.bias_current) + 4.973
-        coil_1_voltage = 1.0393 * (self.bias_current) + 4.965
+        coil_2_voltage = 1.0147 * (-self.bias_current) + 5.0154
+        coil_1_voltage = 0.9487 * (self.bias_current) + 4.7225
        
        
          #Switch to Helmholtz
-        self.mot_coil_1.write_dac(0, coil_1_voltage)  
-        self.mot_coil_2.write_dac(1, coil_2_voltage)
+        self.mot_coil_1.write_dac(1, coil_1_voltage)  
+        self.mot_coil_2.write_dac(0, coil_2_voltage)
         
         with parallel:
             self.mot_coil_1.load()
@@ -443,24 +451,25 @@ class probe_light_shift_disc(EnvExperiment):
     def run_sequence(self,j,param,stepping_aom_freq,rabi_pulse_duration,which_param,excitation_fraction_list_param_1,excitation_fraction_list_param_2 ):
         bmot_compression_time = 20 
         blue_mot_cooling_time = 60 
-        broadband_red_mot_time = 10
-        red_mot_compression_time = 7
-        single_frequency_time = 30
+        broadband_red_mot_time = 15
+        red_mot_compression_time = 5
+        single_frequency_time = 70
         time_of_flight = 0 
-        bmot_voltage_1 = 8.0
+        bmot_voltage_1 = 8.14
         bmot_voltage_2 = 7.9
-        compressed_blue_mot_coil_1_voltage = 8.62
+        compressed_blue_mot_coil_1_voltage = 8.67
         compressed_blue_mot_coil_2_voltage = 8.39
-        bmot_amp = 0.06
+        bmot_amp = 0.08
         compress_bmot_amp = 0.0035
-        bb_rmot_coil_1_voltage = 5.24
+        bb_rmot_coil_1_voltage = 5.26
         bb_rmot_coil_2_voltage = 5.22
         sf_rmot_coil_1_voltage = 5.72
         sf_rmot_coil_2_voltage = 5.64
-        rmot_f_start = 80.6,
-        rmot_f_end = 81,
+        rmot_f_start = 80.9,
+        rmot_f_end = 81.15,
         rmot_A_start = 0.05,
-        rmot_A_end = 0.0025,
+        rmot_A_end = 0.003
+
 
         is_param_1 = False
 
@@ -722,7 +731,7 @@ class probe_light_shift_disc(EnvExperiment):
                             p1_correction = 0.0
                      
                         else:
-                            p1_correction =  (self.param_1_gain_1 * p_1_error * self.linewidth_1) / (2* (2 * 0.7))
+                            p1_correction =  -(self.param_1_gain_1 * p_1_error * self.linewidth_1) / (2* (2 * 0.7))
 
 
                         #addition of double integrator term
@@ -732,7 +741,7 @@ class probe_light_shift_disc(EnvExperiment):
                         self.core.break_realtime()
                         delay(500*us)
                     
-                        feedback_aom_frequency_1 = feedback_aom_frequency_1 - (p1_correction + double_integrator_correction)
+                        feedback_aom_frequency_1 = feedback_aom_frequency_1 + (p1_correction + double_integrator_correction)
 
                         ############################### Helps deal
 
@@ -741,9 +750,9 @@ class probe_light_shift_disc(EnvExperiment):
                         if cycle16 == 7: 
                             drift_param_2 = feedback_aom_frequency_1
                             drift_param = (n/(n-2))*(drift_param_2 - drift_param_1)  #drift_param gets updated every 16 cycles
-                            print(drift_param)
-                        self.feedback_log(1,feedback_aom_frequency_1)  # Log values for param 1 analysis
-                        self.error_log(1,p1_error)
+                           
+                        self.correction_log(1,feedback_aom_frequency_1)  # Log values for param 1 analysis
+                        self.error_log(1,p_1_error)
                         
 
                 else:
@@ -784,7 +793,7 @@ class probe_light_shift_disc(EnvExperiment):
                             p2_correction = 0.0
                             # print("No correction made - too high")
                         else:
-                            p2_correction =  (self.param_2_gain_1 * p_2_error * self.linewidth_2) / (2* (2 * 0.7))
+                            p2_correction =  -(self.param_2_gain_1 * p_2_error * self.linewidth_2) / (2* (2 * 0.7))
 
                         self.update_correction_list_p2(p2_correction)
                         double_integrator_correction_p2 = (self.param_1_gain_2 * self.double_integrator_sum(self.prev_correction_2) * self.linewidth_2) / (2* (2 * 0.7))
@@ -793,9 +802,9 @@ class probe_light_shift_disc(EnvExperiment):
                         self.core.break_realtime()
                         delay(500*us)
                     
-                        feedback_aom_frequency_2 = feedback_aom_frequency_2 - (p2_correction+ double_integrator_correction_p2)
-                        self.feedback_log(2,feedback_aom_frequency_2)
-                        self.error_log(2,p2_error)
+                        feedback_aom_frequency_2 = feedback_aom_frequency_2 + (p2_correction+ double_integrator_correction_p2)
+                        self.correction_log(2,feedback_aom_frequency_2)
+                        self.error_log(2,p_2_error)
                         
                         
      

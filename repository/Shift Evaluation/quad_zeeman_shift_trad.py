@@ -59,6 +59,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
         self.lattice_aom=self.get_device("urukul1_ch0")
         self.stepping_aom=self.get_device("urukul1_ch1")
         self.atom_lock_aom=self.get_device("urukul1_ch2")
+        self.offset_lock_aom=self.get_device("urukul1_ch3")
                
         
         #Zotino
@@ -74,7 +75,7 @@ class quad_zeeman_shift_trad(EnvExperiment):
         self.setattr_argument("scan_step_size_Hz", NumberValue(default=1000 * Hz), group="Scan Parameters")
         self.setattr_argument("bias_current_test", NumberValue(default=3.0),group="Shift Parameters")
         self.setattr_argument("bias_current_ref", NumberValue(default=3.0),group="Shift Parameters")
-        self.setattr_argument("blue_mot_loading_time", NumberValue(default=2000 * ms), group="Sequence Parameters")
+        self.setattr_argument("blue_mot_loading_time", NumberValue(default=1500 * ms), group="Sequence Parameters")
         self.setattr_argument("Enable_Lock", BooleanValue(default=False), group="Locking")
         self.setattr_argument("param_1_gain_1", NumberValue(default=0.3), group="Locking")
         self.setattr_argument("linewidth_1", NumberValue(default=100 * Hz), group="Locking")  # This is the linewidth of the clock transition, adjust as necessary
@@ -140,6 +141,11 @@ class quad_zeeman_shift_trad(EnvExperiment):
         self.atom_lock_aom.set(frequency = 125 * MHz)
         self.atom_lock_aom.set_att(14*dB)
 
+        self.offset_lock_aom.set(frequency = 174.7 * MHz)
+        self.offset_lock_aom.set_att(0*dB)
+        self.offset_lock_aom.sw.on()
+
+
         # Set the RF channels ON
         self.blue_mot_aom.sw.on()
         self.zeeman_slower_aom.sw.on()
@@ -165,13 +171,13 @@ class quad_zeeman_shift_trad(EnvExperiment):
         self.red_mot_shutter.off()
 
 
-        coil_2_voltage = 0.9564 * (-bias_current) + 4.973
-        coil_1_voltage = 1.0393 * (bias_current) + 4.965
+        coil_2_voltage = 0.9372 * (-bias_current) + 4.6433
+        coil_1_voltage = 1.0146 * (bias_current) + 5.0370
 
          #Switch to Helmholtz
-        self.mot_coil_1.write_dac(0, coil_1_voltage)  
-        self.mot_coil_2.write_dac(1, coil_2_voltage)
-        
+        self.mot_coil_1.write_dac(1, coil_1_voltage)  
+        self.mot_coil_2.write_dac(0, coil_2_voltage)
+    
         with parallel:
             self.mot_coil_1.load()
             self.mot_coil_2.load()
@@ -468,24 +474,24 @@ class quad_zeeman_shift_trad(EnvExperiment):
     def run_sequence(self,j,param,stepping_aom_freq,rabi_pulse_duration,which_param,excitation_fraction_list_param_1,excitation_fraction_list_param_2 ):
         bmot_compression_time = 20 
         blue_mot_cooling_time = 60 
-        broadband_red_mot_time = 10
-        red_mot_compression_time = 7
-        single_frequency_time = 30
+        broadband_red_mot_time = 15
+        red_mot_compression_time = 5
+        single_frequency_time = 70
         time_of_flight = 0 
-        bmot_voltage_1 = 8.0
+        bmot_voltage_1 = 8.14
         bmot_voltage_2 = 7.9
-        compressed_blue_mot_coil_1_voltage = 8.62
+        compressed_blue_mot_coil_1_voltage = 8.67
         compressed_blue_mot_coil_2_voltage = 8.39
-        bmot_amp = 0.06
+        bmot_amp = 0.08
         compress_bmot_amp = 0.0035
-        bb_rmot_coil_1_voltage = 5.24
+        bb_rmot_coil_1_voltage = 5.26
         bb_rmot_coil_2_voltage = 5.22
         sf_rmot_coil_1_voltage = 5.72
         sf_rmot_coil_2_voltage = 5.64
-        rmot_f_start = 80.6,
-        rmot_f_end = 81,
+        rmot_f_start = 80.9,
+        rmot_f_end = 81.15,
         rmot_A_start = 0.05,
-        rmot_A_end = 0.0025,
+        rmot_A_end = 0.003
 
         is_param_1 = False
 

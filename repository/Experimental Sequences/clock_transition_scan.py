@@ -44,6 +44,7 @@ class Atom_Servo(EnvExperiment):
         self.lattice_aom=self.get_device("urukul1_ch0")
         self.stepping_aom=self.get_device("urukul1_ch1")
         self.atom_lock_aom=self.get_device("urukul1_ch2")
+        self.offset_lock_aom=self.get_device("urukul1_ch3")
          
         #Zotino
         self.mot_coil_1=self.get_device("zotino0")
@@ -125,6 +126,10 @@ class Atom_Servo(EnvExperiment):
         #Lattice AOM - for magic wavelength lattice measurements
         self.lattice_aom.set(frequency = 80 *MHz)
         self.lattice_aom.set_att(self.lattice_aom_att * dB)
+        
+        self.offset_lock_aom.set(frequency = 174.7 * MHz)
+        self.offset_lock_aom.set_att(0*dB)
+        self.offset_lock_aom.sw.on()
 
       
         # Set initial states of AOMs
@@ -306,8 +311,8 @@ class Atom_Servo(EnvExperiment):
         #     coil_2_voltage = (-current_per_coil + 5.0154) / 1.047   #scaled with coil calibration
         #Switch to Helmholtz
 
-        coil_2_voltage = 0.9564 * (-self.bias_current) + 4.973
-        coil_1_voltage = 1.0393 * (self.bias_current) + 4.965
+        coil_2_voltage = 0.9372 * (-self.bias_current) + 4.6433
+        coil_1_voltage = 1.0146 * (self.bias_current) + 5.0370
 
 
         self.mot_coil_1.write_dac(1, coil_1_voltage)  
@@ -555,6 +560,13 @@ class Atom_Servo(EnvExperiment):
             # Add the new value at the end
             self.previous_correction_values[len(self.previous_correction_values) - 1] = new_value
 
+    @kernel
+    def double_integrator_sum(self):
+        total = 0.0
+        for i in range(10):
+            total += self.previous_correction_values[i]
+        return total
+
     def fit_lorentzian(self, xdata, ydata):
         """Fit a Lorentzian function to the data and return the fit curve and parameters."""
         def lorentzian(x, a, x0, gamma):
@@ -627,9 +639,9 @@ class Atom_Servo(EnvExperiment):
                 #Sequence Parameters - Update these with optimised values
         bmot_compression_time = 20 
         blue_mot_cooling_time = 60 
-        broadband_red_mot_time = 10
+        broadband_red_mot_time = 15
         red_mot_compression_time = 5
-        single_frequency_time = 50
+        single_frequency_time = 70
         time_of_flight = 0 
         blue_mot_coil_1_voltage = 8.14
         blue_mot_coil_2_voltage = 7.9
@@ -641,10 +653,10 @@ class Atom_Servo(EnvExperiment):
         bb_rmot_coil_2_voltage = 5.22
         sf_rmot_coil_1_voltage = 5.72
         sf_rmot_coil_2_voltage = 5.64
-        rmot_f_start = 80.6,
-        rmot_f_end = 81,
+        rmot_f_start = 80.9,
+        rmot_f_end = 81.15,
         rmot_A_start = 0.05,
-        rmot_A_end = 0.004
+        rmot_A_end = 0.003
 
         scan_start = int(self.scan_center_frequency_Hz - (int(self.scan_range_Hz )/ 2))
         scan_end =int(self.scan_center_frequency_Hz + (int(self.scan_range_Hz ) / 2))
@@ -671,11 +683,13 @@ class Atom_Servo(EnvExperiment):
             )
 
             self.red_mot_shutter.on()
-            self.red_mot_aom.set(frequency = 80.45 * MHz, amplitude = 0.08)
-            
+            self.red_mot_aom.set(frequency = 80.45 * MHz, amplitude = 0.05)
+            self.red_mot_aom.sw.on()
 
 
             delay(self.blue_mot_loading_time* ms)
+     
+            
 
             ####################################################### Blue MOT compression & cooling ########################################################
 
@@ -727,6 +741,11 @@ class Atom_Servo(EnvExperiment):
             delay(red_mot_compression_time*ms)
 
             delay(single_frequency_time*ms)
+
+
+            self.red_mot_aom.set(amplitude = 0.001)
+
+            delay(10*ms)
 
             self.red_mot_aom.sw.off()
 
@@ -929,16 +948,18 @@ class Atom_Servo(EnvExperiment):
                             frequency_correction = 0.0
                             # print("No correction made - too high")
                         else:
-                            frequency_correction =  - (self.servo_gain * error_signal * self.linewidth) / (2* (2 * contrast))
+                            frequency_correction =  -(self.servo_gain * error_signal * self.linewidth) / (2* (2 * contrast))
                         
                         self.update_correction_list(frequency_correction)
-                        double_integrator_correction = self.servo_gain_2 * sum(self.previous_correction_values) *self.linewidth / (2 * (2 * contrast))
+                        
+
+                        double_integrator_correction = self.servo_gain_2 * self.double_integrator_sum()*self.linewidth / (2 * (2 * contrast))
 
                         self.core.break_realtime()
                         delay(500*us)
 
                         
-                        feedback_aom_frequency = feedback_aom_frequency - (frequency_correction + double_integrator_correction)
+                        feedback_aom_frequency = feedback_aom_frequency + frequency_correction  + double_integrator_correction
                     #    print(feedback_aom_frequency)
                         delay(5*ms)
 

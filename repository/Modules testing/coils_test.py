@@ -14,7 +14,6 @@ class Coils_test(EnvExperiment):
 
     @kernel
     def run(self):
-        self.core.reset()
         self.core.break_realtime()
 
         self.zotino.init()

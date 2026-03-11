@@ -28,6 +28,7 @@ class continuous_mode(EnvExperiment):
         self.lattice_aom=self.get_device("urukul1_ch0")
         self.stepping_aom=self.get_device("urukul1_ch1")
         self.atom_lock_aom=self.get_device("urukul1_ch2")
+        self.offset_lock_aom=self.get_device("urukul1_ch3")
                
                #Zotino
         self.mot_coil_1=self.get_device("zotino0")
@@ -65,6 +66,9 @@ class continuous_mode(EnvExperiment):
         self.setattr_argument("coil_1_voltage", NumberValue(default = 7.9))
         self.setattr_argument("coil_2_voltage", NumberValue(default = 8))
 
+
+
+
     @kernel
     def run(self):
         self.core.reset()
@@ -90,6 +94,11 @@ class continuous_mode(EnvExperiment):
         self.atom_lock_aom.init()
         self.stepping_aom.cpld.init()
         self.stepping_aom.init()
+
+
+        self.offset_lock_aom.set(frequency = 174.7 * MHz)
+        self.offset_lock_aom.set_att(0*dB)
+        self.offset_lock_aom.sw.on()
 
 
         # Switch on all DDS channels

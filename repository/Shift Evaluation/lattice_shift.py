@@ -40,6 +40,7 @@ class lattice_shift_disc(EnvExperiment):
         self.lattice_aom=self.get_device("urukul1_ch0")
         self.stepping_aom=self.get_device("urukul1_ch1")
         self.atom_lock_aom=self.get_device("urukul1_ch2")
+        self.offset_lock_aom=self.get_device("urukul1_ch3")
                
         
         #Zotino
@@ -121,6 +122,11 @@ class lattice_shift_disc(EnvExperiment):
 
         self.atom_lock_aom.set(frequency = 125 * MHz)
         self.atom_lock_aom.set_att(14*dB)
+
+        self.offset_lock_aom.set(frequency = 174.7 * MHz)
+        self.offset_lock_aom.set_att(0*dB)
+        self.offset_lock_aom.sw.on()
+
 
         self.lattice_aom.set(frequency = self.lattice_aom_frequency_MHz * MHz)
         self.lattice_aom.set_att(self.lattice_att_low * dB)
