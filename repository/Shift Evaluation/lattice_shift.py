@@ -11,7 +11,7 @@ import os
 import csv
 from datetime import datetime
 
-class lattice_shift_disc(EnvExperiment):
+class lattice_shift(EnvExperiment):
 
     def build(self):
         self.setattr_device("core")
@@ -47,31 +47,24 @@ class lattice_shift_disc(EnvExperiment):
         self.mot_coil_1=self.get_device("zotino0")
         self.mot_coil_2=self.get_device("zotino0")
         
-        # self.setattr_argument("high_probe_power_att", NumberValue(default=16*dB),group="Shift Parameters")
-        # self.setattr_argument("low_probe_power_att", NumberValue(default=22*dB),group="Shift Parameters")
-        #self.setattr_argument("bias_field_mT_high", NumberValue(default=3.0),group="Shift Parameters")
-        #self.setattr_argument("bias_field_mT_low", NumberValue(default=3.0),group="Shift Parameters")
-
-        self.setattr_argument("rabi_pulse_duration_ms_param_1", NumberValue(default= 60), group="Shift Parameters")
-        self.setattr_argument("rabi_pulse_duration_ms_param_2", NumberValue(default= 60), group="Shift Parameters")
-
+        self.setattr_argument("test_lattice_aom_atten", NumberValue(default=16*dB),group="Shift Parameters")
+        self.setattr_argument("ref_lattice_aom_atten", NumberValue(default=22*dB),group="Shift Parameters")
+        self.setattr_argument("rabi_pulse_duration_ms_param_1", NumberValue(default= 60 * ms), group="Shift Parameters")
+        self.setattr_argument("rabi_pulse_duration_ms_param_2", NumberValue(default= 60 * ms), group="Shift Parameters")
         self.setattr_argument("scan_center_frequency_Hz", NumberValue(default=85000000 * Hz),group="Scan Parameters",)
         self.setattr_argument("scan_range_Hz", NumberValue(default=500000 * Hz), group="Scan Parameters")
         self.setattr_argument("scan_step_size_Hz", NumberValue(default=1000 * Hz), group="Scan Parameters")
-
-        self.setattr_argument("bias_field_mT", NumberValue(default=3.0),group="Sequence Parameters")
+        self.setattr_argument("bias_current", NumberValue(default=3.0),group="Locking")
         self.setattr_argument("blue_mot_loading_time", NumberValue(default=2000 * ms), group="Sequence Parameters")
-
         self.setattr_argument("Enable_Lock", BooleanValue(default=False), group="Locking")
-        self.setattr_argument("servo_gain_1", NumberValue(default=0.3), group="Locking")
+        self.setattr_argument("param_1_gain_1", NumberValue(default=0.3), group="Locking")
         self.setattr_argument("linewidth_1", NumberValue(default=100 * Hz), group="Locking")  # This is the linewidth of the clock transition, adjust as necessary
-        self.setattr_argument("servo_gain_2", NumberValue(default=0.3), group="Locking")  # Added new servo gain parameter
+        self.setattr_argument("param_1_gain_2", NumberValue(default=0.03), group="Locking")  # Added new servo gain parameter
         self.setattr_argument("linewidth_2", NumberValue(default=100 * Hz), group="Locking")  # Added new linewidth parameter
+        self.setattr_argument("param_2_gain_1", NumberValue(default=0.3), group="Locking")
+        self.setattr_argument("param_2_gain_2", NumberValue(default=0.03), group="Locking")
         self.setattr_argument("param_shift_guess",NumberValue(default=43*Hz),group="Locking")
-        
-        self.setattr_argument("lattice_att_high", NumberValue(default=18*dB),group="Shift Parameters")
-        self.setattr_argument("lattice_att_low", NumberValue(default=13*dB),group="Shift Parameters")
-        self.setattr_argument("lattice_aom_frequency_MHz", NumberValue(default=110 * MHz),group="Shift Parameters")
+
 
         self.feedback_list = []
         self.atom_lock_list = []
@@ -84,10 +77,11 @@ class lattice_shift_disc(EnvExperiment):
         self.correction_log_list_1 = []
         self.correction_log_list_2 = []
         self.correction_log_list_main = []
-        self.feedback_log_list_1 = []
-        self.feedback_log_list_2 = []
 
-    
+        self.num_filled_p1 = 0
+        self.num_filled_p2 = 0
+        self.prev_correction_1 = [0.0]*10
+        self.prev_correction_2 = [0.0]*10
 
     @kernel
     def initialise_modules(self):
@@ -129,7 +123,7 @@ class lattice_shift_disc(EnvExperiment):
 
 
         self.lattice_aom.set(frequency = self.lattice_aom_frequency_MHz * MHz)
-        self.lattice_aom.set_att(self.lattice_att_low * dB)
+        self.lattice_aom.set_att(self.ref_lattice_aom_atten * dB)
         self.lattice_aom.sw.on()
 
         # Set the RF channels ON
@@ -149,23 +143,18 @@ class lattice_shift_disc(EnvExperiment):
 
  
     @kernel
-    def clock_spectroscopy(self,aom_frequency,pulse_time,bias_field):                     #Switch to Helmholtz field, wait, then generate Rabi Pulse
+    def clock_spectroscopy(self,aom_frequency,pulse_time):                     #Switch to Helmholtz field, wait, then generate Rabi Pulse
        
         self.red_mot_aom.sw.off()
         self.stepping_aom.sw.off()
-        self.red_mot_shutter.off()
 
-        comp_field = 1.35 * 0.14    # comp current * scaling factor from measurement
-        bias_at_coil = (bias_field - comp_field)/ 0.914   #bias field dips in center of coils due to geometry, scaling factor provided by modelling field
-        current_per_coil = ((bias_at_coil) / 2.0086) / 2   
-        coil_2_voltage = current_per_coil + 5.0
-        coil_1_voltage = 5.0 - (current_per_coil / 0.94 )           #Scaled against coil 1
-
+        coil_2_voltage = 1.0147 * (-self.bias_current) + 5.0154
+        coil_1_voltage = 0.9487 * (self.bias_current) + 4.7225
        
        
          #Switch to Helmholtz
-        self.mot_coil_1.write_dac(0, coil_1_voltage)  
-        self.mot_coil_2.write_dac(1, coil_2_voltage)
+        self.mot_coil_1.write_dac(1, coil_1_voltage)  
+        self.mot_coil_2.write_dac(0, coil_2_voltage)
         
         with parallel:
             self.mot_coil_1.load()
@@ -173,35 +162,32 @@ class lattice_shift_disc(EnvExperiment):
 
         # self.pmt_shutter.on()
         # self.camera_shutter.on()
-      
+        self.clock_shutter.on()    
 
-        delay(50*ms)  #wait for coils to switch
+        delay(40*ms)  #wait for coils to switch
 
-        #rabi spectroscopy pulse
-        self.clock_shutter.on()  
-        delay(4*ms)
         #rabi spectroscopy pulse
         self.stepping_aom.set(frequency = aom_frequency )
-        self.stepping_aom.set_att(16*dB)
+        self.stepping_aom.set_att(18*dB)
         self.stepping_aom.sw.on()
         delay(pulse_time*ms)
         self.stepping_aom.sw.off()
         self.stepping_aom.set(frequency = 0 * Hz)
         self.stepping_aom.sw.off()
-        self.clock_shutter.off()
         
     @kernel
     def set_lattice_att(self, att_dB):
         self.lattice_aom.set_att(att_dB)
         self.lattice_aom.set(frequency=self.lattice_aom_frequency_MHz)
         self.lattice_aom.sw.on()
+    
     @kernel
     def normalised_detection(self,j,is_param_1,excitation_fraction_list_param_1,excitation_fraction_list_param_2):        #This function should be sampling from the PMT at the same time as the camera being triggered for seperate probe
         self.core.break_realtime()
-        sample_period = 1 / 25000   #10kHz sampling rate should give us enough data points
-        sampling_duration = 0.06      #30ms sampling time to allow for all the imaging slices to take place
+        sample_period = 1 / 25000   #25 kHz is near the max sampling rate without getting underflow errors
+        sampling_duration = 0.06      #60ms sampling time to allow for all the imaging slices to take place
 
-        num_samples = int32(sampling_duration/sample_period)
+        num_samples = int(sampling_duration/sample_period)
         samples = [[0.0 for i in range(8)] for i in range(num_samples)]
     
         with parallel:
@@ -222,26 +208,22 @@ class lattice_shift_disc(EnvExperiment):
 
                 delay(3.9*ms)     #wait for shutter to open
 
-
-
-
                 with parallel:
                     self.camera_trigger.pulse(1*ms)
-                    self.probe_aom.set(frequency=205 * MHz, amplitude=0.5)
-
+                    
+                    self.probe_aom.set(frequency=205 * MHz, amplitude=0.18)
                 self.probe_aom.sw.on()
-                delay(1* ms)      #Ground state probe duration                          
+                delay(1* ms)      #Ground state probe duration                           
                 self.probe_aom.sw.off()
                 self.probe_shutter.off()
-
-
-                delay(5*ms)                         #repumping
-
+                
+                delay(5*ms)                         #repumping 
+               
                 with parallel:
-                    self.repump_shutter_679.pulse(14*ms)
-                    self.repump_shutter_707.pulse(14*ms)
+                    self.repump_shutter_679.pulse(10*ms)
+                    self.repump_shutter_707.pulse(10*ms)
 
-                delay(20*ms)                         #repumping 
+                delay(12*ms)                         #repumping 
 
                 # ###############################Excited State##################################
 
@@ -257,9 +239,7 @@ class lattice_shift_disc(EnvExperiment):
 
                 # self.probe_shutter.on()
                 # delay(4.1*ms)
-
-
-                #  ########################Background############################
+                #########################Background############################
  
                 self.probe_aom.sw.on()
                 delay(1*ms)            #Ground state probe duration
@@ -282,60 +262,60 @@ class lattice_shift_disc(EnvExperiment):
 
         self.set_dataset("excitation_fraction", samples_ch0, broadcast=True, archive=True)
 
-        
-        baseline_mean = 0.0
-        gs = samples_ch0[90:110]
-        es = samples_ch0[908:928]
-        bg = samples_ch0[1334:1354]
-        # es = samples_ch0[1020:1040]
-        # bg = samples_ch0[1456:1466]
-
+        # print(self.excitation_fraction(samples_ch0))
+                                 
+        #     # Split the samples
         baseline = samples_ch0[0:40]
-        baseline_sum = 0.0
-        for x in baseline:
-            baseline_sum += float(x)
-            baseline_mean = baseline_sum / len(baseline)
+        baseline_mean = 0.0
+        gs = samples_ch0[70:130]
+        es = samples_ch0[680:740]
+        bg = samples_ch0[1100:1160]
 
-        gs_counts = 0.0
-        es_counts = 0.0
-        bg_counts = 0.0
 
-        measurement_time = 60 * sample_period     #set to 600 as each slice size is 600 samples at the moment,
-                                                        # we should trim this tighter to the peaks to avoid added noise
+        with parallel: 
+            baseline_sum = 0.0
+            for x in baseline:
+                baseline_sum += float(x)
+                baseline_mean = baseline_sum / len(baseline)
 
-        for val in gs[1:]:
-            gs_counts += val
-        for val in es[1:]:
-            es_counts += val
-        for val in bg[1:]:
-            bg_counts += val
+            gs_counts = 0.0
+            es_counts = 0.0
+            bg_counts = 0.0
 
-        gs_mean = gs_counts / len(gs)
-        es_mean = es_counts / len(es)
-        bg_mean = bg_counts / len(bg)
+            measurement_time = 600.0 * sample_period     #set to 600 as each slice size is 600 samples at the moment,
+                                                         # we should trim this tighter to the peaks to avoid added noise
+            for val in gs[1:]:
+                gs_counts += val
+            for val in es[1:]:
+                es_counts += val
+            for val in bg[1:]:
+                bg_counts += val
+
+        
         #if we want the PMT to determine atom no, we will probably want photon counts,
         # will need expected collection efficiency of the telescope,Quantum efficiency etc, maybe use the camera atom no calculation to get this
         
         with parallel:
-            gs_measurement = ((gs_mean-baseline_mean)) * measurement_time         #integrates over the slice time to get the total photon counts
-            es_measurement = ((es_mean-baseline_mean))  * measurement_time
-            bg_measurement = ((bg_mean-baseline_mean)) * measurement_time
+            gs_measurement = ((gs_counts-baseline_mean)) * measurement_time         #integrates over the slice time to get the total photon counts
+            es_measurement = ((es_counts-baseline_mean))  * measurement_time
+            bg_measurement = ((bg_counts-baseline_mean)) * measurement_time
 
+    
+                    
             #if we want the PMT to determine atom no, we will probably want photon counts,
             # will need expected collection efficiency of the telescope,Quantum efficiency etc, maybe use the camera atom no calculation to get this
 
 
             numerator = es_measurement - bg_measurement
             denominator = (gs_measurement - bg_measurement) + (es_measurement - bg_measurement)
-
             if denominator != 0.0:
                 excitation_fraction = ((numerator / denominator ) )
                 if excitation_fraction < 0.0:
                     excitation_fraction = 0.0
             else:
                 excitation_fraction = float(0) # or 0.5 or some fallback value depending on experiment
-
-            if is_param_1 == True:
+            
+            if is_param_1 == True: 
                 excitation_fraction_list_param_1[j] = float(excitation_fraction)
             elif is_param_1 == False:
                 excitation_fraction_list_param_2[j] = float(excitation_fraction)
@@ -344,7 +324,8 @@ class lattice_shift_disc(EnvExperiment):
 
         delay(500*us)
         return excitation_fraction
-        
+        delay(25*ms)
+        # ef.append(self.excitation_fraction_list)
         # ef.append(self.excitation_fraction_list)
  
     def fit_lorentzian(self, xdata, ydata):
@@ -382,28 +363,17 @@ class lattice_shift_disc(EnvExperiment):
             fit_params = np.array([amplitude, center, width], dtype=np.float64)
             self.set_dataset("fit_result_2", fit_curve, broadcast=True, archive=True)
             self.set_dataset("fit_params_2", fit_params, broadcast=True, archive=True)
+    
     @rpc
     def correction_log(self,which_param,value):
         if which_param == 1:
             self.correction_log_list_1.append(value)
             self.set_dataset("correction_list_1", self.correction_log_list_1, broadcast=True, archive=True)
         if which_param == 2:
-            self.correction_log_list_2.append(value)
+            self.correction_log_list_1.append(value)
             self.set_dataset("correction_list_2", self.correction_log_list_2, broadcast=True, archive=True)
         self.correction_log_list_main.append(value)
-        self.set_dataset("correction_log_list_both",self.correction_log_list_main, broadcast=True, archive=True)
-          
-    @rpc
-    def feedback_log(self,which_param,value):
-        if which_param == 1:
-            self.feedback_log_list_1.append(125000000-value)
-            self.set_dataset("feedback_list_1", self.feedback_log_list_1, broadcast=True, archive=True)
-        if which_param == 2:
-            self.feedback_log_list_2.append(125000000-value)
-            self.set_dataset("feedback_list_2", self.feedback_log_list_2, broadcast=True, archive=True)
-
-
-
+        self.set_dataset("correction_log_list_both",self.correction_log_list_main, broadcast=True, archive=True)     
 
     @rpc 
     def error_log(self,which_param,value):
@@ -432,30 +402,63 @@ class lattice_shift_disc(EnvExperiment):
             self.set_dataset("lock_excitation_fraction_param_2", self.lock_ex_list_2, broadcast=True, archive=True)
         self.lock_ex_list_main.append(value)
         self.set_dataset("lock_excitation_fraction_both", self.lock_ex_list_main, broadcast=True, archive=True)
+      
+    @kernel
+    def update_correction_list_p1(self, new_value: float):
+        if self.num_filled_p1 < len(self.prev_correction_1):
+            # Still filling the list initially
+            self.prev_correction_1[self.num_filled_p1] = new_value
+            self.num_filled_p1 += 1
+        else:
+            # List is full → shift everything left
+            for i in range(len(self.prev_correction_1) - 1):
+                self.prev_correction_1[i] = self.prev_correction_1[i + 1]
+            # Add the new value at the end
+            self.prev_correction_1[len(self.prev_correction_1) - 1] = new_value
+
+    @kernel
+    def update_correction_list_p2(self, new_value: float):
+        if self.num_filled_p2 < len(self.prev_correction_2):
+            # Still filling the list initially
+            self.prev_correction_2[self.num_filled_p2] = new_value
+            self.num_filled_p2 += 1
+        else:
+            # List is full → shift everything left
+            for i in range(len(self.prev_correction_2) - 1):
+                self.prev_correction_2[i] = self.prev_correction_2[i + 1]
+            # Add the new value at the end
+            self.prev_correction_2[len(self.prev_correction_2) - 1] = new_value
+
+    @kernel
+    def double_integrator_sum(self,list):
+        total = 0.0
+        for i in range(10):
+            total += list[i]
+        return total
 
 
     @kernel
     def run_sequence(self,j,param,stepping_aom_freq,rabi_pulse_duration,which_param,excitation_fraction_list_param_1,excitation_fraction_list_param_2 ):
         bmot_compression_time = 20 
         blue_mot_cooling_time = 60 
-        broadband_red_mot_time = 10
-        red_mot_compression_time = 7
-        single_frequency_time = 30
+        broadband_red_mot_time = 15
+        red_mot_compression_time = 5
+        single_frequency_time = 70
         time_of_flight = 0 
-        bmot_voltage_1 = 8.0
+        bmot_voltage_1 = 8.14
         bmot_voltage_2 = 7.9
-        compressed_blue_mot_coil_1_voltage = 8.62
+        compressed_blue_mot_coil_1_voltage = 8.67
         compressed_blue_mot_coil_2_voltage = 8.39
-        bmot_amp = 0.06
+        bmot_amp = 0.08
         compress_bmot_amp = 0.0035
-        bb_rmot_coil_1_voltage = 5.24
+        bb_rmot_coil_1_voltage = 5.26
         bb_rmot_coil_2_voltage = 5.22
         sf_rmot_coil_1_voltage = 5.72
         sf_rmot_coil_2_voltage = 5.64
-        rmot_f_start = 80.6,
-        rmot_f_end = 81,
+        rmot_f_start = 80.9,
+        rmot_f_end = 81.15,
         rmot_A_start = 0.05,
-        rmot_A_end = 0.0025,
+        rmot_A_end = 0.003,
 
         is_param_1 = False
 
@@ -465,8 +468,6 @@ class lattice_shift_disc(EnvExperiment):
         elif which_param == 2:
             is_param_1 = False
             self.lattice_aom.set_att(param*dB)
-
-        
 
         ################################# Blue MOT #########################################
 
@@ -488,7 +489,6 @@ class lattice_shift_disc(EnvExperiment):
             self.zeeman_slower_shutter.on()
             self.repump_shutter_707.on()
             self.repump_shutter_679.on()
-            self.red_mot_shutter.on()  
 
         self.red_mot_aom.set(frequency = 80.45 * MHz, amplitude = 0.08)
         self.red_mot_aom.sw.on()
@@ -507,7 +507,7 @@ class lattice_shift_disc(EnvExperiment):
         volt_2_steps = (compressed_blue_mot_coil_2_voltage - bmot_voltage_2 )/steps_com
         amp_steps = (bmot_amp-compress_bmot_amp)/steps_com
     
-        for i in range(int64(steps_com)):
+        for i in range(int(steps_com)):
 
             voltage_1 = bmot_voltage_1 + ((i+1) * volt_1_steps)
             voltage_2 = bmot_voltage_2 + ((i+1) * volt_2_steps)
@@ -560,7 +560,7 @@ class lattice_shift_disc(EnvExperiment):
         amp_steps = (rmot_A_start - rmot_A_end)/steps_com
         
 
-        for i in range(int64(steps_com)):
+        for i in range(int(steps_com)):
             voltage_1 = bb_rmot_coil_1_voltage + ((i+1) * volt_1_steps)
             voltage_2 = bb_rmot_coil_2_voltage + ((i+1) * volt_2_steps)
             amp = rmot_A_start - ((i+1) * amp_steps)
@@ -583,11 +583,10 @@ class lattice_shift_disc(EnvExperiment):
         self.clock_spectroscopy(
             aom_frequency = stepping_aom_freq,
             pulse_time = rabi_pulse_duration,
-            bias_field = self.bias_field_mT
+            clock_intensity = param        
         )
 
         excitation = self.normalised_detection(j,is_param_1,excitation_fraction_list_param_1,excitation_fraction_list_param_2)           
-
         delay(40*ms)
         if is_param_1 == True: 
             self.set_dataset("excitation_fraction_list_param_1", excitation_fraction_list_param_1, broadcast=True, archive=True)
@@ -602,73 +601,45 @@ class lattice_shift_disc(EnvExperiment):
 
         self.initialise_modules()
 
-        scan_start = int32(self.scan_center_frequency_Hz - (int32(self.scan_range_Hz )/ 2))
-        scan_end = int32(self.scan_center_frequency_Hz + (int32(self.scan_range_Hz ) / 2))
-        scan_frequency_values = [float(x) for x in range(scan_start, scan_end, int32(self.scan_step_size_Hz))]
+        scan_start = int(self.scan_center_frequency_Hz - (int32(self.scan_range_Hz )/ 2))
+        scan_end = int(self.scan_center_frequency_Hz + (int32(self.scan_range_Hz ) / 2))
+        scan_frequency_values = [float(x) for x in range(scan_start, scan_end, int(self.scan_step_size_Hz))]
         cycles = len(scan_frequency_values)
 
         excitation_fraction_list_param_1 = [0.0] * cycles
         excitation_fraction_list_param_2 = [0.0] * cycles
         
 
-        ############################### Scan Parameter 1: High Trap Depth (Low att) ##############################
-        for j in range(int32(cycles)):        
+        ############################### Scan Parameter 1: ref probe power ##############################
+        for j in range(int(cycles)):        
             self.run_sequence(j,
-                self.lattice_att_low,    #Here the parameter we are changing is the lattice aom attenuation
+                self.ref_lattice_aom_atten,    #Here the parameter we are changing is the probe power
                 scan_frequency_values[j],
                 self.rabi_pulse_duration_ms_param_1,
                 1,
                 excitation_fraction_list_param_1,
                 excitation_fraction_list_param_2     
             )  
-  
         self.analyse_fit(1,scan_frequency_values,excitation_fraction_list_param_1)
-        # ############################### Scan Parameter 2: High Bias Field ###############################
-        # for j in range(int32(cycles)):        
-        #     self.run_sequence(j,
-        #         self.lattice_att_high,                    #parameter 2
-        #         scan_frequency_values[j],  #stepping aom values
-        #         self.rabi_pulse_duration_ms_param_2,
-        #         2,                         #parameter marker
-        #         excitation_fraction_list_param_1,
-        #         excitation_fraction_list_param_2    
-        #     )  
 
-        # #process data and do fit from the scan
-
-        
-        # self.analyse_fit(2,scan_frequency_values,excitation_fraction_list_param_2)
-
-        # from the excitation fraction list we need to manually extract the peak height and center_frequency. 
 
         max_val_1 = excitation_fraction_list_param_1[0]
         max_idx_1 = 0
-        # max_val_2 = excitation_fraction_list_param_2[0]
-        # max_idx_2 = 0
 
         # Loop through the lists
         for i in range(1, len(excitation_fraction_list_param_1)):
             if excitation_fraction_list_param_1[i] > max_val_1:
                 max_val_1 = excitation_fraction_list_param_1[i]
                 max_idx_1 = i
-            # if excitation_fraction_list_param_2[i] > max_val_2:
-            #     max_val_2 = excitation_fraction_list_param_2[i]
-            #     max_idx_2 = i
+
 
         # Assign contrast and center frequency
-        contrast_1 = 0.5
+        contrast_1 = 0.6
         center_frequency_1 = scan_frequency_values[max_idx_1]
 
-        contrast_2 = 0.5
-        # center_frequency_2 = scan_frequency_values[max_idx_2]
 
-        # param_shift = center_frequency_2 - center_frequency_1
         param_shift = self.param_shift_guess
-        # param_shift = center_frequency_2 - center_frequency_1 + total_drift
-    
         print(param_shift)
-
-        
         
 
         delay(1*ms)
@@ -677,12 +648,27 @@ class lattice_shift_disc(EnvExperiment):
         if self.Enable_Lock == True:
 
             self.core.break_realtime()                                       # How many seconds there are in a month
-            count = 0
+            n = 2628288 
+            thue_morse = [0]
+            while len(thue_morse) <= n:
+                thue_morse = thue_morse + [1 - bit for bit in thue_morse]  
+
+            count = 1
+            p_1_high = 0.0
+            p_1_low = 0.0
+            p_2_high = 0.0
+            p_2_low = 0.0
+            p1_correction = 0.0
+            p2_correction = 0.0 
+            p_1_error = 0.0
+            p_2_error = 0.0
+            drift_param = 0.0
+            drift_param_1 = 0.0
+            drift_param_2 = 0.0
             feedback_aom_frequency_1 = 125.0 * MHz 
             feedback_aom_frequency_2 = feedback_aom_frequency_1 + (param_shift / 2)
             print("Feedback AOM Frequency 1: ", feedback_aom_frequency_1)
             print("Feedback AOM Frequency 2: ", feedback_aom_frequency_2)
-            
             delay(10*ms)
             
             while True:
@@ -690,92 +676,134 @@ class lattice_shift_disc(EnvExperiment):
                 ### Insert entire sequence again
                 t1 = self.core.get_rtio_counter_mu()
 
-                #In the DISC method, we interleave between Parameter 1 and Parameter 2 in a P1 P2 P2 P1 order rather than P1 P2 P1 P2, therefore the correction is generated every 4 clock cycles. 
+                #Using the traditional method, we are switching between parameter 1 and 2 every 8 cycles, and generating a correction every 2 cycles for each parameter.
+                #The parameter shift is calculated every 16 cycles.
+                n = 6
+                cycle16 = (count - 1) % (2*n)         #gives us where we are in the 16 cycle loop, 0-15
+                mode = cycle16 // n          #gives us whether we are in parameter 1 or 2 mode, 0-7 for param 1, 8-15 for param 2
                 
+                if mode == 0:
+                    ################### Parameter 1 ##########################
+                    self.atom_lock_aom.set(frequency = feedback_aom_frequency_1 + drift_param) # Sets the feedback AOM frequency for parameter 1
+                    delay(1*ms)
 
-                self.atom_lock_aom.set(frequency = feedback_aom_frequency_1)
-                p_1_low = self.run_sequence(0,
-                    self.lattice_att_low,                    #parameter 1
-                    center_frequency_1 - self.linewidth_1/2,  #stepping aom values
-                    self.rabi_pulse_duration_ms_param_1,
-                    1,
-                    excitation_fraction_list_param_1,
-                    excitation_fraction_list_param_2    
-                ) 
-                self.atom_lock_aom.set(frequency = feedback_aom_frequency_2)
-                p_2_low = self.run_sequence(0,
-                    self.lattice_att_high,                    #parameter 2
-                    center_frequency_1- self.linewidth_2/2,  #stepping aom values
-                    self.rabi_pulse_duration_ms_param_2,
-                    2,
-                    excitation_fraction_list_param_1,
-                    excitation_fraction_list_param_2    
-                ) 
-                p_2_high = self.run_sequence(0,
-                    self.lattice_att_high,                    #parameter 2
-                    center_frequency_1 - self.linewidth_2/2,  #stepping aom values
-                    self.rabi_pulse_duration_ms_param_2,
-                    2,             
-                    excitation_fraction_list_param_1,
-                    excitation_fraction_list_param_2    
-                )
-                self.atom_lock_aom.set(frequency = feedback_aom_frequency_1)
-                p_1_high = self.run_sequence(0,
-                    self.lattice_att_low,                    #parameter 2
-                    center_frequency_1 + self.linewidth_1/2,  #stepping aom values
-                    self.rabi_pulse_duration_ms_param_1,
-                    1,
-                    excitation_fraction_list_param_1,
-                    excitation_fraction_list_param_2    
-                )
-                
-                error_1 = (p_1_high - p_1_low)
-                error_2 = (p_2_high - p_2_low)
+                    if thue_morse[count-1] == 0:                         #Check if low side or high side         
+                        p_1_low = self.run_sequence(0,
+                            self.ref_lattice_aom_atten,                    #parameter 1
+                            center_frequency_1 - self.linewidth_1/2,  #stepping aom values
+                            self.rabi_pulse_duration_ms_param_1,
+                            1,
+                            excitation_fraction_list_param_1,
+                            excitation_fraction_list_param_2    
+                        )
+                        self.atom_lock_ex_log(1,p_1_low)
+                    else:
+                        p_1_high = self.run_sequence(0,
+                            self.ref_lattice_aom_atten,                    #parameter 1
+                            center_frequency_1 + self.linewidth_1/2,  #stepping aom values
+                            self.rabi_pulse_duration_ms_param_1,
+                            1,
+                            excitation_fraction_list_param_1,
+                            excitation_fraction_list_param_2    
+                        )
+                        self.atom_lock_ex_log(1,p_1_high)
 
-                if error_1 == 0.0:
-                    delta_f1 = 0.0
-                    # print("No correction made")
-                elif p_1_high+p_1_low <= 0.05:
-                    delta_f1 = 0.0
-                    # print("No correction made - too low")
-                elif p_1_high+p_1_low >= 1.0:
-                    delta_f1 = 0.0
-                    # print("No correction made - too high")
-                else:
-                    delta_f1 = -(self.servo_gain_1 * error_1 * self.linewidth_1 ) / 4 * contrast_1        #Scaling into Hz
+                    if count % 2 == 0:                              # Generates correction every 2 cycles
+                        p_1_error = p_1_high - p_1_low
+
+                        if p_1_error == 0.0:                     #Calculate correction, checks for bad cycles
+                            p1_correction = 0.0
+         
+                        elif p_1_high+p_1_low <= 0.05:
+                            p1_correction = 0.0
+                   
+                        elif p_1_high+p_1_low >= 1.5:
+                            p1_correction = 0.0
+                     
+                        else:
+                            p1_correction =  -(self.param_1_gain_1 * p_1_error * self.linewidth_1) / (2* (2 * 0.7))
 
 
-                if error_2 == 0.0:
-                    delta_f2 = 0.0
-                    # print("No correction made")
-                elif p_2_high+p_2_low <= 0.05:
-                    delta_f2 = 0.0
-                    # print("No correction made - too low")
-                elif p_2_high+p_2_low >= 1.0:
-                    delta_f2 = 0.0
-                    # print("No correction made - too high")
-                else:
-                    delta_f2 = -(self.servo_gain_2 * error_2 * self.linewidth_2) / 4 * contrast_2        #Scaling into Hz
-     
+                        #addition of double integrator term
+                        self.update_correction_list_p1(p1_correction)
+                        double_integrator_correction = (self.param_1_gain_2 * self.double_integrator_sum(self.prev_correction_1) * self.linewidth_1) / (2* (2 * 0.7))
 
-                feedback_aom_frequency_1 = feedback_aom_frequency_1 + delta_f1
-                feedback_aom_frequency_2 = feedback_aom_frequency_2 + delta_f2
-                param_shift = feedback_aom_frequency_2 - feedback_aom_frequency_1
-                self.feedback_log(1,feedback_aom_frequency_1)
-                self.feedback_log(2,feedback_aom_frequency_2)
-                self.error_log(1,delta_f1)
-                self.error_log(2,delta_f2)
-                self.param_shift_log(param_shift)
-                self.atom_lock_ex_log(1,p_1_low)
-                self.atom_lock_ex_log(1,p_1_high)
-
-                self.atom_lock_ex_log(2,p_2_low) 
-                self.atom_lock_ex_log(2,p_2_high)               
-                self.correction_log(1,delta_f1)
-                self.correction_log(2,delta_f2)
+                        self.core.break_realtime()
+                        delay(500*us)
                     
+                        feedback_aom_frequency_1 = feedback_aom_frequency_1 + (p1_correction + double_integrator_correction)
+
+                        ############################### Helps deal
+
+                        if cycle16 == 1:                              #calculate the drift of parameter 1, store for use in parameter 2
+                            drift_param_1 = feedback_aom_frequency_1
+                        if cycle16 == 7: 
+                            drift_param_2 = feedback_aom_frequency_1
+                            drift_param = (n/(n-2))*(drift_param_2 - drift_param_1)  #drift_param gets updated every 16 cycles
+                           
+                        self.correction_log(1,feedback_aom_frequency_1)  # Log values for param 1 analysis
+                        self.error_log(1,p_1_error)
+                        
+
+                else:
+                    self.atom_lock_aom.set(frequency = feedback_aom_frequency_2 + drift_param) # Sets the feedback AOM frequency for parameter 2
+                    delay(1*ms)
+                    if thue_morse[count-1] == 0:
+                        p_2_low = self.run_sequence(0,
+                            self.test_lattice_aom_atten,                    #parameter 2
+                            center_frequency_1 - self.linewidth_2 / 2,  #stepping aom values
+                            self.rabi_pulse_duration_ms_param_2,
+                            2,
+                            excitation_fraction_list_param_1,
+                            excitation_fraction_list_param_2    
+                        )
+                        self.atom_lock_ex_log(2,p_2_low)
+                    else:
+                        p_2_high = self.run_sequence(0,
+                            self.test_lattice_aom_atten,                    #parameter 2
+                            center_frequency_1 + self.linewidth_2/2,  #stepping aom values
+                            self.rabi_pulse_duration_ms_param_2,
+                            2,             
+                            excitation_fraction_list_param_1,
+                            excitation_fraction_list_param_2    
+                        )
+                        self.atom_lock_ex_log(2,p_2_high)
+
+                    if count % 2 == 0:
+                    
+                        p_2_error = p_2_high - p_2_low
+
+                        if p_2_error == 0.0:                     #Calculate correction
+                            p2_correction = 0.0
+                            # print("No correction made")
+                        elif p_2_high+p_2_low <= 0.05:
+                            p2_correction = 0.0
+                            # print("No correction made - too low")
+                        elif p_2_high+p_2_low >= 1.5:
+                            p2_correction = 0.0
+                            # print("No correction made - too high")
+                        else:
+                            p2_correction =  -(self.param_2_gain_1 * p_2_error * self.linewidth_2) / (2* (2 * 0.7))
+
+                        self.update_correction_list_p2(p2_correction)
+                        double_integrator_correction_p2 = (self.param_1_gain_2 * self.double_integrator_sum(self.prev_correction_2) * self.linewidth_2) / (2* (2 * 0.7))
+
+
+                        self.core.break_realtime()
+                        delay(500*us)
+                    
+                        feedback_aom_frequency_2 = feedback_aom_frequency_2 + (p2_correction+ double_integrator_correction_p2)
+                        self.correction_log(2,feedback_aom_frequency_2)
+                        self.error_log(2,p_2_error)
+                        
+                        
+     
                 delay(5*ms)
 
+                if count % (2*n) == 0:
+                    param_shift = feedback_aom_frequency_1 - (feedback_aom_frequency_2-drift_param)
+                    self.param_shift_log(2*param_shift)
+                
                 
                 count = count + 1
                 t2 = self.core.get_rtio_counter_mu()
@@ -784,6 +812,5 @@ class lattice_shift_disc(EnvExperiment):
                 delay(100*us)
 
 
-  
   
 
