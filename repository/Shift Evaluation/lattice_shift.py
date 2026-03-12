@@ -392,6 +392,11 @@ class lattice_shift(EnvExperiment):
         self.set_dataset("param_log", self.param_log_list, unit = Hz ,broadcast=True, archive=True)
 
     @rpc
+    def mean_param_shift(self):
+        mean_param = np.mean(self.param_log_list)
+        self.set_dataset("mean_param_shift", mean_param, broadcast=True, archive=True)
+
+    @rpc
     def atom_lock_ex_log(self,which_param,value):
         """all of the excitation fractions from both individual loops and together"""
         if which_param == 1: 
@@ -803,6 +808,7 @@ class lattice_shift(EnvExperiment):
                 if count % (2*n) == 0:
                     param_shift = feedback_aom_frequency_1 - (feedback_aom_frequency_2-drift_param)
                     self.param_shift_log(2*param_shift)
+                    self.mean_param_shift()
                 
                 
                 count = count + 1
