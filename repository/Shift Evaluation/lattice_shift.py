@@ -122,7 +122,7 @@ class lattice_shift(EnvExperiment):
         self.offset_lock_aom.sw.on()
 
 
-        self.lattice_aom.set(frequency = self.lattice_aom_frequency_MHz * MHz)
+        self.lattice_aom.set(frequency = 80 * MHz)
         self.lattice_aom.set_att(self.ref_lattice_aom_atten * dB)
         self.lattice_aom.sw.on()
 
