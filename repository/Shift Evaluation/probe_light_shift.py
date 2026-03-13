@@ -688,7 +688,7 @@ class probe_light_shift_eval(EnvExperiment):
 
                 #Using the traditional method, we are switching between parameter 1 and 2 every 8 cycles, and generating a correction every 2 cycles for each parameter.
                 #The parameter shift is calculated every 16 cycles.
-                n = 8
+                n = 6
                 cycle16 = (count - 1) % (2*n)         #gives us where we are in the 16 cycle loop, 0-15
                 mode = cycle16 // n          #gives us whether we are in parameter 1 or 2 mode, 0-7 for param 1, 8-15 for param 2
                 
