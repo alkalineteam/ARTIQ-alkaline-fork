@@ -587,8 +587,7 @@ class lattice_shift(EnvExperiment):
         ####################################### Clock Spectroscopy ############################################
         self.clock_spectroscopy(
             aom_frequency = stepping_aom_freq,
-            pulse_time = rabi_pulse_duration,
-            clock_intensity = param        
+            pulse_time = rabi_pulse_duration,     
         )
 
         excitation = self.normalised_detection(j,is_param_1,excitation_fraction_list_param_1,excitation_fraction_list_param_2)           
