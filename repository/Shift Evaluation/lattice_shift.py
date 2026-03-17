@@ -55,7 +55,8 @@ class lattice_shift(EnvExperiment):
         self.setattr_argument("scan_range_Hz", NumberValue(default=500000 * Hz), group="Scan Parameters")
         self.setattr_argument("scan_step_size_Hz", NumberValue(default=1000 * Hz), group="Scan Parameters")
         self.setattr_argument("bias_current", NumberValue(default=3.0),group="Locking")
-        self.setattr_argument("blue_mot_loading_time", NumberValue(default=2000 * ms), group="Sequence Parameters")
+        self.setattr_argument("blue_mot_loading_time_param_1", NumberValue(default=2000 * ms), group="Sequence Parameters")
+        self.setattr_argument("blue_mot_loading_time_param_2", NumberValue(default=2000 * ms), group="Sequence Parameters")
         self.setattr_argument("Enable_Lock", BooleanValue(default=False), group="Locking")
         self.setattr_argument("param_1_gain_1", NumberValue(default=0.3), group="Locking")
         self.setattr_argument("linewidth_1", NumberValue(default=100 * Hz), group="Locking")  # This is the linewidth of the clock transition, adjust as necessary
@@ -64,6 +65,7 @@ class lattice_shift(EnvExperiment):
         self.setattr_argument("param_2_gain_1", NumberValue(default=0.3), group="Locking")
         self.setattr_argument("param_2_gain_2", NumberValue(default=0.03), group="Locking")
         self.setattr_argument("param_shift_guess",NumberValue(default=43*Hz),group="Locking")
+      
 
 
         self.feedback_list = []
@@ -470,9 +472,11 @@ class lattice_shift(EnvExperiment):
         if which_param == 1:
             is_param_1 = True
             self.lattice_aom.set_att(param*dB)
+            blue_mot_loading_time = self.blue_mot_loading_time_param_1
         elif which_param == 2:
             is_param_1 = False
             self.lattice_aom.set_att(param*dB)
+            blue_mot_loading_time = self.blue_mot_loading_time_param_2
 
         ################################# Blue MOT #########################################
 
@@ -497,7 +501,7 @@ class lattice_shift(EnvExperiment):
 
         self.red_mot_aom.set(frequency = 80.45 * MHz, amplitude = 0.08)
         self.red_mot_aom.sw.on()
-        delay(self.blue_mot_loading_time* ms)
+        delay(blue_mot_loading_time* ms)
 
         ############################ Blue MOT Compression and Cooling #################################
 
