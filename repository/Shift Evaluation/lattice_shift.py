@@ -322,7 +322,7 @@ class lattice_shift(EnvExperiment):
             elif is_param_1 == False:
                 excitation_fraction_list_param_2[j] = float(excitation_fraction)
             
-    
+        self.set_dataset("atom_number", denominator, broadcast=True, archive=True)
 
         delay(500*us)
         return excitation_fraction
